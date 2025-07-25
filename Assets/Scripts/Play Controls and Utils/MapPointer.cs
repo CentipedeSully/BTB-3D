@@ -31,7 +31,6 @@ public class MapPointer : MonoBehaviour
     [Header("Ui Object Settings")]
     [SerializeField] private GameObject _hoverObject;
     [SerializeField] private Text _hoverText;
-    [SerializeField] private Vector3 _hoverTextOffset;
 
 
     [Header("Watch Values (Don't Modify)")]
@@ -41,9 +40,6 @@ public class MapPointer : MonoBehaviour
 
 
     private bool _inputReady = true;
-    private bool _lClick;
-    private bool _rClick;
-    private bool _mClick;
 
     public delegate void OnClickEvent();
     public OnClickEvent OnLClick;
@@ -70,11 +66,6 @@ public class MapPointer : MonoBehaviour
         DetectHoveredObjects();
     }
 
-    private void OnDrawGizmos()
-    {
-        DrawPointerGizmo();
-    }
-
 
 
 
@@ -84,45 +75,35 @@ public class MapPointer : MonoBehaviour
         //lCLick
         if (UnityEngine.Input.GetMouseButtonUp((int)MouseBtn.Left) && _inputReady)
         {
-            _lClick = true;
             //Debug.Log("LClick Detected");
             _inputReady = false;
             Invoke(nameof(ReadyInput), _inputCooldown);
             OnLClick?.Invoke();
         }
-        else _lClick = false;
 
         //rClick
         if (UnityEngine.Input.GetMouseButtonUp((int)MouseBtn.Right) && _inputReady)
         {
-            _rClick = true;
             //Debug.Log("RClick Detected");
             _inputReady = false;
             Invoke(nameof(ReadyInput), _inputCooldown);
             OnRClick?.Invoke();
         }
-        else _rClick = false;
 
         //mClick
         if (UnityEngine.Input.GetMouseButtonUp((int)MouseBtn.Middle) && _inputReady)
         {
-            _mClick = true;
             //Debug.Log("MClick Detected");
             _inputReady = false;
             Invoke(nameof(ReadyInput), _inputCooldown);
             OnMClick?.Invoke();
         }
-        else _lClick = false;
 
             
     }
 
     private void ReadyInput() { _inputReady = true; }
 
-    private void UpdateHoverObjectPosition(RaycastHit detection)
-    {
-        _hoverObject.transform.position = detection.point + _hoverTextOffset;
-    }
 
     private void UpdateSelection()
     {
@@ -150,17 +131,43 @@ public class MapPointer : MonoBehaviour
 
     private void GiveOrder()
     {
-        CaptureDetectionsOnPointer();
+        RaycastHit[] detectionResults = CaptureDetectionsOnPointer();
 
         //Is click location valid and is something selected?
-        if (_detectedObjects.Count > 0 && SelectionManager.IsSelectionSet())
+        if (detectionResults.Length > 0 && SelectionManager.IsSelectionSet())
         {
             //cache for readability
-            GameObject closestDetection = _detectedObjects[0];
+            RaycastHit closestDetection = detectionResults[0];
             GameObject selection = SelectionManager.GetCurrentSelection();
 
             if (selection.CompareTag("Unit"))
-                Debug.Log("Order Given to unit");
+            {
+                //make sure the unit has a unitBehaviour
+                UnitBehavior unitBehavior = selection.GetComponent<UnitBehavior>();
+                if (unitBehavior != null)
+                {
+                    //determine the interaction context
+                    switch (closestDetection.collider.tag)
+                    {
+                        case "Ground":
+                            unitBehavior.MoveToPosition(closestDetection.point);
+                            break;
+
+                        case "Interactible":
+                            GameObject interactibleObject = closestDetection.collider.gameObject;
+                            InteractibleBehavior behaviour= interactibleObject.GetComponent<InteractibleBehavior>();
+
+                            unitBehavior.InteractWithInteractible(behaviour);
+                            break;
+
+                        case "Unit":
+                            break;
+
+                        default:
+                            break;
+                    }
+                }
+            }
         }
     }
 
@@ -169,7 +176,7 @@ public class MapPointer : MonoBehaviour
     {
         _detectedObjects.Clear();
 
-        RaycastHit[] detections = SortDetectionsClosestFirst( CastDetections() );
+        RaycastHit[] detections =CastDetections();
 
         for (int i =0; i < detections.Length; i++)
         {
@@ -181,8 +188,14 @@ public class MapPointer : MonoBehaviour
 
         if (detections.Length > 0)
         {
-            _hoverObject.SetActive(true);
-            UpdateHoverObjectPosition(detections[0]);
+            GameObject closestDetection = detections[0].collider.gameObject;
+            if (!closestDetection.CompareTag("Ground"))
+            {
+                _hoverText.text = closestDetection.name;
+                _hoverObject.SetActive(true);
+            }
+            else _hoverObject.SetActive(false);
+            
         }
         else
         {
@@ -202,7 +215,7 @@ public class MapPointer : MonoBehaviour
     private RaycastHit[] CastDetections()
     {
         BuildCastRay();
-        return Physics.RaycastAll(_castRay, _castDistance, _layermask);
+        return SortDetectionsClosestFirst( Physics.RaycastAll(_castRay, _castDistance, _layermask));
     }
 
     private RaycastHit[] SortDetectionsClosestFirst(RaycastHit[] detections)
@@ -227,12 +240,6 @@ public class MapPointer : MonoBehaviour
         }
 
         return detections;
-    }
-
-    private void DrawPointerGizmo()
-    {
-        Gizmos.color = _pointerColor;
-        Gizmos.DrawLine(_castRay.origin,_castRay.direction * _castDistance);
     }
 
 
