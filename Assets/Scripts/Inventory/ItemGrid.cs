@@ -219,6 +219,7 @@ public class ItemGrid : MonoBehaviour
 
         itemHandle = clickedPosition - _invItems[x, y].GetOriginLocation();
         Debug.Log($"Item Handle: {itemHandle}");
+        List<(int,int)> validIndexes = new List<(int,int)> ();
 
         //free up all the cells this item is occupying
         for (int i =0; i < querydItem.ItemData().Width(); i++)
@@ -227,22 +228,35 @@ public class ItemGrid : MonoBehaviour
             {
                 int xPos = querydItem.GetOriginLocation().x + i;
                 int yPos = querydItem.GetOriginLocation().y + j;
-                Debug.Log($"Attempting to clear Position {xPos},{yPos}");
+                Debug.Log($"Checking if Position {xPos},{yPos} is expected item");
 
                 InventoryItem foundItem = QueryItem(xPos, yPos);
 
                 //make sure the item at this position matches 
                 if ( foundItem == querydItem)
-                { 
-                    _invItems[xPos, yPos] = null;
-                    Debug.Log($"Position {xPos},{yPos} Freed up");
+                {
+                    //save the index to be removed after all spaces have been checked
+                    validIndexes.Add((xPos, yPos));
+                    
                 }
                 else
                 {
-                    Debug.LogError($"Detected Item mismatch. Expected item {querydItem.ItemData().Name()}, but found item {foundItem.ItemData().Name()} instead.");
+                    Debug.LogError($"" +
+                        $"Detected Item mismatch while taking item. " +
+                        $"Expected item {querydItem.ItemData().Name()} on cell ({xPos},{yPos})," +
+                        $" but found item {foundItem.ItemData().Name()} instead. Aborting take operation");
+                    return null;
                 }
             }
         }
+
+
+        foreach ((int,int) index in validIndexes)
+        {
+            _invItems[index.Item1, index.Item2] = null;
+            Debug.Log($"Position {index.Item1},{index.Item2} Freed up");
+        }
+        
 
         return querydItem;
 

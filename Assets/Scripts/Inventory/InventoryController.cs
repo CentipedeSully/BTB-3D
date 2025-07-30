@@ -56,16 +56,31 @@ public class InventoryController : MonoBehaviour
                 _hoveredGridTile = _invGrid.GetTileOnGrid(Input.mousePosition);
                 InventoryItem hoveredItem = _invGrid.QueryItem(_hoveredGridTile.x, _hoveredGridTile.y);
 
-                //only show the single tile hover effect if no object is being held and
-                //no object is being hovered over
-                if (_selectedItem == null && hoveredItem ==null)
+                //highlight the previewed position of the held item
+                if (_selectedItem != null)
                 {
-                    _hoverEffect.sizeDelta = new Vector2(_invGrid.TileWidth(), _invGrid.TileHeight());
-                    _hoverEffect.anchoredPosition = _invGrid.GetPositionFromGridTile(_hoveredGridTile.x, _hoveredGridTile.y);
+                    //resize the sprite
+                    Vector2 itemSpriteSize = new Vector2(_selectedItem.ItemData().Width() * _invGrid.TileWidth(), _selectedItem.ItemData().Height() * _invGrid.TileHeight());
+                    _hoverEffect.sizeDelta = itemSpriteSize;
+
+
+                    //calculate the offset to the sprite's bottomLeft tile
+                    Vector2 toBottomLeftTileCornerOffset = new();
+                    toBottomLeftTileCornerOffset.x = _invGrid.TileWidth() / 2 * _selectedItem.ItemData().Width() - _invGrid.TileWidth() / 2;
+                    toBottomLeftTileCornerOffset.y = _invGrid.TileHeight() / 2 * _selectedItem.ItemData().Height() - _invGrid.TileHeight() / 2;
+
+                    //calculate the offset of the sprite's bottomLeftTile to the selected Handle's tile
+                    Vector2 tileOffset = new();
+                    tileOffset.x = _itemHandle.x * _invGrid.TileWidth();
+                    tileOffset.y = _itemHandle.y * _invGrid.TileHeight();
+
+                    _hoverEffect.anchoredPosition = _invGrid.GetPositionFromGridTile(_hoveredGridTile.x, _hoveredGridTile.y) + toBottomLeftTileCornerOffset - tileOffset;
                 }
+                //no object is being hovered over
+                
 
                 //highlight the hovered item if no item is held
-                else if (_selectedItem == null && hoveredItem!=null)
+                else if (hoveredItem!=null)
                 {
                     //resize the sprite
                     Vector2 itemSpriteSize = new Vector2(hoveredItem.ItemData().Width() * _invGrid.TileWidth(), hoveredItem.ItemData().Height() * _invGrid.TileHeight());
@@ -81,27 +96,12 @@ public class InventoryController : MonoBehaviour
                     _hoverEffect.anchoredPosition = spriteCenter - indexOffByOneOffset;
                 }
 
-                //highlight the previewed position of the held item
-                else if (_selectedItem != null)
+                else if (_selectedItem == null && hoveredItem == null)
                 {
-                    //resize the sprite
-                    Vector2 itemSpriteSize = new Vector2(_selectedItem.ItemData().Width() * _invGrid.TileWidth(), _selectedItem.ItemData().Height() * _invGrid.TileHeight());
-                    _hoverEffect.sizeDelta = itemSpriteSize;
-
-
-                    //calculate the offset to the sprite's bottomLeft tile
-                    Vector2 toBottomLeftTileCornerOffset = new();
-                    toBottomLeftTileCornerOffset.x = _invGrid.TileWidth() / 2 * _selectedItem.ItemData().Width() - _invGrid.TileWidth()/2;
-                    toBottomLeftTileCornerOffset.y = _invGrid.TileHeight() / 2 * _selectedItem.ItemData().Height() - _invGrid.TileHeight() / 2;
-
-                    //calculate the offset of the sprite's bottomLeftTile to the selected Handle's tile
-                    Vector2 tileOffset = new();
-                    tileOffset.x = _itemHandle.x * _invGrid.TileWidth();
-                    tileOffset.y = _itemHandle.y * _invGrid.TileHeight();
-
-                    _hoverEffect.anchoredPosition = _invGrid.GetPositionFromGridTile(_hoveredGridTile.x, _hoveredGridTile.y) + toBottomLeftTileCornerOffset - tileOffset;
+                    _hoverEffect.sizeDelta = new Vector2(_invGrid.TileWidth(), _invGrid.TileHeight());
+                    _hoverEffect.anchoredPosition = _invGrid.GetPositionFromGridTile(_hoveredGridTile.x, _hoveredGridTile.y);
                 }
-                
+
             }
         }
     }
