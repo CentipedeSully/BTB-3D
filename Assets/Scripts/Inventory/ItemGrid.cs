@@ -45,73 +45,141 @@ public class ItemGrid : MonoBehaviour
 
 
     //Externals
-    public bool IsAreaAvailable(int width, int height, (int,int) clickedGridPosition, (int,int) itemHandle)
+    public Dictionary<(int,int),InventoryItem> GetItemsInArea(int width, int height, (int, int) clickedGridPosition, (int, int) itemHandle)
     {
-        Debug.Log($"Area Avvailability Check: givenHandle -> {itemHandle}");
-        //autofail if item too big
-        if (width > _containerSize.x || height > _containerSize.y)
-            return false;
-
         //calculate the item's expected (0,0) position on the grid
-        //the itemHandle is the item's tile that's bound to the mouse
-        //the desired position is where the player clicked on the grid (while holding an item)
         int startingX = clickedGridPosition.Item1 - itemHandle.Item1;
         int startingY = clickedGridPosition.Item2 - itemHandle.Item2;
+
+        Dictionary<(int,int),InventoryItem> foundOccupancy = new Dictionary<(int,int),InventoryItem>();
+        (int, int) indexPair;
 
         //check each cell
         for (int i = 0; i < width; i++)
         {
-            for (int j= 0; j < height; j++)
+            for (int j = 0; j < height; j++)
             {
-                Debug.Log($"Checking Cell {startingX + i},{startingY + j}");
-                //check each cell that's within the area of the item
-                if (!IsCellSpaceAvailable(startingX + i, startingY + j))
+                indexPair = (startingX+i, startingY+j);
+
+                if (IsCellOnGrid(indexPair))
                 {
-                    (int, int) index = (startingX + i, startingY + j);
-                    string reason = "";
-                    if ( index.Item1 < 0 || index.Item1 >= _containerSize.x)
-                    {
-                        reason += $"\nx position {index.Item1} out of bounds";
-                    }
-
-                    if (index.Item2 < 0 || index.Item2 >= _containerSize.y)
-                    {
-                        reason += $"\ny position {index.Item1} out of bounds";
-                    }
-                    
-                    //log outOfBounds cells detected
-                    if (reason != "")
-                    {
-                        Debug.Log($"Cell {index} is unavailable because {reason}");
-                        return false;
-                    }
-
-                    InventoryItem occupier = QueryItem(index.Item1, index.Item2);
-                    reason += $"\nCell {index} already occupied by {occupier.ItemData().Name()}";
-                    Debug.Log($"Cell {index} is unavailable because {reason}");
-                    return false;
+                    if (IsCellOccupied(indexPair))
+                        foundOccupancy.Add(indexPair, QueryItem(indexPair.Item1, indexPair.Item2));
 
                 }
             }
         }
 
-        //the are appears available. All cells
+        return foundOccupancy;
+
+    }
+
+    public (InventoryItem,Vector2Int newItemHandle) SwapItems(int width, int height, (int, int) clickedGridPosition, (int, int) itemHandle, InventoryItem newItem)
+    {
+        if (newItem == null)
+            return (null, -Vector2Int.one);
+        InventoryItem returnedItem = null;
+
+        //take the preexisting item from the grid
+        Dictionary<(int, int), InventoryItem> itemsFound = GetItemsInArea(width, height, clickedGridPosition, itemHandle);
+
+        if (itemsFound == null)
+        {
+            PlaceItem(newItem, clickedGridPosition, itemHandle);
+            return (null, -Vector2Int.one);
+        }
+        else 
+        {
+            //check how many different items occupy the space
+            List<InventoryItem> uniqueItems = new List<InventoryItem>();
+
+            foreach (KeyValuePair<(int, int), InventoryItem> entry in itemsFound)
+            {
+                if (!uniqueItems.Contains(entry.Value))
+                    uniqueItems.Add(entry.Value);
+            }
+
+            //perform the swap
+            if (uniqueItems.Count == 1)
+            {
+                //setup the take operation
+                (int, int) arbitraryIndex = (-1,-1);
+                foreach ((int,int) key in itemsFound.Keys)
+                {
+                    arbitraryIndex = key;
+                    break;
+                }
+
+                Vector2Int newHandle = Vector2Int.zero;
+                returnedItem = TakeItem(arbitraryIndex.Item1, arbitraryIndex.Item2, out newHandle);
+
+                //place the new item at the clickedPosition
+                PlaceItem(newItem,clickedGridPosition, itemHandle);
+
+                //return the taken item
+                return (returnedItem, newHandle);
+            }
+
+            else
+            {
+                Debug.LogWarning("Attempted to swap items, but more than one item found in grid area. aborting operation and returning null");
+                return (null, -Vector2Int.one);
+            }
+        }
+    }
+
+    public bool IsAreaUnoccupied(int width, int height, (int, int) clickedGridPosition, (int, int) itemHandle)
+    {
+        if (GetItemsInArea(width, height, clickedGridPosition, itemHandle).Count == 0)
+            return true;
+        else return false;
+    }
+
+    public bool IsAreaOnGrid(int width, int height, (int, int) clickedGridPosition, (int, int) itemHandle)
+    {
+        //calculate the item's expected (0,0) position on the grid
+        int startingX = clickedGridPosition.Item1 - itemHandle.Item1;
+        int startingY = clickedGridPosition.Item2 - itemHandle.Item2;
+
+        Dictionary<(int, int), InventoryItem> foundOccupancy = new Dictionary<(int, int), InventoryItem>();
+        (int, int) indexPair;
+
+        //check each cell
+        for (int i = 0; i < width; i++)
+        {
+            for (int j = 0; j < height; j++)
+            {
+                indexPair = (startingX + i, startingY + j);
+
+                //return false if any index exists outside the grid
+                if (!IsCellOnGrid(indexPair))
+                {
+                    return false;
+                }
+                    
+            }
+        }
+
         return true;
     }
 
-    public bool IsCellSpaceAvailable(int x, int y)
+    public bool IsCellOnGrid((int,int) cell)
     {
-        //position invalid if off the grid
-        if (x < 0 || x >= _containerSize.x)
+        if (cell.Item1 < 0 || cell.Item1 >= _containerSize.x || cell.Item2 < 0 || cell.Item2 >= _containerSize.y)
+        {
+            //Debug.Log($"INVALID Cell: {cell}");
             return false;
-        if (y < 0 || y >= _containerSize.y)
-            return false;
+        }
 
-        //position invalid if space is occupied
-        if (QueryItem(x, y) != null)
-            return false;
-
+        //Debug.Log($"Cell {cell} confirmed");
         return true;
+    }
+
+    public bool IsCellOccupied((int,int) cell)
+    {
+        bool isCellOccupied = _invItems[cell.Item1, cell.Item2] != null;
+        //Debug.Log($"Cell {cell} Occupancy: {isCellOccupied}");
+        return isCellOccupied;
     }
 
     public Vector2Int GetTileOnGrid(Vector2 mousePosition)
@@ -148,28 +216,23 @@ public class ItemGrid : MonoBehaviour
         return _rectTransform.anchoredPosition + tilePosition;
     }
 
-    public bool PlaceItem(InventoryItem item, (int,int)clickedPosition ,(int,int)itemHandle)
+    public void PlaceItem(InventoryItem item, (int,int)clickedPosition ,(int,int)itemHandle)
     {
         if (item == null)
-            return false;
+            return;
 
         int itemWidth = item.ItemData().Width();
         int itemHeight = item.ItemData().Height();
 
 
-        if (IsAreaAvailable(itemWidth, itemHeight, clickedPosition, itemHandle))
+        if (IsAreaUnoccupied(itemWidth, itemHeight, clickedPosition, itemHandle))
         {
             
-
-            //place item on each overlaping gridcell
             //calculate the item's expected (0,0) position on the grid
-            //the itemHandle is the item's tile that's bound to the mouse
-            //the clicked position is where the player clicked on the grid (while holding an item)
             int startingX = clickedPosition.Item1 - itemHandle.Item1;
             int startingY = clickedPosition.Item2 - itemHandle.Item2;
 
-            //used to calculate where the object lives in the grid
-            //for easier retrieval
+            //save where the item's bottomLeft-most tile exists on the grid
             item.SetRelativeOrigin(startingX, startingY);
 
             //populate each cell
@@ -177,8 +240,7 @@ public class ItemGrid : MonoBehaviour
             {
                 for (int j = 0; j < itemHeight; j++)
                 {
-                    (int, int) index = (startingX + i, startingY + j);
-                    Debug.Log($"Setting {index} to {item.ItemData().Name()}");
+                    //Debug.Log($"Setting {index} to {item.ItemData().Name()}");
                     _invItems[startingX + i, startingY + j] = item;
                 }
             }
@@ -194,22 +256,17 @@ public class ItemGrid : MonoBehaviour
             item.GetComponent<RectTransform>().anchoredPosition += offsetTowardsCenter;
 
             itemRectTransform.localScale = Vector2.one;
-
-            return true;
-        }
-
-        return false;
-
-        
+        }        
     }
 
     public InventoryItem QueryItem(int x, int y)
     {
+        if (IsCellOnGrid((x,y)))
+            return _invItems[x,y];
         
-        return _invItems[x,y];
+        return null;
     }
 
-    //tailor This ------ vvv  (Check ALL cells first before clearing the positions. If one cell check is bad, don't change ANY)
     public InventoryItem TakeItem(int x, int y, out Vector2Int itemHandle)
     {
         InventoryItem querydItem = _invItems[x, y];
@@ -218,7 +275,7 @@ public class ItemGrid : MonoBehaviour
         Vector2Int clickedPosition = new Vector2Int(x, y);
 
         itemHandle = clickedPosition - _invItems[x, y].GetOriginLocation();
-        Debug.Log($"Item Handle: {itemHandle}");
+        //Debug.Log($"Item Handle: {itemHandle}");
         List<(int,int)> validIndexes = new List<(int,int)> ();
 
         //free up all the cells this item is occupying
@@ -228,7 +285,7 @@ public class ItemGrid : MonoBehaviour
             {
                 int xPos = querydItem.GetOriginLocation().x + i;
                 int yPos = querydItem.GetOriginLocation().y + j;
-                Debug.Log($"Checking if Position {xPos},{yPos} is expected item");
+                //Debug.Log($"Checking if Position {xPos},{yPos} is expected item");
 
                 InventoryItem foundItem = QueryItem(xPos, yPos);
 
@@ -241,10 +298,10 @@ public class ItemGrid : MonoBehaviour
                 }
                 else
                 {
-                    Debug.LogError($"" +
-                        $"Detected Item mismatch while taking item. " +
-                        $"Expected item {querydItem.ItemData().Name()} on cell ({xPos},{yPos})," +
-                        $" but found item {foundItem.ItemData().Name()} instead. Aborting take operation");
+                    //Debug.LogError($"" +
+                    //    $"Detected Item mismatch while taking item. " +
+                    //    $"Expected item {querydItem.ItemData().Name()} on cell ({xPos},{yPos})," +
+                    //    $" but found item {foundItem.ItemData().Name()} instead. Aborting take operation");
                     return null;
                 }
             }
@@ -254,7 +311,7 @@ public class ItemGrid : MonoBehaviour
         foreach ((int,int) index in validIndexes)
         {
             _invItems[index.Item1, index.Item2] = null;
-            Debug.Log($"Position {index.Item1},{index.Item2} Freed up");
+            //Debug.Log($"Position {index.Item1},{index.Item2} Freed up");
         }
         
 

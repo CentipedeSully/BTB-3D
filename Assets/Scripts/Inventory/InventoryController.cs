@@ -121,13 +121,51 @@ public class InventoryController : MonoBehaviour
             }
             else
             {
-                Debug.Log($"Clicked position {clickPosition}");
-                (int, int) handle = (_itemHandle.x, _itemHandle.y);
-                if (_invGrid.PlaceItem(_selectedItem,(clickPosition.x,clickPosition.y), handle))
+                (int, int) clickPositionIntPair = (clickPosition.x, clickPosition.y);
+                (int, int) itemHandleIntPair = (_itemHandle.x, _itemHandle.y);
+                int itemWidth = _selectedItem.ItemData().Width();
+                int itemHeight = _selectedItem.ItemData().Height();
+
+                //only allow placement if the area is fully on the grid
+                if (_invGrid.IsAreaOnGrid(itemWidth, itemHeight, clickPositionIntPair, itemHandleIntPair))
                 {
-                    _selectedItem = null;
+                    //place item if the area is unoccupied
+                    if (_invGrid.IsAreaUnoccupied(itemWidth, itemHeight, clickPositionIntPair, itemHandleIntPair))
+                    {
+                        _invGrid.PlaceItem(_selectedItem, clickPositionIntPair, itemHandleIntPair);
+                        _selectedItem = null;
+                    }
+
+                    //else swap items if only 1 item occupies the space
+                    else
+                    {
+                        //check how many different items occupy the space
+                        Dictionary<(int, int), InventoryItem> itemOccupancy = _invGrid.GetItemsInArea(itemWidth, itemHeight, clickPositionIntPair, itemHandleIntPair);
+                        List<InventoryItem> uniqueItems = new List<InventoryItem>();
+
+                        foreach (KeyValuePair<(int,int),InventoryItem> entry in itemOccupancy)
+                        {
+                            if (!uniqueItems.Contains(entry.Value))
+                                uniqueItems.Add(entry.Value);
+                        }
+                        
+                        //perform the swap
+                        if (uniqueItems.Count == 1)
+                        {
+                            (InventoryItem,Vector2Int) swapResult = _invGrid.SwapItems(itemWidth, itemHeight, clickPositionIntPair, itemHandleIntPair, _selectedItem);
+
+                            if (swapResult.Item1 != null)
+                            {
+                                _selectedItem = swapResult.Item1;
+                                _itemHandle = swapResult.Item2;
+                                SetItemToMousePosition(_itemHandle);
+                            }
+
+                        }
+
+                    }
+
                 }
-                
 
             }
         }
