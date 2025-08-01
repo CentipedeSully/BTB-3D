@@ -1,60 +1,67 @@
-using System;
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
-using static UnityEditor.Progress;
+using UnityEngine.UI;
 
-public class ItemGrid : MonoBehaviour
+public class InvGrid : MonoBehaviour
 {
-    //Declarations
-    const float _tileSizeWidth = 32;
-    const float _tileSizeHeight = 32;
-    Vector2 _borderOffset;
-    RectTransform _rectTransform;
-    Vector2 _positionOnGrid;
-    float _rawPosX;
-    float _rawPosY;
-    Vector2Int _tilePosition;
-
-
     [SerializeField] private Vector2Int _containerSize;
-    InventoryItem[,] _invItems;
+    [SerializeField] private Vector2 _cellSize;
+    [SerializeField] private GameObject _cellPrefab;
+    [SerializeField] private RectTransform _spritesContainer;
+    private GridLayoutGroup _layoutGroup;
+    private RectTransform _rectTransform;
+    private InventoryItem[,] _items;
+    private CellInteract[,] _cells;
 
 
+    //monobehaviours
+    private void Awake()
+    {
+        //Initialize our references and utilities
+        _rectTransform = GetComponent<RectTransform>();
+        _layoutGroup = GetComponent<GridLayoutGroup>();
+        _items = new InventoryItem[_containerSize.x, _containerSize.y];
+        _cells = new CellInteract[_containerSize.x, _containerSize.y];
+        _layoutGroup.cellSize = _cellSize;
+        
 
-    //Monobehaviours
+        //Resize the UiWindow.
+        Vector2 dynamicSize = new();
+        dynamicSize.x = _containerSize.x * _cellSize.x + _layoutGroup.padding.right + _layoutGroup.padding.left;
+        dynamicSize.y = _containerSize.y * _cellSize.y + _layoutGroup.padding.bottom+ _layoutGroup.padding.top;
+        _rectTransform.sizeDelta = dynamicSize;
+
+    }
+
     private void Start()
     {
-        _rectTransform = GetComponent<RectTransform>();
-        InitializeContainer(_containerSize.x,_containerSize.y);
-
+        //be mindful of the creation order of the cells. GridLayout configured to create them row by row.
+        //(0,0) starts at the bottom, similar to the traditional cortesian coord system
+        for (int y = 0; y < _containerSize.y; y++)//columns get created after rows
+        {
+            for (int x = 0; x < _containerSize.x; x++)//rows get created first 
+            {
+                GameObject newCell = Instantiate(_cellPrefab, _rectTransform);
+                CellInteract cellInteract = newCell.GetComponent<CellInteract>();
+                cellInteract.SetGrid(this);
+                cellInteract.SetIndex((x, y));
+                _cells[x, y] = cellInteract;
+            }
+        }
     }
 
 
 
 
-    //Internals
-    private void InitializeContainer(int width, int height)
-    {
-        _invItems = new InventoryItem[width ,height];
-        Vector2 size = new Vector2(width * _tileSizeWidth, height * _tileSizeHeight);
-
-        _rectTransform.sizeDelta = size;
-
-    }
-
-
-
-
-
-    //Externals
-    public Dictionary<(int,int),InventoryItem> GetItemsInArea(int width, int height, (int, int) clickedGridPosition, (int, int) itemHandle)
+    //internals
+    public Dictionary<(int, int), InventoryItem> GetItemsInArea(int width, int height, (int, int) clickedGridPosition, (int, int) itemHandle)
     {
         //calculate the item's expected (0,0) position on the grid
         int startingX = clickedGridPosition.Item1 - itemHandle.Item1;
         int startingY = clickedGridPosition.Item2 - itemHandle.Item2;
 
-        Dictionary<(int,int),InventoryItem> foundOccupancy = new Dictionary<(int,int),InventoryItem>();
+        Dictionary<(int, int), InventoryItem> foundOccupancy = new Dictionary<(int, int), InventoryItem>();
         (int, int) indexPair;
 
         //check each cell
@@ -62,7 +69,7 @@ public class ItemGrid : MonoBehaviour
         {
             for (int j = 0; j < height; j++)
             {
-                indexPair = (startingX+i, startingY+j);
+                indexPair = (startingX + i, startingY + j);
 
                 if (IsCellOnGrid(indexPair))
                 {
@@ -77,7 +84,7 @@ public class ItemGrid : MonoBehaviour
 
     }
 
-    public (InventoryItem,Vector2Int newItemHandle) SwapItems(int width, int height, (int, int) clickedGridPosition, (int, int) itemHandle, InventoryItem newItem)
+    public (InventoryItem, Vector2Int newItemHandle) SwapItems(int width, int height, (int, int) clickedGridPosition, (int, int) itemHandle, InventoryItem newItem)
     {
         if (newItem == null)
             return (null, -Vector2Int.one);
@@ -91,7 +98,7 @@ public class ItemGrid : MonoBehaviour
             PlaceItem(newItem, clickedGridPosition, itemHandle);
             return (null, -Vector2Int.one);
         }
-        else 
+        else
         {
             //check how many different items occupy the space
             List<InventoryItem> uniqueItems = new List<InventoryItem>();
@@ -106,8 +113,8 @@ public class ItemGrid : MonoBehaviour
             if (uniqueItems.Count == 1)
             {
                 //setup the take operation
-                (int, int) arbitraryIndex = (-1,-1);
-                foreach ((int,int) key in itemsFound.Keys)
+                (int, int) arbitraryIndex = (-1, -1);
+                foreach ((int, int) key in itemsFound.Keys)
                 {
                     arbitraryIndex = key;
                     break;
@@ -117,7 +124,7 @@ public class ItemGrid : MonoBehaviour
                 returnedItem = TakeItem(arbitraryIndex.Item1, arbitraryIndex.Item2, out newHandle);
 
                 //place the new item at the clickedPosition
-                PlaceItem(newItem,clickedGridPosition, itemHandle);
+                PlaceItem(newItem, clickedGridPosition, itemHandle);
 
                 //return the taken item
                 return (returnedItem, newHandle);
@@ -159,14 +166,14 @@ public class ItemGrid : MonoBehaviour
                 {
                     return false;
                 }
-                    
+
             }
         }
 
         return true;
     }
 
-    public bool IsCellOnGrid((int,int) cell)
+    public bool IsCellOnGrid((int, int) cell)
     {
         if (cell.Item1 < 0 || cell.Item1 >= _containerSize.x || cell.Item2 < 0 || cell.Item2 >= _containerSize.y)
         {
@@ -178,48 +185,14 @@ public class ItemGrid : MonoBehaviour
         return true;
     }
 
-    public bool IsCellOccupied((int,int) cell)
+    public bool IsCellOccupied((int, int) cell)
     {
-        bool isCellOccupied = _invItems[cell.Item1, cell.Item2] != null;
+        bool isCellOccupied = _items[cell.Item1, cell.Item2] != null;
         //Debug.Log($"Cell {cell} Occupancy: {isCellOccupied}");
         return isCellOccupied;
     }
 
-    public Vector2Int GetTileOnGrid(Vector2 mousePosition)
-    {
-        _positionOnGrid.x = mousePosition.x - _rectTransform.anchoredPosition.x;
-        _positionOnGrid.y = mousePosition.y - _rectTransform.anchoredPosition.y;
-
-        _rawPosX = _positionOnGrid.x / _tileSizeWidth;
-        _rawPosY = _positionOnGrid.y / _tileSizeHeight;
-
-        //fix cases where negative positions are off by 1
-        if (_rawPosX < 0)
-        {
-            _rawPosX -= 1;
-        }
-        if (_rawPosY < 0)
-        {
-            _rawPosY -= 1;
-        }
-
-        _tilePosition.x = (int)(_rawPosX);
-        _tilePosition.y = (int)(_rawPosY);
-
-        return _tilePosition;
-    }
-
-    public Vector2 GetPositionFromGridTile(int x, int y)
-    {
-        Vector2 tilePosition = new();
-
-        tilePosition.x = x * _tileSizeWidth + _tileSizeWidth / 2;
-        tilePosition.y = y * _tileSizeHeight + _tileSizeHeight / 2;
-
-        return _rectTransform.anchoredPosition + tilePosition;
-    }
-
-    public void PlaceItem(InventoryItem item, (int,int)clickedPosition ,(int,int)itemHandle)
+    public void PlaceItem(InventoryItem item, (int, int) clickedPosition, (int, int) itemHandle)
     {
         if (item == null)
             return;
@@ -227,10 +200,10 @@ public class ItemGrid : MonoBehaviour
         int itemWidth = item.ItemData().Width();
         int itemHeight = item.ItemData().Height();
 
-
+        Debug.Log($"Clicked Position: {clickedPosition}");
         if (IsAreaUnoccupied(itemWidth, itemHeight, clickedPosition, itemHandle))
         {
-            
+
             //calculate the item's expected (0,0) position on the grid
             int startingX = clickedPosition.Item1 - itemHandle.Item1;
             int startingY = clickedPosition.Item2 - itemHandle.Item2;
@@ -243,89 +216,105 @@ public class ItemGrid : MonoBehaviour
             {
                 for (int j = 0; j < itemHeight; j++)
                 {
-                    //Debug.Log($"Setting {index} to {item.ItemData().Name()}");
-                    _invItems[startingX + i, startingY + j] = item;
+                    
+                    Debug.Log($"Setting {startingX + i},{startingY + j} to {item.ItemData().Name()}");
+                    _items[startingX + i,startingY + j] = item;
                 }
             }
 
-            //parent image to grid
+            //parent image to the sprites Container
             RectTransform itemRectTransform = item.GetComponent<RectTransform>();
-            itemRectTransform.SetParent(_rectTransform);
+            itemRectTransform.SetParent(_spritesContainer);
 
-            //get the difference btwn the mousePosition and the clicked tile's position
-            Vector2 offsetTowardsCenter = GetPositionFromGridTile(clickedPosition.Item1,clickedPosition.Item2) - (Vector2)Input.mousePosition;
+            //offset the image to its origin
+            itemRectTransform.localPosition = _cells[startingX,startingY].GetComponent<RectTransform>().localPosition; //sprite currently centered on position
 
-            //adjust the item by the offset
-            item.GetComponent<RectTransform>().anchoredPosition += offsetTowardsCenter;
+            Vector3 toBottomLeftTileCornerOffset = new();
+            toBottomLeftTileCornerOffset.x = itemWidth * CellSize().x/ 2 - CellSize().x / 2;
+            toBottomLeftTileCornerOffset.y = itemHeight * CellSize().y/ 2 - CellSize().y / 2;
+
+            itemRectTransform.localPosition += toBottomLeftTileCornerOffset ;
 
             itemRectTransform.localScale = Vector2.one;
-        }        
+        }
     }
 
     public InventoryItem QueryItem(int x, int y)
     {
-        if (IsCellOnGrid((x,y)))
-            return _invItems[x,y];
-        
+        if (IsCellOnGrid((x, y)))
+            return _items[x, y];
+
         return null;
     }
 
     public InventoryItem TakeItem(int x, int y, out Vector2Int itemHandle)
     {
-        InventoryItem querydItem = _invItems[x, y];
+        InventoryItem querydItem = _items[x, y];
 
         //calculate the item's handle (local to itself)
         Vector2Int clickedPosition = new Vector2Int(x, y);
 
-        itemHandle = clickedPosition - _invItems[x, y].GetOriginLocation();
-        //Debug.Log($"Item Handle: {itemHandle}");
-        List<(int,int)> validIndexes = new List<(int,int)> ();
+        itemHandle = clickedPosition - _items[x, y].GetOriginLocation();
+        Debug.Log($"Item Handle: {itemHandle}");
+        List<(int, int)> validIndexes = new List<(int, int)>();
 
         //free up all the cells this item is occupying
-        for (int i =0; i < querydItem.ItemData().Width(); i++)
+        for (int i = 0; i < querydItem.ItemData().Width(); i++)
         {
             for (int j = 0; j < querydItem.ItemData().Height(); j++)
             {
                 int xPos = querydItem.GetOriginLocation().x + i;
                 int yPos = querydItem.GetOriginLocation().y + j;
-                //Debug.Log($"Checking if Position {xPos},{yPos} is expected item");
+                Debug.Log($"Checking if Position {xPos},{yPos} is expected item");
 
                 InventoryItem foundItem = QueryItem(xPos, yPos);
 
                 //make sure the item at this position matches 
-                if ( foundItem == querydItem)
+                if (foundItem == querydItem)
                 {
                     //save the index to be removed after all spaces have been checked
                     validIndexes.Add((xPos, yPos));
-                    
+
                 }
                 else
                 {
-                    //Debug.LogError($"" +
-                    //    $"Detected Item mismatch while taking item. " +
-                    //    $"Expected item {querydItem.ItemData().Name()} on cell ({xPos},{yPos})," +
-                    //    $" but found item {foundItem.ItemData().Name()} instead. Aborting take operation");
+                    Debug.LogError($"" +
+                        $"Detected Item mismatch while taking item. " +
+                        $"Expected item {querydItem.ItemData().Name()} on cell ({xPos},{yPos})," +
+                        $" but found item {foundItem.ItemData().Name()} instead. Aborting take operation");
                     return null;
                 }
             }
         }
 
 
-        foreach ((int,int) index in validIndexes)
+        foreach ((int, int) index in validIndexes)
         {
-            _invItems[index.Item1, index.Item2] = null;
-            //Debug.Log($"Position {index.Item1},{index.Item2} Freed up");
+            _items[index.Item1, index.Item2] = null;
+            Debug.Log($"Position {index.Item1},{index.Item2} Freed up");
         }
-        
+
 
         return querydItem;
 
     }
+    public CellInteract GetCellOnPosition((int,int) position)
+    {
+        if (!IsCellOnGrid(position))
+            return null;
 
-    public float TileWidth() { return _tileSizeWidth; }
-    public float TileHeight() { return _tileSizeHeight; }
+        return _cells[position.Item1,position.Item2];
+        
+    }
 
-    public void SetBorderOffset(Vector2 offset) {  _borderOffset = offset; }
-    
+
+
+    //externals
+    public Vector2 CellSize() { return _cellSize; }
+    public Vector2Int ContainerSize() {  return _containerSize; }
+
+
+
+
 
 }
