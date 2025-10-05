@@ -13,6 +13,7 @@ public class InvGrid : MonoBehaviour
     private RectTransform _rectTransform;
     private InventoryItem[,] _items;
     private CellInteract[,] _cells;
+    private Dictionary<InventoryItem, List<(int, int)>> _itemsInInventory = new();
 
 
     //monobehaviours
@@ -197,10 +198,11 @@ public class InvGrid : MonoBehaviour
         if (item == null)
             return;
 
-        int itemWidth = item.ItemData().Width();
-        int itemHeight = item.ItemData().Height();
+        int itemWidth = item.Width();
+        int itemHeight = item.Height();
 
-        Debug.Log($"Clicked Position: {clickedPosition}");
+        //Debug.Log($"Clicked Position: {clickedPosition}");
+        Debug.Log($"Item Handle: {itemHandle}"); 
         if (IsAreaUnoccupied(itemWidth, itemHeight, clickedPosition, itemHandle))
         {
 
@@ -211,14 +213,20 @@ public class InvGrid : MonoBehaviour
             //save where the item's bottomLeft-most tile exists on the grid
             item.SetRelativeOrigin(startingX, startingY);
 
+            _itemsInInventory.Add(item, new());
+
             //populate each cell
             for (int i = 0; i < itemWidth; i++)
             {
                 for (int j = 0; j < itemHeight; j++)
                 {
-                    
-                    Debug.Log($"Setting {startingX + i},{startingY + j} to {item.ItemData().Name()}");
-                    _items[startingX + i,startingY + j] = item;
+                    int gridPosX = startingX + i;
+                    int gridPosY = startingY + j;
+
+                    _itemsInInventory[item].Add((gridPosX, gridPosY));
+
+                    //Debug.Log($"Setting {startingX + i},{startingY + j} to {item.ItemData().Name()}");
+                    _items[gridPosX,gridPosY] = item;
                 }
             }
 
@@ -259,13 +267,13 @@ public class InvGrid : MonoBehaviour
         List<(int, int)> validIndexes = new List<(int, int)>();
 
         //free up all the cells this item is occupying
-        for (int i = 0; i < querydItem.ItemData().Width(); i++)
+        for (int i = 0; i < querydItem.Width(); i++)
         {
-            for (int j = 0; j < querydItem.ItemData().Height(); j++)
+            for (int j = 0; j < querydItem.Height(); j++)
             {
                 int xPos = querydItem.GetOriginLocation().x + i;
                 int yPos = querydItem.GetOriginLocation().y + j;
-                Debug.Log($"Checking if Position {xPos},{yPos} is expected item");
+                //Debug.Log($"Checking if Position {xPos},{yPos} is expected item");
 
                 InventoryItem foundItem = QueryItem(xPos, yPos);
 
@@ -291,9 +299,10 @@ public class InvGrid : MonoBehaviour
         foreach ((int, int) index in validIndexes)
         {
             _items[index.Item1, index.Item2] = null;
-            Debug.Log($"Position {index.Item1},{index.Item2} Freed up");
+            //Debug.Log($"Position {index.Item1},{index.Item2} Freed up");
         }
 
+        _itemsInInventory.Remove(querydItem);
 
         return querydItem;
 
@@ -307,12 +316,16 @@ public class InvGrid : MonoBehaviour
         
     }
 
-
-
     //externals
     public Vector2 CellSize() { return _cellSize; }
     public Vector2Int ContainerSize() {  return _containerSize; }
+    public List<(int,int)> GetItemPlacementIndexes( InventoryItem item)
+    {
+        if (_itemsInInventory.ContainsKey(item))
+            return _itemsInInventory[item];
 
+        else return null;
+    }
 
 
 

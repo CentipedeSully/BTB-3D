@@ -3370,7 +3370,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: ea8bfba6020a8c84c926bc77a068317a, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  _containerSize: {x: 5, y: 5}
+  _containerSize: {x: 8, y: 8}
   _cellSize: {x: 32, y: 32}
   _cellPrefab: {fileID: 6861701934836006283, guid: 78456cab2fac5794c915cf5f29d811a6,
     type: 3}
