@@ -26,10 +26,8 @@ public class ItemCreator : MonoBehaviour
 
         invItem.SetItemData(itemData);
         itemObject.GetComponent<Image>().sprite = itemData.Sprite();
-        float width = tileWidth * itemData.Width();
-        float height= tileHeight* itemData.Height();
 
-        invRectTransform.sizeDelta= new Vector2(width, height);
+        invRectTransform.sizeDelta= new Vector2(invItem.Width(), invItem.Height());
         return itemObject;
     }
 

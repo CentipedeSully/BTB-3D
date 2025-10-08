@@ -5,12 +5,6 @@ using UnityEngine;
 public static class InvControlHelper 
 {
 
-    public static InventoryController _inventoryController;
-    public static void SetInventoryController(InventoryController invController) { _inventoryController = invController; }
-    public static InventoryController GetInventoryController() { return _inventoryController; }
-    public static void SetActiveItemGrid(ItemGrid newGrid) { _inventoryController.SetActiveItemGrid(newGrid); }
-    public static void LeaveGrid(ItemGrid gridToLeave) { _inventoryController.LeaveGrid(gridToLeave); }
-
 
     public static InvController _invController;
     public static void SetInventoryController(InvController invController) { _invController = invController; }

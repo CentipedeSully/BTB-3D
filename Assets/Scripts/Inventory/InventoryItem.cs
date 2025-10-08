@@ -22,111 +22,84 @@ public class InventoryItem : MonoBehaviour
 {
     //Declarations
     [SerializeField] ItemData _itemData;
-    [SerializeField] Vector2Int _relativeOrigin = new Vector2Int(-1,-1);
-    [SerializeField] List<(int,int)> _cellIndexes = new List<(int,int)> ();
+    [SerializeField] (int, int) _itemHandle;
+    [SerializeField] List<(int,int)> _spacialDefinition = new List<(int,int)> ();
     [SerializeField] private ItemRotation _rotation = ItemRotation.None;
+    [SerializeField] private Vector2Int _size;
 
-
-
+    //sprite pivot should be defined and maintained here, too
+    //...
 
 
 
     private void RotateIndexesClockwise()
     {
         List<(int,int)> newIndexes = new List<(int,int)> ();
-        foreach ((int,int) index in _cellIndexes)
+        foreach ((int,int) index in _spacialDefinition)
         {
             (int, int) newIndex = (index.Item2, -index.Item1);
             newIndexes.Add (newIndex);
+
+            //update the item Handle, too
+            if (index == _itemHandle)
+                _itemHandle = newIndex;
         }
 
-        _cellIndexes = newIndexes;
+        _spacialDefinition = newIndexes;
     }
 
     private void RotateIndexesCounterClockwise()
     {
         List<(int, int)> newIndexes = new List<(int, int)>();
-        foreach ((int, int) index in _cellIndexes)
+        foreach ((int, int) index in _spacialDefinition)
         {
             (int, int) newIndex = (-index.Item2, index.Item1);
             newIndexes.Add(newIndex);
+
+            //update the item handle, too
+            if (index == _itemHandle)
+                _itemHandle = newIndex;
         }
 
-        _cellIndexes = newIndexes;
+        _spacialDefinition = newIndexes;
 
     }
+
 
 
     public ItemData ItemData() {  return _itemData; }
     public void SetItemData(ItemData newItemData) 
     {  
         _itemData = newItemData;
+        _itemHandle = newItemData.ItemHandle();
+        _spacialDefinition = newItemData.SpacialDefinition();
 
-        //create the cell Occupancy. Changes when the item rotates
-        _cellIndexes.Clear();
-        for (int x = 0; x < _itemData.Width(); x++)
+        int xMinIndex = 0;
+        int yMinIndex = 0;
+        int xMaxIndex = 0;
+        int yMaxIndex = 0;
+
+        //find the largest and smallest x/y indexes
+        foreach ((int,int) index in _spacialDefinition)
         {
-            for (int y= 0; y < _itemData.Height(); y++)
-            {
-                _cellIndexes.Add((x, y));
-            }
+            if (index.Item1 < xMinIndex)
+                xMinIndex = index.Item1;
+            if (index.Item1 > xMaxIndex)
+                xMaxIndex = index.Item1;
+            if (index.Item2 < yMinIndex)
+                yMinIndex = index.Item2;
+            if (index.Item2 > yMaxIndex)
+                yMaxIndex = index.Item2;
         }
 
-
+        //take the differences between the largest and smallest x/y (and include the starting number)
+        //this yields the total size of the item
+        _size = new Vector2Int(xMaxIndex - xMinIndex + 1, yMaxIndex - yMinIndex + 1);
     }
 
-    public void SetRelativeOrigin(int gridX, int gridY)
-    {
-        _relativeOrigin.x = gridX;
-        _relativeOrigin.y = gridY;
-    }
-
-    public Vector2Int GetOriginLocation() {  return _relativeOrigin; }
-
-    public int Width()
-    {
-        switch (_rotation)
-        {
-            case ItemRotation.None:
-                return _itemData.Width();
-
-            case ItemRotation.Once:
-                return _itemData.Height();
-
-                case ItemRotation.Twice:
-                return _itemData.Width();
-
-            case ItemRotation.Thrice:
-                return _itemData.Height();
-
-            default:
-                return _itemData.Width();
-        }
-    }
-
-    public int Height()
-    {
-        switch (_rotation)
-        {
-            case ItemRotation.None:
-                return _itemData.Height();
-
-            case ItemRotation.Once:
-                return _itemData.Width();
-
-            case ItemRotation.Twice:
-                return _itemData.Height();
-
-            case ItemRotation.Thrice:
-                return _itemData.Width();
-
-            default:
-                return _itemData.Height();
-        }
-    }
 
     public ItemRotation Rotation() {  return _rotation; }
-
+    public (int,int) ItemHandle() {  return _itemHandle; }
     public void RotateItem(RotationDirection direction)
     {
         //default the direction to clockwise if given a werid value
@@ -195,6 +168,14 @@ public class InventoryItem : MonoBehaviour
         }
     }
 
-    public List<(int,int)> GetCellOccupancy() { return _cellIndexes; }
+    public List<(int,int)> GetSpacialDefinition() { return _spacialDefinition; }
+
+    public int Width() { return _size.x; }
+    public int Height() { return _size.y; }
+
+    public void UpdatePivot()
+    {
+
+    }
 
 }

@@ -2,12 +2,13 @@ using mapPointer;
 using System;
 using System.Collections;
 using System.Collections.Generic;
+using Unity.VisualScripting;
 using UnityEngine;
 
 public class InvController : MonoBehaviour
 {
     private InvGrid _invGrid;
-    private InventoryItem _selectedItem;
+    [SerializeField] private InventoryItem _selectedItem;
     [SerializeField] private GameObject _pointerContainer;
     [SerializeField] private Canvas _uiCanvas;
     [SerializeField] private Camera _uiCam;
@@ -63,31 +64,11 @@ public class InvController : MonoBehaviour
                 //rotate the item internally
                 _selectedItem.RotateItem(RotationDirection.CounterClockwise);
 
-                //update the object's actual rotation
-                _selectedItem.GetComponent<RectTransform>().rotation = _selectedItem.RotationAngle();
-
-                //update handle with couterclockwise 90 index shift
-                Vector2Int newHandle = new();
-                newHandle.x = -_itemHandle.y;
-                newHandle.y = _itemHandle.x;
-
-                _itemHandle = newHandle;
-
             }
             if (Input.GetKeyDown(KeyCode.E))
             {
                 //rotate the item internally
                 _selectedItem.RotateItem(RotationDirection.Clockwise);
-
-                //update the object's actual rotation
-                _selectedItem.GetComponent<RectTransform>().rotation = _selectedItem.RotationAngle();
-
-                //update handle with clockwise 90 index shift
-                Vector2Int newHandle = new();
-                newHandle.x = _itemHandle.y;
-                newHandle.y = -_itemHandle.x;
-
-                _itemHandle = newHandle;
             }
         }
     }
@@ -127,16 +108,85 @@ public class InvController : MonoBehaviour
 
         else
         {
-            _itemInCell = _invGrid.QueryItem(_hoverIndex.x, _hoverIndex.y);
-            InventoryItem hoveredItem = _invGrid.QueryItem(_hoverIndex.x, _hoverIndex.y);
+            _itemInCell = _invGrid.GetItemOnCell(_hoverIndex.x, _hoverIndex.y);
+            InventoryItem hoveredItem = _invGrid.GetItemOnCell(_hoverIndex.x, _hoverIndex.y);
 
 
             //highlight the previewed position of the held item
             if (_selectedItem != null)
             {
+                //Get the new potential placement positions
+                List<(int, int)> placementPositions = _invGrid.ConvertSpacialDefIntoGridIndexes(_hoveredCellIndex,_selectedItem.GetSpacialDefinition(),_selectedItem.ItemHandle());
+
+                if (_invGrid.IsPlacementValid(placementPositions))
+                {
+                    //Looks like our placement is valid here. Make our hoveredIndexes equal to our expected placement position
+                    _hoveredIndexes = placementPositions;
+                    
+                    //check if the hover data is the same as last frame before we do anything else
+                    bool allElementsExist = true;
+                    foreach ((int, int) index in _lastFramesHoveredIndexes)
+                    {
+                        if (!_hoveredIndexes.Contains(index))
+                        {
+                            allElementsExist = false;
+                            break;
+                        }
+                    }
+
+                    //collections are similar if each element of the last frame exists in the current collection
+                    //and both collections are the same length
+                    if (allElementsExist && _lastFramesHoveredIndexes.Count == _hoveredIndexes.Count)
+                        return; //Since the hover data is the same, nothing needs to be done here. Exit execution
+
+
+
+                    //Otherwise, clear the previous hovered graphics, since our hover data changed
+                    if (_hoverTileGraphics.Count > 0)
+                    {
+                        for (int i = _hoverTileGraphics.Count - 1; i >= 0; i--)
+                        {
+                            GameObject currentHoverGraphic = _hoverTileGraphics[i];
+
+                            //hide the graphic
+                            currentHoverGraphic.SetActive(false);
+
+                            //remove the graphic from the active list
+                            _hoverTileGraphics.Remove(currentHoverGraphic);
+
+                            //add the graphic to the inactive list
+                            _unusedHoverTileGraphics.Add(currentHoverGraphic);
+                        }
+                    }
+
+                    //now replace a tile graphic over each of the new hover positions
+                    foreach ((int, int) index in _hoveredIndexes)
+                    {
+
+                        //create a new hover tile if we're out of tiles
+                        if (_unusedHoverTileGraphics.Count == 0)
+                        {
+                            GameObject newHoverGraphic = Instantiate(_hoverGraphicPrefab, this.transform);
+                            newHoverGraphic.SetActive(false);
+                            _unusedHoverTileGraphics.Add(newHoverGraphic);
+                        }
+
+                        //pick a new graphic from the unused graphics
+                        GameObject hoverGraphic = _unusedHoverTileGraphics[_unusedHoverTileGraphics.Count - 1];
+                        _unusedHoverTileGraphics.Remove(hoverGraphic);
+                        _hoverTileGraphics.Add(hoverGraphic);
+                        hoverGraphic.SetActive(true);
+
+                        //reposition the graphic onto the current cell position
+                        hoverGraphic.transform.SetParent(_invGrid.GetCellObject(index).transform, false);
+
+                        hoverGraphic.transform.localScale = Vector3.one;
+                        hoverGraphic.transform.position = new Vector3(hoverGraphic.transform.position.x, hoverGraphic.transform.position.y, 1);
+                    }
+                }
                 
 
-                
+
             }
 
             //highlight the hovered item if no item is held
@@ -144,7 +194,7 @@ public class InvController : MonoBehaviour
             {
                 //Get the item's occupancy as the new frame's hovered data
                 string indexesString = "";
-                foreach ((int, int) index in _invGrid.GetItemPlacementIndexes(hoveredItem))
+                foreach ((int, int) index in _invGrid.GetItemOccupancy(hoveredItem))
                 {
                     _hoveredIndexes.Add(index);
                     indexesString += index.ToString() + "\n";
@@ -206,7 +256,7 @@ public class InvController : MonoBehaviour
                     hoverGraphic.SetActive(true);
 
                     //reposition the graphic onto the current cell position
-                    hoverGraphic.transform.SetParent(_invGrid.GetCellOnPosition(index).transform, false);
+                    hoverGraphic.transform.SetParent(_invGrid.GetCellObject(index).transform, false);
                     
                     hoverGraphic.transform.localScale = Vector3.one;
                     hoverGraphic.transform.position = new Vector3(hoverGraphic.transform.position.x, hoverGraphic.transform.position.y, 1);
@@ -251,7 +301,7 @@ public class InvController : MonoBehaviour
                 hoverGraphic.SetActive(true);
 
                 //reposition the graphic onto the current cell position
-                hoverGraphic.transform.SetParent(_invGrid.GetCellOnPosition(_hoveredCellIndex).transform, false);
+                hoverGraphic.transform.SetParent(_invGrid.GetCellObject(_hoveredCellIndex).transform, false);
 
                 hoverGraphic.transform.localScale = Vector3.one;
                 hoverGraphic.transform.position = new Vector3(hoverGraphic.transform.position.x, hoverGraphic.transform.position.y, 1);
@@ -268,10 +318,13 @@ public class InvController : MonoBehaviour
             //pickup item on grid if one exists
             if (_selectedItem == null)
             {
-                if (_invGrid.QueryItem(_hoverIndex.x,_hoverIndex.y) != null)
+                if (_invGrid.IsCellOccupied(_hoveredCellIndex))
                 {
-                    _selectedItem = _invGrid.TakeItem(_hoverIndex.x, _hoverIndex.y, out _itemHandle);
-                    SetItemToMousePosition(_itemHandle);
+                    //save the item reference
+                    _selectedItem = _invGrid.GetItemOnCell(_hoveredCellIndex);
+                    
+                    //remove the item from the invGrid
+                    _invGrid.RemoveItem(_selectedItem);
                 }
                 
             }
@@ -279,48 +332,14 @@ public class InvController : MonoBehaviour
             //place item on grid
             else
             {
-                (int, int) itemHandleIntPair = (_itemHandle.x, _itemHandle.y);
-                int itemWidth = _selectedItem.Width();
-                int itemHeight = _selectedItem.Height();
+                List<(int, int)> placementArea = _invGrid.ConvertSpacialDefIntoGridIndexes(_hoveredCellIndex, _selectedItem.GetSpacialDefinition(), _selectedItem.ItemHandle());
 
-                //only allow placement if the area is fully on the grid
-                if (_invGrid.IsAreaOnGrid(itemWidth, itemHeight, _hoveredCellIndex, itemHandleIntPair))
+                //only allow placement if the derived position is valid 
+                if (_invGrid.IsPlacementValid(placementArea))
                 {
-                    //place item if the area is unoccupied
-                    if (_invGrid.IsAreaUnoccupied(itemWidth, itemHeight, _hoveredCellIndex, itemHandleIntPair))
-                    {
-                        _invGrid.PlaceItem(_selectedItem, _hoveredCellIndex, itemHandleIntPair);
-                        _selectedItem = null;
-                    }
+                    _invGrid.PlaceItemWithinGrid(_selectedItem, placementArea);
 
-                    //else swap items if only 1 item occupies the space
-                    else
-                    {
-                        //check how many different items occupy the space
-                        Dictionary<(int, int), InventoryItem> itemOccupancy = _invGrid.GetItemsInArea(itemWidth, itemHeight, _hoveredCellIndex, itemHandleIntPair);
-                        List<InventoryItem> uniqueItems = new List<InventoryItem>();
-
-                        foreach (KeyValuePair<(int, int), InventoryItem> entry in itemOccupancy)
-                        {
-                            if (!uniqueItems.Contains(entry.Value))
-                                uniqueItems.Add(entry.Value);
-                        }
-
-                        //perform the swap
-                        if (uniqueItems.Count == 1)
-                        {
-                            (InventoryItem, Vector2Int) swapResult = _invGrid.SwapItems(itemWidth, itemHeight, _hoveredCellIndex, itemHandleIntPair, _selectedItem);
-
-                            if (swapResult.Item1 != null)
-                            {
-                                _selectedItem = swapResult.Item1;
-                                _itemHandle = swapResult.Item2;
-                                SetItemToMousePosition(_itemHandle);
-                            }
-
-                        }
-
-                    }
+                    _selectedItem = null;
 
                 }
             }
@@ -342,131 +361,6 @@ public class InvController : MonoBehaviour
             }
         }
     }
-
-    private void SetItemToMousePosition(float cellWidth, float cellHeight)
-    {
-        if (_selectedItem == null)
-            return;
-
-        //reparent the selected item to the pointerContainer. Visualize the pickup
-        RectTransform itemRectTransform = _selectedItem.GetComponent<RectTransform>();
-        itemRectTransform.SetParent(_pointerRectTransform);
-
-        //offset the selected item onto it's origin tile (0,0)
-        int itemWidth = _selectedItem.GetComponent<InventoryItem>().Width();
-        int itemHeight = _selectedItem.GetComponent<InventoryItem>().Height();
-        Vector2 originTilePosition = new();
-
-        originTilePosition.x = itemWidth * cellWidth / 2 - cellWidth / 2;
-        originTilePosition.y = itemHeight * cellHeight / 2 - cellHeight / 2;
-
-
-
-        _itemHandle = new Vector2Int(0, 0);
-
-        itemRectTransform.localPosition = originTilePosition;
-
-
-        itemRectTransform.localScale = Vector2.one;
-    }
-    private void SetItemToMousePosition(Vector2Int itemHandle)
-    {
-        if (_selectedItem == null)
-            return;
-
-        float tileWidth = _invGrid.CellSize().x;
-        float tileHeight = _invGrid.CellSize().y;
-
-        //reparent the selected item to the pointerContainer. Visualize the pickup
-        RectTransform itemRectTransform = _selectedItem.GetComponent<RectTransform>();
-        itemRectTransform.SetParent(_pointerRectTransform);
-
-        //offset the selected item onto it's origin tile (0,0)
-        int itemWidth = _selectedItem.GetComponent<InventoryItem>().Width();
-        int itemHeight = _selectedItem.GetComponent<InventoryItem>().Height();
-        Vector2 originTilePosition = new();
-        Vector2 handlePosition = new();
-
-        switch (_selectedItem.Rotation())
-        {
-            
-            case ItemRotation.None:
-                //pivot point is in the center of the UiObjects. Go to the bottomLeft corner
-                originTilePosition.x = itemWidth * tileWidth / 2;
-                originTilePosition.y = itemHeight * tileHeight / 2;
-                originTilePosition.x -= tileWidth / 2;
-                originTilePosition.y -= tileHeight / 2;
-
-
-                //now go the itemHandle's position
-                
-                handlePosition.x = -tileWidth * _itemHandle.x;
-                handlePosition.y = -tileHeight * _itemHandle.y;
-
-                itemRectTransform.localPosition = originTilePosition + handlePosition;
-
-                itemRectTransform.localScale = Vector2.one;
-                return;
-
-
-            case ItemRotation.Once:
-                //pivot point is in the center of the UiObjects. Go to the topLeft corner
-                originTilePosition.x = itemWidth * tileWidth / 2;
-                originTilePosition.y = itemHeight * tileHeight / 2;
-                originTilePosition.x -= tileWidth / 2;
-                originTilePosition.y += tileHeight / 2;
-
-                //now go the itemHandle's position
-                handlePosition.x = -tileWidth * _itemHandle.x;
-                handlePosition.y = -tileHeight * _itemHandle.y;
-
-                itemRectTransform.localPosition = originTilePosition + handlePosition;
-
-                itemRectTransform.localScale = Vector2.one;
-                return;
-
-
-            case ItemRotation.Twice:
-                //pivot point is in the center of the UiObjects. Go to the topRight corner
-                originTilePosition.x = itemWidth * tileWidth / 2;
-                originTilePosition.y = itemHeight * tileHeight / 2;
-                originTilePosition.x += tileWidth / 2;
-                originTilePosition.y += tileHeight / 2;
-
-                //now go the itemHandle's position
-                handlePosition.x = -tileWidth * _itemHandle.x;
-                handlePosition.y = -tileHeight * _itemHandle.y;
-
-                itemRectTransform.localPosition = originTilePosition + handlePosition;
-
-                itemRectTransform.localScale = Vector2.one;
-                return;
-
-
-            case ItemRotation.Thrice:
-                //pivot point is in the center of the UiObjects. Go to the bottomRight corner
-                originTilePosition.x = itemWidth * tileWidth / 2;
-                originTilePosition.y = itemHeight * tileHeight / 2;
-                originTilePosition.x += tileWidth / 2;
-                originTilePosition.y -= tileHeight / 2;
-
-                //now go the itemHandle's position
-                handlePosition.x = -tileWidth * _itemHandle.x;
-                handlePosition.y = -tileHeight * _itemHandle.y;
-
-                itemRectTransform.localPosition = originTilePosition + handlePosition;
-
-                itemRectTransform.localScale = Vector2.one;
-                return;
-
-
-            default:
-                return;
-        }
-        
-    }
-
-
 
 
     //externals
@@ -522,8 +416,6 @@ public class InvController : MonoBehaviour
             InventoryItem item = newItemObject.GetComponent<InventoryItem>();
 
             _selectedItem = item;
-
-            SetItemToMousePosition(cellWidth, cellHeight);
 
 
         }

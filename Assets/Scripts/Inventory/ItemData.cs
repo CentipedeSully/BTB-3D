@@ -7,8 +7,8 @@ using UnityEngine;
 public class ItemData : ScriptableObject
 {
     [SerializeField] private string _name;
-    [SerializeField] private int _width = 1;
-    [SerializeField] private int _height = 1;
+    [SerializeField] private List<Vector2Int> _spacialDefinition = new();
+    [SerializeField] private Vector2Int _itemHandle;
     [SerializeField] private string _desc = "";
     [SerializeField] private Sprite _sprite;
 
@@ -17,8 +17,18 @@ public class ItemData : ScriptableObject
 
 
     public string Name() { return _name; }
-    public int Width() { return _width; }
-    public int Height() { return _height; }
+    public List<(int, int)> SpacialDefinition() 
+    {
+        //Convert the vector2Int types into tuples
+        //tuples aren't serialized in the inspector, but they're faster to type on the keyboard XD
+        List<(int, int)> spacialDefTuples = new();
+
+        foreach (Vector2Int index in _spacialDefinition)
+            spacialDefTuples.Add((index.x,index.y));
+
+        return spacialDefTuples;
+    }
+    public (int, int) ItemHandle() { return (_itemHandle.x, _itemHandle.y); }
     public string Desc() { return _desc; }
     public Sprite Sprite() { return _sprite; }
 }
