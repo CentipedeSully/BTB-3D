@@ -27,9 +27,6 @@ public class InventoryItem : MonoBehaviour
     [SerializeField] private ItemRotation _rotation = ItemRotation.None;
     [SerializeField] private Vector2Int _size;
 
-    //sprite pivot should be defined and maintained here, too
-    //...
-
 
 
     private void RotateIndexesClockwise()
@@ -95,6 +92,7 @@ public class InventoryItem : MonoBehaviour
         //take the differences between the largest and smallest x/y (and include the starting number)
         //this yields the total size of the item
         _size = new Vector2Int(xMaxIndex - xMinIndex + 1, yMaxIndex - yMinIndex + 1);
+
     }
 
 
@@ -172,10 +170,5 @@ public class InventoryItem : MonoBehaviour
 
     public int Width() { return _size.x; }
     public int Height() { return _size.y; }
-
-    public void UpdatePivot()
-    {
-
-    }
 
 }

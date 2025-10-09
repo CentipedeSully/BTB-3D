@@ -4,6 +4,7 @@ using System.Collections;
 using System.Collections.Generic;
 using Unity.VisualScripting;
 using UnityEngine;
+using static UnityEditor.Progress;
 
 public class InvController : MonoBehaviour
 {
@@ -14,7 +15,6 @@ public class InvController : MonoBehaviour
     [SerializeField] private Camera _uiCam;
     private RectTransform _pointerRectTransform;
     private Vector2 _localPoint;
-    private Vector2Int _itemHandle;
     [SerializeField] CellInteract _hoveredCell;
     (int,int) _hoveredCellIndex = (-1,-1);
     [SerializeField] Vector2Int _hoverIndex;
@@ -63,12 +63,14 @@ public class InvController : MonoBehaviour
             {
                 //rotate the item internally
                 _selectedItem.RotateItem(RotationDirection.CounterClockwise);
+                _selectedItem.GetComponent<RectTransform>().rotation = _selectedItem.RotationAngle();
 
             }
             if (Input.GetKeyDown(KeyCode.E))
             {
                 //rotate the item internally
                 _selectedItem.RotateItem(RotationDirection.Clockwise);
+                _selectedItem.GetComponent<RectTransform>().rotation = _selectedItem.RotationAngle();
             }
         }
     }
@@ -118,7 +120,7 @@ public class InvController : MonoBehaviour
                 //Get the new potential placement positions
                 List<(int, int)> placementPositions = _invGrid.ConvertSpacialDefIntoGridIndexes(_hoveredCellIndex,_selectedItem.GetSpacialDefinition(),_selectedItem.ItemHandle());
 
-                if (_invGrid.IsPlacementValid(placementPositions))
+                if (_invGrid.IsAreaWithinGrid(placementPositions))
                 {
                     //Looks like our placement is valid here. Make our hoveredIndexes equal to our expected placement position
                     _hoveredIndexes = placementPositions;
@@ -185,6 +187,26 @@ public class InvController : MonoBehaviour
                     }
                 }
                 
+                //clear the hover data. Shouldn't show outdated hover data
+                else 
+                {
+                    if (_hoverTileGraphics.Count > 0)
+                    {
+                        for (int i = _hoverTileGraphics.Count - 1; i >= 0; i--)
+                        {
+                            GameObject currentHoverGraphic = _hoverTileGraphics[i];
+
+                            //hide the graphic
+                            currentHoverGraphic.SetActive(false);
+
+                            //remove the graphic from the active list
+                            _hoverTileGraphics.Remove(currentHoverGraphic);
+
+                            //add the graphic to the inactive list
+                            _unusedHoverTileGraphics.Add(currentHoverGraphic);
+                        }
+                    }
+                }
 
 
             }
@@ -325,6 +347,8 @@ public class InvController : MonoBehaviour
                     
                     //remove the item from the invGrid
                     _invGrid.RemoveItem(_selectedItem);
+
+                    BindSelectedItemToPointer();
                 }
                 
             }
@@ -334,12 +358,46 @@ public class InvController : MonoBehaviour
             {
                 List<(int, int)> placementArea = _invGrid.ConvertSpacialDefIntoGridIndexes(_hoveredCellIndex, _selectedItem.GetSpacialDefinition(), _selectedItem.ItemHandle());
 
-                //only allow placement if the derived position is valid 
-                if (_invGrid.IsPlacementValid(placementArea))
+                //First ensure the placement area is within the grid
+                if (_invGrid.IsAreaWithinGrid(placementArea))
                 {
-                    _invGrid.PlaceItemWithinGrid(_selectedItem, placementArea);
+                    int itemCount = _invGrid.CountItemsInArea(placementArea);
 
-                    _selectedItem = null;
+                    //swap items if ONE item is within the palcement area
+                    if (itemCount == 1)
+                    {
+                        InventoryItem pickedUpItem = null;
+
+                        //find any cell that holds the preexisting item
+                        //(any of them will do. Any occupied cell here will be holding the same item)
+                        //verified this with the previous itemCount
+                        foreach ((int,int) index in placementArea)
+                        {
+                            pickedUpItem = _invGrid.GetItemOnCell(index);
+                            if (pickedUpItem != null)
+                                break;
+                        }
+
+                        //save the reference to the item and remove the currently-stashed item from the grid
+                        _invGrid.RemoveItem(pickedUpItem);
+
+                        //place the held item in the freed up space
+                        _invGrid.PlaceItemWithinGrid(_selectedItem, placementArea);
+                        _invGrid.PlaceItemOntoGridVisually(_hoveredCellIndex, _selectedItem);
+                        _selectedItem = null;
+
+                        //make the picked-up item the new held item
+                        _selectedItem = pickedUpItem;
+                        BindSelectedItemToPointer();
+                    }
+
+                    else if (itemCount == 0)
+                    {
+                        //place the held item into the open space and clear our held item reference
+                        _invGrid.PlaceItemWithinGrid(_selectedItem, placementArea);
+                        _invGrid.PlaceItemOntoGridVisually(_hoveredCellIndex, _selectedItem);
+                        _selectedItem = null;
+                    }
 
                 }
             }
@@ -360,6 +418,22 @@ public class InvController : MonoBehaviour
                 _pointerRectTransform.anchoredPosition = _localPoint;
             }
         }
+    }
+    private void BindSelectedItemToPointer()
+    {
+        if (_selectedItem != null)
+        {
+            //parent the item to the pointer
+            _selectedItem.GetComponent<RectTransform>().SetParent(_pointerContainer.transform, false);
+
+            //reset the item's local position to zero
+            RectTransform itemRectTransform = _selectedItem.GetComponent<RectTransform>();
+            itemRectTransform.localPosition = Vector3.zero;
+
+            //ensure the sprite is of the appropriate size
+            itemRectTransform.sizeDelta = new Vector2(_selectedItem.Width() * _invGrid.CellSize().x, _selectedItem.Height() * _invGrid.CellSize().y);
+        }
+        
     }
 
 
@@ -417,6 +491,17 @@ public class InvController : MonoBehaviour
 
             _selectedItem = item;
 
+            //calculate the object's pivot position
+            float xPivotPosition = cellWidth * _selectedItem.ItemHandle().Item1 + cellWidth/2;
+            float yPivotPosition = cellHeight * _selectedItem.ItemHandle().Item2 + cellHeight/2;
+
+            float normalizedPositionX = xPivotPosition / (_selectedItem.Width() * cellWidth);
+            float normalizedPositionY = yPivotPosition / (_selectedItem.Height() * cellHeight);
+
+            RectTransform itemRectTransform = _selectedItem.GetComponent<RectTransform>();
+            itemRectTransform.pivot = new Vector2(normalizedPositionX, normalizedPositionY);
+
+            BindSelectedItemToPointer();
 
         }
     }

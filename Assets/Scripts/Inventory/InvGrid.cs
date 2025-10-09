@@ -1,6 +1,7 @@
 using System;
 using System.Collections;
 using System.Collections.Generic;
+using System.Linq;
 using UnityEngine;
 using UnityEngine.UI;
 
@@ -32,6 +33,7 @@ public class InvGrid : MonoBehaviour
         dynamicSize.x = _containerSize.x * _cellSize.x + _layoutGroup.padding.right + _layoutGroup.padding.left;
         dynamicSize.y = _containerSize.y * _cellSize.y + _layoutGroup.padding.bottom + _layoutGroup.padding.top;
         _rectTransform.sizeDelta = dynamicSize;
+        _spritesContainer.sizeDelta = dynamicSize;
 
     }
 
@@ -335,7 +337,7 @@ public class InvGrid : MonoBehaviour
 
         return gridPositions;
     }
-    public bool IsPlacementValid(List<(int,int)> gridPositions)
+    public bool IsAreaUnoccupiedANDWithinGrid(List<(int,int)> gridPositions)
     {
         if (gridPositions == null)
             return false;
@@ -365,6 +367,43 @@ public class InvGrid : MonoBehaviour
 
     }
 
+    public int CountItemsInArea(List<(int,int)> gridPositions)
+    {
+        if (gridPositions == null)
+            return 0;
+        
+        InventoryItem foundItem = null;
+        HashSet<InventoryItem> uniqueItems = new();
+
+        foreach ((int,int) index in gridPositions)
+        {
+            foundItem = GetItemOnCell(index);
+
+            if (foundItem != null)
+                uniqueItems.Add(foundItem);
+        }
+
+        return uniqueItems.Count;
+
+    }
+
+    public bool IsAreaWithinGrid(List<(int,int)> gridPositions)
+    {
+        if (gridPositions == null)
+            return false;
+
+        if (gridPositions.Count == 0)
+            return false;
+
+        foreach ((int,int) index in gridPositions)
+        {
+            if (!IsCellOnGrid(index))
+                return false;
+        }
+
+        return true;
+    }
+
     public void RemoveItem(InventoryItem specifiedItem)
     {
         if (specifiedItem == null)
@@ -380,7 +419,7 @@ public class InvGrid : MonoBehaviour
                 debugString += $"({index.Item1},{index.Item2})\n";
             }
 
-            Debug.Log(debugString);
+            //Debug.Log(debugString);
             _containedItems.Remove(specifiedItem);
         }
     }
@@ -392,9 +431,23 @@ public class InvGrid : MonoBehaviour
             return;
         }
 
+        if (gridPositions == null)
+        {
+            Debug.LogWarning("Placement area is null");
+            return;
+        }
+
+        if (gridPositions.Count == 0)
+        {
+            Debug.LogWarning("No indexes provided within placement area (not Null, just empty)");
+            return;
+        }
+
+
+        int itemsFoundInArea = CountItemsInArea(gridPositions);
 
         //make sure the position is valid and the item isn't already in the grid
-        if (IsPlacementValid(gridPositions) && !_containedItems.ContainsKey(item))
+        if (IsAreaWithinGrid(gridPositions) && itemsFoundInArea == 0 && !_containedItems.ContainsKey(item))
         {
             List<(int, int)> itemIndexes = new();
 
@@ -413,16 +466,70 @@ public class InvGrid : MonoBehaviour
             return;
         }
 
-        else if (_containedItems.ContainsKey(item))
-            Debug.LogWarning($"Item '{item}' Already exists within the grid. Ignoring request");
-
         else
         {
-            Debug.LogWarning("Placement position is invalid. If no previous data was given, then the" +
-                " placement space in question didn't provide any positions to check (but also wasn't null). " +
-                " This happens when providing a spacial definition (or item size) of zero size");
+            if (_containedItems.ContainsKey(item))
+                Debug.LogWarning($"Item '{item}' Already exists within the grid. Ignoring request");
+
+            if (!IsAreaWithinGrid(gridPositions))
+            {
+                string providedGridPositions = "";
+                string offGridPositions = "";
+
+                foreach((int,int) index in gridPositions)
+                {
+                    providedGridPositions += $"({index.Item1},{index.Item2})\n";
+
+                    if (!IsCellOnGrid(index))
+                        offGridPositions += $"({index.Item1},{index.Item2})\n";
+                }
+
+                Debug.LogWarning($"Some elements of the provided dont exist on the grid:\n" +
+                    $"Off-grid positions:\n {offGridPositions}" +
+                    $"Provided grid Positions:\n{providedGridPositions}");
+            }
+
+            if (itemsFoundInArea > 0)
+            {
+                string providedGridPositions = "";
+                HashSet<InventoryItem> uniqueItems = new();
+                InventoryItem foundItem = null;
+                foreach ((int, int) index in gridPositions)
+                {
+                    providedGridPositions += $"({index.Item1},{index.Item2})\n";
+
+                    foundItem = GetItemOnCell(index);
+                    if (foundItem != null)
+                        uniqueItems.Add(foundItem);
+
+                }
+
+                string itemList = "";
+                foreach (InventoryItem invItem in uniqueItems)
+                    itemList += invItem.name + "\n";
+                    
+
+
+                Debug.LogWarning($"placement area currently occupied by {itemsFoundInArea} items:\n{itemList}" +
+                    $"provided grid positions:\n{providedGridPositions}");
+            }
+
         }
     }
 
+    public void PlaceItemOntoGridVisually((int,int) index, InventoryItem item)
+    {
+        //reparent the item onto the grid visually
+        //Get the position of the hovered cell, local to the grid
+        Vector3 parentCellPosition = GetCellObject(index).GetComponent<RectTransform>().localPosition;
 
+        RectTransform itemRectTransform = item.GetComponent<RectTransform>();
+
+        //parent the item to the grid's sprite container
+        itemRectTransform.SetParent(_spritesContainer, false);
+        itemRectTransform.localPosition = parentCellPosition;
+
+        //ensure the sprite is of the appropriate size
+        itemRectTransform.sizeDelta = new Vector2(item.Width() * _cellSize.x, item.Height() * _cellSize.y);
+    }
 }

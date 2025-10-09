@@ -21,6 +21,7 @@ public class ItemCreator : MonoBehaviour
             return null;
 
         GameObject itemObject = Instantiate(_itemBasePrefab);
+        itemObject.name = itemData.name;
         InventoryItem invItem = itemObject.GetComponent<InventoryItem>();
         RectTransform invRectTransform = itemObject.GetComponent<RectTransform>();
 

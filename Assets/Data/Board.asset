@@ -18,7 +18,6 @@ MonoBehaviour:
   - {x: 1, y: 0}
   - {x: 2, y: 0}
   - {x: 3, y: 0}
-  - {x: 3, y: 1}
   _itemHandle: {x: 1, y: 0}
   _desc: 
   _sprite: {fileID: -529813741, guid: 5aba311a53bea8e46bf9c998cced869e, type: 3}
