@@ -19,13 +19,13 @@ public class InvController : MonoBehaviour
     (int,int) _hoveredCellIndex = (-1,-1);
     [SerializeField] Vector2Int _hoverIndex;
     [SerializeField] InventoryItem _itemInCell;
-    List<(int,int)> _itemCellOccupancy = new List<(int,int)> ();
+    HashSet<(int,int)> _itemCellOccupancy = new();
 
     [SerializeField] private GameObject _hoverGraphicPrefab;
     [SerializeField] List<GameObject> _unusedHoverTileGraphics = new();
     [SerializeField] List<GameObject> _hoverTileGraphics = new();
-    [SerializeField] private List<(int,int)> _hoveredIndexes = new List<(int,int)> ();
-    [SerializeField] private List<(int,int)> _lastFramesHoveredIndexes = new List<(int,int)> ();
+    [SerializeField] private HashSet<(int, int)> _hoveredIndexes = new();
+    [SerializeField] private HashSet<(int,int)> _lastFramesHoveredIndexes = new();
 
     [Header("Debug Commands")]
     [SerializeField] private bool _isDebugActive = false;
@@ -63,14 +63,12 @@ public class InvController : MonoBehaviour
             {
                 //rotate the item internally
                 _selectedItem.RotateItem(RotationDirection.CounterClockwise);
-                _selectedItem.GetComponent<RectTransform>().rotation = _selectedItem.RotationAngle();
 
             }
             if (Input.GetKeyDown(KeyCode.E))
             {
                 //rotate the item internally
                 _selectedItem.RotateItem(RotationDirection.Clockwise);
-                _selectedItem.GetComponent<RectTransform>().rotation = _selectedItem.RotationAngle();
             }
         }
     }
@@ -88,24 +86,7 @@ public class InvController : MonoBehaviour
         if (_hoveredCell == null)
         {
             _itemInCell = null;
-
-            //clear any active hover tiles, since no hovered cell is detected
-            if (_hoverTileGraphics.Count > 0)
-            {
-                for (int i = _hoverTileGraphics.Count - 1; i >= 0; i--)
-                {
-                    GameObject currentHoverGraphic = _hoverTileGraphics[i];
-
-                    //hide the graphic
-                    currentHoverGraphic.SetActive(false);
-
-                    //remove the graphic from the active list
-                    _hoverTileGraphics.Remove(currentHoverGraphic);
-
-                    //add the graphic to the inactive list
-                    _unusedHoverTileGraphics.Add(currentHoverGraphic);
-                }
-            }
+            ClearHoverTiles();
         }
 
         else
@@ -122,93 +103,23 @@ public class InvController : MonoBehaviour
 
                 if (_invGrid.IsAreaWithinGrid(placementPositions))
                 {
-                    //Looks like our placement is valid here. Make our hoveredIndexes equal to our expected placement position
-                    _hoveredIndexes = placementPositions;
-                    
-                    //check if the hover data is the same as last frame before we do anything else
-                    bool allElementsExist = true;
-                    foreach ((int, int) index in _lastFramesHoveredIndexes)
-                    {
-                        if (!_hoveredIndexes.Contains(index))
-                        {
-                            allElementsExist = false;
-                            break;
-                        }
-                    }
+                    //Looks like our placement is valid here.
+                    //Make our hoveredIndexes equal to our expected placement position
+                    foreach ((int,int) index in placementPositions)
+                        _hoveredIndexes.Add(index);
 
-                    //collections are similar if each element of the last frame exists in the current collection
-                    //and both collections are the same length
-                    if (allElementsExist && _lastFramesHoveredIndexes.Count == _hoveredIndexes.Count)
-                        return; //Since the hover data is the same, nothing needs to be done here. Exit execution
+                    //Don't change anything if the hover data didn't change
+                    if (!DidHoverDataChange())
+                        return;
 
-
-
-                    //Otherwise, clear the previous hovered graphics, since our hover data changed
-                    if (_hoverTileGraphics.Count > 0)
-                    {
-                        for (int i = _hoverTileGraphics.Count - 1; i >= 0; i--)
-                        {
-                            GameObject currentHoverGraphic = _hoverTileGraphics[i];
-
-                            //hide the graphic
-                            currentHoverGraphic.SetActive(false);
-
-                            //remove the graphic from the active list
-                            _hoverTileGraphics.Remove(currentHoverGraphic);
-
-                            //add the graphic to the inactive list
-                            _unusedHoverTileGraphics.Add(currentHoverGraphic);
-                        }
-                    }
-
-                    //now replace a tile graphic over each of the new hover positions
-                    foreach ((int, int) index in _hoveredIndexes)
-                    {
-
-                        //create a new hover tile if we're out of tiles
-                        if (_unusedHoverTileGraphics.Count == 0)
-                        {
-                            GameObject newHoverGraphic = Instantiate(_hoverGraphicPrefab, this.transform);
-                            newHoverGraphic.SetActive(false);
-                            _unusedHoverTileGraphics.Add(newHoverGraphic);
-                        }
-
-                        //pick a new graphic from the unused graphics
-                        GameObject hoverGraphic = _unusedHoverTileGraphics[_unusedHoverTileGraphics.Count - 1];
-                        _unusedHoverTileGraphics.Remove(hoverGraphic);
-                        _hoverTileGraphics.Add(hoverGraphic);
-                        hoverGraphic.SetActive(true);
-
-                        //reposition the graphic onto the current cell position
-                        hoverGraphic.transform.SetParent(_invGrid.GetCellObject(index).transform, false);
-
-                        hoverGraphic.transform.localScale = Vector3.one;
-                        hoverGraphic.transform.position = new Vector3(hoverGraphic.transform.position.x, hoverGraphic.transform.position.y, 1);
-                    }
+                    //clear and rerender the updated hover tiles
+                    ClearHoverTiles();
+                    RenderHoverTiles();
                 }
-                
-                //clear the hover data. Shouldn't show outdated hover data
+
+                //just clear the hover tiles, if any exist
                 else 
-                {
-                    if (_hoverTileGraphics.Count > 0)
-                    {
-                        for (int i = _hoverTileGraphics.Count - 1; i >= 0; i--)
-                        {
-                            GameObject currentHoverGraphic = _hoverTileGraphics[i];
-
-                            //hide the graphic
-                            currentHoverGraphic.SetActive(false);
-
-                            //remove the graphic from the active list
-                            _hoverTileGraphics.Remove(currentHoverGraphic);
-
-                            //add the graphic to the inactive list
-                            _unusedHoverTileGraphics.Add(currentHoverGraphic);
-                        }
-                    }
-                }
-
-
+                    ClearHoverTiles();
             }
 
             //highlight the hovered item if no item is held
@@ -222,67 +133,15 @@ public class InvController : MonoBehaviour
                     indexesString += index.ToString() + "\n";
                 }
                 //Debug.Log("Cell Indexes:\n"+indexesString);
-                    
 
 
-                //check if the hover data is the same
-                bool allElementsExist = true;
-                foreach ((int, int) index in _lastFramesHoveredIndexes)
-                {
-                    if (!_hoveredIndexes.Contains(index))
-                    {
-                        allElementsExist = false;
-                        break;
-                    }
-                }
-
-                //collections are similar if each element of the last frame exists in the current collection
-                //and both collections are the same length
-                if (allElementsExist && _lastFramesHoveredIndexes.Count == _hoveredIndexes.Count)
+                //Don't change anything if the hover data didn't change
+                if (!DidHoverDataChange())
                     return;
 
-                //clear the previous hovered graphics, since our hover data changed
-                if (_hoverTileGraphics.Count > 0)
-                {
-                    for (int i = _hoverTileGraphics.Count - 1; i >= 0; i--)
-                    {
-                        GameObject currentHoverGraphic = _hoverTileGraphics[i];
-
-                        //hide the graphic
-                        currentHoverGraphic.SetActive(false);
-
-                        //remove the graphic from the active list
-                        _hoverTileGraphics.Remove(currentHoverGraphic);
-
-                        //add the graphic to the inactive list
-                        _unusedHoverTileGraphics.Add(currentHoverGraphic);
-                    }
-                }
-
-                //now replace a tile graphic over each of the item's positions
-                foreach ((int, int) index in _hoveredIndexes)
-                {
-
-                    //create a new hover tile if we're out of tiles
-                    if (_unusedHoverTileGraphics.Count == 0)
-                    {
-                        GameObject newHoverGraphic = Instantiate(_hoverGraphicPrefab, this.transform);
-                        newHoverGraphic.SetActive(false);
-                        _unusedHoverTileGraphics.Add(newHoverGraphic);
-                    }
-
-                    //pick a new graphic from the unused graphics
-                    GameObject hoverGraphic = _unusedHoverTileGraphics[_unusedHoverTileGraphics.Count - 1];
-                    _unusedHoverTileGraphics.Remove(hoverGraphic);
-                    _hoverTileGraphics.Add(hoverGraphic);
-                    hoverGraphic.SetActive(true);
-
-                    //reposition the graphic onto the current cell position
-                    hoverGraphic.transform.SetParent(_invGrid.GetCellObject(index).transform, false);
-                    
-                    hoverGraphic.transform.localScale = Vector3.one;
-                    hoverGraphic.transform.position = new Vector3(hoverGraphic.transform.position.x, hoverGraphic.transform.position.y, 1);
-                }
+                //clear and rerender the updated hover tiles
+                ClearHoverTiles();
+                RenderHoverTiles();
             }
 
             //highlight the cell position
@@ -290,43 +149,9 @@ public class InvController : MonoBehaviour
             {
                 _hoveredIndexes.Add(_hoveredCellIndex);
 
-                //clear all other hover graphics
-                if (_hoverTileGraphics.Count > 0)
-                {
-                    for (int i = _hoverTileGraphics.Count - 1; i >= 0; i--)
-                    {
-                        GameObject currentHoverGraphic = _hoverTileGraphics[i];
-
-                        //hide the graphic
-                        currentHoverGraphic.SetActive(false);
-
-                        //remove the graphic from the active list
-                        _hoverTileGraphics.Remove(currentHoverGraphic);
-
-                        //add the graphic to the inactive list
-                        _unusedHoverTileGraphics.Add(currentHoverGraphic);
-                    }
-                }
-
-                //create a new hover tile if we're out of tiles
-                if (_unusedHoverTileGraphics.Count == 0)
-                {
-                    GameObject newHoverGraphic = Instantiate(_hoverGraphicPrefab, this.transform);
-                    newHoverGraphic.SetActive(false);
-                    _unusedHoverTileGraphics.Add(newHoverGraphic);
-                }
-
-                //pick a new graphic from the unused graphics
-                GameObject hoverGraphic = _unusedHoverTileGraphics[_unusedHoverTileGraphics.Count - 1];
-                _unusedHoverTileGraphics.Remove(hoverGraphic);
-                _hoverTileGraphics.Add(hoverGraphic);
-                hoverGraphic.SetActive(true);
-
-                //reposition the graphic onto the current cell position
-                hoverGraphic.transform.SetParent(_invGrid.GetCellObject(_hoveredCellIndex).transform, false);
-
-                hoverGraphic.transform.localScale = Vector3.one;
-                hoverGraphic.transform.position = new Vector3(hoverGraphic.transform.position.x, hoverGraphic.transform.position.y, 1);
+                //clear and rerender the updated hover tiles
+                ClearHoverTiles();
+                RenderHoverTiles();
 
             }
 
@@ -382,8 +207,8 @@ public class InvController : MonoBehaviour
                         _invGrid.RemoveItem(pickedUpItem);
 
                         //place the held item in the freed up space
-                        _invGrid.PlaceItemWithinGrid(_selectedItem, placementArea);
-                        _invGrid.PlaceItemOntoGridVisually(_hoveredCellIndex, _selectedItem);
+                        _invGrid.PositionItemIntoGridLogically(_selectedItem, placementArea);
+                        _invGrid.PositionItemGraphicOntoGridVisually(_hoveredCellIndex, _selectedItem);
                         _selectedItem = null;
 
                         //make the picked-up item the new held item
@@ -394,8 +219,8 @@ public class InvController : MonoBehaviour
                     else if (itemCount == 0)
                     {
                         //place the held item into the open space and clear our held item reference
-                        _invGrid.PlaceItemWithinGrid(_selectedItem, placementArea);
-                        _invGrid.PlaceItemOntoGridVisually(_hoveredCellIndex, _selectedItem);
+                        _invGrid.PositionItemIntoGridLogically(_selectedItem, placementArea);
+                        _invGrid.PositionItemGraphicOntoGridVisually(_hoveredCellIndex, _selectedItem);
                         _selectedItem = null;
                     }
 
@@ -436,6 +261,67 @@ public class InvController : MonoBehaviour
         
     }
 
+    private void ClearHoverTiles()
+    {
+        if (_hoverTileGraphics.Count > 0)
+        {
+            for (int i = _hoverTileGraphics.Count - 1; i >= 0; i--)
+            {
+                GameObject currentHoverGraphic = _hoverTileGraphics[i];
+
+                //hide the graphic
+                currentHoverGraphic.SetActive(false);
+
+                //remove the graphic from the active list
+                _hoverTileGraphics.Remove(currentHoverGraphic);
+
+                //add the graphic to the inactive list
+                _unusedHoverTileGraphics.Add(currentHoverGraphic);
+            }
+        }
+    }
+    private bool DidHoverDataChange()
+    {
+        //check if all indexes from last frame are present in the current frame's detection
+        foreach ((int, int) index in _lastFramesHoveredIndexes)
+        {
+            if (!_hoveredIndexes.Contains(index))
+                return false;
+        }
+
+        //check if there are any additional indexes this frame
+        if (_lastFramesHoveredIndexes.Count == _hoveredIndexes.Count)
+            return true;
+
+        return false;
+
+    }
+    private void RenderHoverTiles()
+    {
+        foreach ((int, int) index in _hoveredIndexes)
+        {
+
+            //create a new hover tile if we're out of tiles
+            if (_unusedHoverTileGraphics.Count == 0)
+            {
+                GameObject newHoverGraphic = Instantiate(_hoverGraphicPrefab, this.transform);
+                newHoverGraphic.SetActive(false);
+                _unusedHoverTileGraphics.Add(newHoverGraphic);
+            }
+
+            //pick a new graphic from the unused graphics
+            GameObject hoverGraphic = _unusedHoverTileGraphics[_unusedHoverTileGraphics.Count - 1];
+            _unusedHoverTileGraphics.Remove(hoverGraphic);
+            _hoverTileGraphics.Add(hoverGraphic);
+            hoverGraphic.SetActive(true);
+
+            //reposition the graphic onto the current cell position
+            hoverGraphic.transform.SetParent(_invGrid.GetCellObject(index).transform, false);
+
+            hoverGraphic.transform.localScale = Vector3.one;
+            hoverGraphic.transform.position = new Vector3(hoverGraphic.transform.position.x, hoverGraphic.transform.position.y, 1);
+        }
+    }
 
     //externals
     public void SetActiveItemGrid(InvGrid newGrid)
@@ -477,6 +363,7 @@ public class InvController : MonoBehaviour
     {
         if (_createItem && _invGrid != null && _selectedItem == null)
         {
+            
             GameObject newItemObject = null;
             float cellWidth = _invGrid.CellSize().x;
             float cellHeight = _invGrid.CellSize().y;
@@ -489,19 +376,40 @@ public class InvController : MonoBehaviour
 
             InventoryItem item = newItemObject.GetComponent<InventoryItem>();
 
-            _selectedItem = item;
 
             //calculate the object's pivot position
-            float xPivotPosition = cellWidth * _selectedItem.ItemHandle().Item1 + cellWidth/2;
-            float yPivotPosition = cellHeight * _selectedItem.ItemHandle().Item2 + cellHeight/2;
+            float xPivotPosition = cellWidth * item.ItemHandle().Item1 + cellWidth/2;
+            float yPivotPosition = cellHeight * item.ItemHandle().Item2 + cellHeight/2;
 
-            float normalizedPositionX = xPivotPosition / (_selectedItem.Width() * cellWidth);
-            float normalizedPositionY = yPivotPosition / (_selectedItem.Height() * cellHeight);
+            float normalizedPositionX = xPivotPosition / (item.Width() * cellWidth);
+            float normalizedPositionY = yPivotPosition / (item.Height() * cellHeight);
 
-            RectTransform itemRectTransform = _selectedItem.GetComponent<RectTransform>();
+            RectTransform itemRectTransform = item.GetComponent<RectTransform>();
             itemRectTransform.pivot = new Vector2(normalizedPositionX, normalizedPositionY);
 
-            BindSelectedItemToPointer();
+
+            //find space on the current active grid
+            List<(int, int)> foundSpace = null;
+            (int, int) gridPosition = (-1, -1);
+            ItemRotation necessaryRotation = ItemRotation.None;
+
+            foundSpace = _invGrid.FindSpaceForItem(item, out gridPosition, out necessaryRotation);
+
+            if (foundSpace != null)
+            {
+                //rotate the item until it matches the necessary rotation
+                while (item.Rotation() != necessaryRotation)
+                    item.RotateItem(RotationDirection.Clockwise);
+
+                _invGrid.PositionItemIntoGridLogically(item, foundSpace);
+                _invGrid.PositionItemGraphicOntoGridVisually(gridPosition, item);
+
+                _createItem = false;
+            }
+            else
+            {
+                Debug.LogWarning($"Couldn't find space for item '{item.name}'.");
+            }
 
         }
     }

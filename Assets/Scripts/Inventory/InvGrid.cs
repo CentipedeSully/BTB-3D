@@ -423,7 +423,7 @@ public class InvGrid : MonoBehaviour
             _containedItems.Remove(specifiedItem);
         }
     }
-    public void PlaceItemWithinGrid(InventoryItem item, List<(int, int)> gridPositions)
+    public void PositionItemIntoGridLogically(InventoryItem item, List<(int, int)> gridPositions)
     {
         if (item == null)
         {
@@ -516,8 +516,7 @@ public class InvGrid : MonoBehaviour
 
         }
     }
-
-    public void PlaceItemOntoGridVisually((int,int) index, InventoryItem item)
+    public void PositionItemGraphicOntoGridVisually((int,int) index, InventoryItem item)
     {
         //reparent the item onto the grid visually
         //Get the position of the hovered cell, local to the grid
@@ -531,5 +530,63 @@ public class InvGrid : MonoBehaviour
 
         //ensure the sprite is of the appropriate size
         itemRectTransform.sizeDelta = new Vector2(item.Width() * _cellSize.x, item.Height() * _cellSize.y);
+    }
+    public List<(int,int)> FindSpaceForItem(InventoryItem item, out (int,int) gridPosition,out ItemRotation necessaryRotation)
+    {
+        //Default the out parameters to invalid states
+        gridPosition = (-1, -1);
+        necessaryRotation = ItemRotation.None;
+
+        if (item == null)
+            return null;
+        if (item.GetSpacialDefinition() == null)
+            return null;
+        if (item.GetSpacialDefinition().Count < 1)
+            return null;
+
+        ItemRotation originalRotation = item.Rotation();
+        List<(int, int)> calculatedPositions = new();
+        int width = _containerSize.x;
+        int height = _containerSize.y;
+        int rotationCount = 0;
+
+        for (int h = 0; h < height; h++)
+        {
+            for (int w = 0; w < width; w++)
+            {
+                //save time and skip cells that are directly occupied
+                if (IsCellOccupied((w, h)))
+                    continue;
+
+                //check if the item fits with its origin (itemHandle) centered on this cell
+                //check all rotations
+                while (rotationCount < 4)
+                {
+                    calculatedPositions = ConvertSpacialDefIntoGridIndexes((w, h), item.GetSpacialDefinition(), item.ItemHandle());
+
+                    if (CountItemsInArea(calculatedPositions) == 0 && IsAreaWithinGrid(calculatedPositions))
+                    {
+                        necessaryRotation = item.Rotation();
+                        gridPosition = (w, h);
+
+                        //revert the item's rotation. This function isn't meant to be changing anything beyond the out arguments.
+                        while (item.Rotation() != originalRotation) //only 4 exist in a cycle
+                            item.RotateItem(RotationDirection.Clockwise);
+
+                        return calculatedPositions;
+                    }
+                        
+
+                    item.RotateItem(RotationDirection.Clockwise);
+                    rotationCount++;
+                }
+
+                //none found. Reset the rotationCount and move on to the next cell
+                rotationCount = 0;
+            }
+        }
+
+        //None were found.
+        return null;
     }
 }

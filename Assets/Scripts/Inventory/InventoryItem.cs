@@ -26,6 +26,7 @@ public class InventoryItem : MonoBehaviour
     [SerializeField] List<(int,int)> _spacialDefinition = new List<(int,int)> ();
     [SerializeField] private ItemRotation _rotation = ItemRotation.None;
     [SerializeField] private Vector2Int _size;
+    private RectTransform _rectTransform;
 
 
 
@@ -70,6 +71,7 @@ public class InventoryItem : MonoBehaviour
         _itemData = newItemData;
         _itemHandle = newItemData.ItemHandle();
         _spacialDefinition = newItemData.SpacialDefinition();
+        _rectTransform = GetComponent<RectTransform>();
 
         int xMinIndex = 0;
         int yMinIndex = 0;
@@ -120,29 +122,33 @@ public class InventoryItem : MonoBehaviour
                 if (direction == RotationDirection.Clockwise)
                     _rotation = ItemRotation.Once;
                 else _rotation = ItemRotation.Thrice;
-                return;
+                break;
 
             case ItemRotation.Once:
                 if (direction == RotationDirection.Clockwise)
                     _rotation = ItemRotation.Twice;
                 else _rotation = ItemRotation.None;
-                return;
+                break;
 
             case ItemRotation.Twice:
                 if (direction == RotationDirection.Clockwise)
                     _rotation = ItemRotation.Thrice;
                 else _rotation = ItemRotation.Once;
-                return;
+                break;
 
             case ItemRotation.Thrice:
                 if (direction == RotationDirection.Clockwise)
                     _rotation = ItemRotation.None;
                 else _rotation = ItemRotation.Twice;
-                return;
+                break;
 
             default:
-                return;
+                break;
         }
+
+        //reflect the transforms rotation to match the angle
+        _rectTransform.rotation = RotationAngle();
+
     }
 
     public Quaternion RotationAngle()
