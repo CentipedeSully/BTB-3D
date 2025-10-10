@@ -6,6 +6,7 @@ using UnityEngine.UI;
 public class ItemCreator : MonoBehaviour
 {
     [SerializeField] private GameObject _itemBasePrefab;
+    [SerializeField] private Transform _itemContainer;
     [SerializeField] private List<ItemData> _itemsList = new();
 
 
@@ -29,6 +30,7 @@ public class ItemCreator : MonoBehaviour
         itemObject.GetComponent<Image>().sprite = itemData.Sprite();
 
         invRectTransform.sizeDelta= new Vector2(invItem.Width(), invItem.Height());
+        invRectTransform.SetParent(_itemContainer,false);
         return itemObject;
     }
 
@@ -39,5 +41,20 @@ public class ItemCreator : MonoBehaviour
 
         int randomIndex = Random.Range(0, _itemsList.Count);
         return CreateItem(_itemsList[randomIndex], tileWidth, tileHeight);
+    }
+
+    public HashSet<ItemData> GetItemList()
+    {
+        HashSet<ItemData> listCopy = new HashSet<ItemData>();
+
+        foreach (ItemData item in listCopy)
+            listCopy.Add(item);
+
+        return listCopy;
+    }
+
+    public Transform GetItemContainer()
+    {
+        return _itemContainer;
     }
 }

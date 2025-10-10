@@ -31,6 +31,10 @@ public class InvController : MonoBehaviour
     [SerializeField] private bool _isDebugActive = false;
     [SerializeField] private bool _createItem;
     [SerializeField] private ItemData _specifiedItem;
+    [SerializeField] private bool _removeItem;
+    [SerializeField] private int _quantity;
+    [SerializeField] private string _itemName;
+    
 
     //Monobehaviours
     private void Awake()
@@ -410,6 +414,31 @@ public class InvController : MonoBehaviour
             {
                 Debug.LogWarning($"Couldn't find space for item '{item.name}'.");
             }
+
+        }
+        if (_invGrid != null && _removeItem)
+        {
+            if (_invGrid.DoesItemAndQuantityExist(_itemName, _quantity))
+            {
+
+                int removalsPerformed = 0;
+
+                //fix the test case where an invalid quantity is deliberately applied
+                if (_quantity < 1)
+                    _quantity = 1;
+
+                while (removalsPerformed < _quantity)
+                {
+                    _invGrid.RemoveItem(_itemName);
+                    removalsPerformed++;
+                }
+
+            }
+
+            else
+                Debug.LogWarning("Item or specified Quantity doesn't exist on grid. Ignoring Removal Request.");
+
+            _removeItem = false;
 
         }
     }

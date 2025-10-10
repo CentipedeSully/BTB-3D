@@ -59,7 +59,12 @@ public class InvGrid : MonoBehaviour
 
 
     //internals
+    private void SeparateItemFromGridGraphically(InventoryItem item)
+    {
+        Transform unusedItemsContainer = ItemCreatorHelper.GetUiItemsContainer();
 
+        item.GetComponent<RectTransform>().SetParent(unusedItemsContainer,false);
+    }
 
 
     /*
@@ -421,7 +426,25 @@ public class InvGrid : MonoBehaviour
 
             //Debug.Log(debugString);
             _containedItems.Remove(specifiedItem);
+
+            SeparateItemFromGridGraphically(specifiedItem);
         }
+    }
+    public void RemoveItem(string itemName)
+    {
+        InventoryItem matchingItem = null;
+
+        foreach(KeyValuePair<InventoryItem,List<(int,int)>> entry in _containedItems)
+        {
+            if (entry.Key.name.ToLower() == itemName.ToLower())
+            {
+                matchingItem = entry.Key;
+                break;
+            }
+        }
+
+        if (matchingItem != null)
+            RemoveItem(matchingItem);
     }
     public void PositionItemIntoGridLogically(InventoryItem item, List<(int, int)> gridPositions)
     {
@@ -588,5 +611,28 @@ public class InvGrid : MonoBehaviour
 
         //None were found.
         return null;
+    }
+    public bool DoesItemAndQuantityExist(string itemName,int quantity)
+    {
+        if (quantity < 1)
+        {
+            Debug.LogWarning($"invalid Quantity '{quantity}' detected. Quantities should be greater than 0. Defaulting quantity to 1");
+            quantity = 1;
+        }
+
+        int itemCount = 0;
+
+        foreach ( KeyValuePair<InventoryItem,List<(int,int)>> entry in _containedItems)
+        {
+            if (entry.Key.name.ToLower() == itemName.ToLower())
+            {
+                itemCount++;
+
+                if (itemCount >= quantity)
+                    return true;
+            }
+        }
+
+        return false;
     }
 }
