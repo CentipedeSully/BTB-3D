@@ -51,7 +51,7 @@ public class InvController : MonoBehaviour
             ListenForDebugCommands();
 
         RespondToRotationCommands();
-        VisualizeHoverTile();
+        VisualizeHover();
         RespondToInvClicks();
         BindPointerParentToMousePosition();
     }
@@ -76,7 +76,7 @@ public class InvController : MonoBehaviour
             }
         }
     }
-    private void VisualizeHoverTile()
+    private void VisualizeHover()
     {
         //save the previous frame's hoverData 
         _lastFramesHoveredIndexes.Clear();
@@ -119,6 +119,7 @@ public class InvController : MonoBehaviour
                     //clear and rerender the updated hover tiles
                     ClearHoverTiles();
                     RenderHoverTiles();
+                    RenderItemInfo(_selectedItem.ItemData().Name(), _selectedItem.ItemData().Desc());
                 }
 
                 //just clear the hover tiles, if any exist
@@ -146,6 +147,7 @@ public class InvController : MonoBehaviour
                 //clear and rerender the updated hover tiles
                 ClearHoverTiles();
                 RenderHoverTiles();
+                RenderItemInfo(hoveredItem.ItemData().Name(), hoveredItem.ItemData().Desc());
             }
 
             //highlight the cell position
@@ -325,6 +327,16 @@ public class InvController : MonoBehaviour
             hoverGraphic.transform.localScale = Vector3.one;
             hoverGraphic.transform.position = new Vector3(hoverGraphic.transform.position.x, hoverGraphic.transform.position.y, 1);
         }
+    }
+
+    private void RenderItemInfo(string newItemName,string newDesc) 
+    { 
+        if (_invGrid != null)
+        {
+            _invGrid.GetParentWindow().SetItemName(newItemName);
+            _invGrid.GetParentWindow().SetItemDescription(newDesc);
+        }
+            
     }
 
     //externals

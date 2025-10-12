@@ -16,5 +16,5 @@ MonoBehaviour:
   _spacialDefinition:
   - {x: 0, y: 0}
   _itemHandle: {x: 0, y: 0}
-  _desc: 
+  _desc: A solid block with polished faces. Its edges are smooth to the touch
   _sprite: {fileID: 21300000, guid: d3f8060a6322b924ca989b59e578e76f, type: 3}

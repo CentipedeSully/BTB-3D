@@ -19,5 +19,5 @@ MonoBehaviour:
   - {x: 2, y: 0}
   - {x: 3, y: 0}
   _itemHandle: {x: 1, y: 0}
-  _desc: 
+  _desc: A rigid board. A popular fabrication material.
   _sprite: {fileID: -529813741, guid: 5aba311a53bea8e46bf9c998cced869e, type: 3}

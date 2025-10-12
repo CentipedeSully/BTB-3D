@@ -11,6 +11,8 @@ public class InvGrid : MonoBehaviour
     [SerializeField] private Vector2 _cellSize;
     [SerializeField] private GameObject _cellPrefab;
     [SerializeField] private RectTransform _spritesContainer;
+    [SerializeField] private InvWindow _parentWindow;
+
     private GridLayoutGroup _layoutGroup;
     private RectTransform _rectTransform;
     private CellInteract[,] _cellObjects;
@@ -269,6 +271,7 @@ public class InvGrid : MonoBehaviour
 
 
     //externals
+    public InvWindow GetParentWindow() { return _parentWindow; }
     public Vector2 CellSize() { return _cellSize; }
     public Vector2Int ContainerSize() {  return _containerSize; }
     public bool IsCellOnGrid((int, int) cell)
