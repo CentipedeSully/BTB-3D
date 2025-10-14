@@ -177,4 +177,6 @@ public class InventoryItem : MonoBehaviour
     public int Width() { return _size.x; }
     public int Height() { return _size.y; }
 
+    public HashSet<ContextOption> ContextualOptions() { return _itemData.ContextualOptions(); }
+
 }

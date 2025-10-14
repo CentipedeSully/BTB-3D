@@ -7,6 +7,7 @@ TagManager:
   - Unit
   - Ground
   - Interactible
+  - Context Window
   layers:
   - Default
   - TransparentFX

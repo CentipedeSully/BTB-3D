@@ -22,12 +22,12 @@ public class InvGridInteract : MonoBehaviour, IPointerEnterHandler, IPointerExit
     public void OnPointerEnter(PointerEventData eventData)
     {
         if (_grid != null)
-            InvControlHelper.SetActiveItemGrid(_grid);
+            InvManagerHelper.SetActiveItemGrid(_grid);
     }
 
     public void OnPointerExit(PointerEventData eventData)
     {
         if (_grid != null)
-            InvControlHelper.LeaveGrid(_grid);
+            InvManagerHelper.LeaveGrid(_grid);
     }
 }

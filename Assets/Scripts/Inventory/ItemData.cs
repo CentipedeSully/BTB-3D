@@ -11,6 +11,9 @@ public class ItemData : ScriptableObject
     [SerializeField] private Vector2Int _itemHandle;
     [SerializeField] private string _desc = "";
     [SerializeField] private Sprite _sprite;
+    [SerializeField] private bool _isUsable;
+    [SerializeField] private bool _isDiscardable;
+    [SerializeField] private bool _isOrganizable;
 
 
 
@@ -31,4 +34,18 @@ public class ItemData : ScriptableObject
     public (int, int) ItemHandle() { return (_itemHandle.x, _itemHandle.y); }
     public string Desc() { return _desc; }
     public Sprite Sprite() { return _sprite; }
+    public HashSet<ContextOption> ContextualOptions() 
+    {
+        HashSet<ContextOption> options = new();
+        if (_isOrganizable)
+            options.Add(ContextOption.OrganizeItem);
+        if (_isUsable)
+            options.Add(ContextOption.UseItem);
+        if (_isDiscardable)
+            options.Add(ContextOption.DiscardItem);
+
+        return options;
+        
+        
+    }
 }

@@ -2,13 +2,13 @@ using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 
-public static class InvControlHelper 
+public static class InvManagerHelper 
 {
 
 
-    public static InvController _invController;
-    public static void SetInventoryController(InvController invController) { _invController = invController; }
-    public static InvController GetInvController() { return _invController; }
+    public static InvManager _invController;
+    public static void SetInventoryController(InvManager invController) { _invController = invController; }
+    public static InvManager GetInvController() { return _invController; }
     public static void SetActiveItemGrid(InvGrid newGrid) { _invController.SetActiveItemGrid(newGrid); }
     public static void LeaveGrid(InvGrid gridToLeave) { _invController.LeaveGrid(gridToLeave); }
     public static void SetHoveredCell(CellInteract cell) { _invController.SetHoveredCell(cell); }

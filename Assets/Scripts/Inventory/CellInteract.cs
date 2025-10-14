@@ -27,7 +27,7 @@ public class CellInteract : MonoBehaviour, IPointerEnterHandler, IPointerExitHan
     {
         if (_grid != null)
         {
-            InvControlHelper.SetHoveredCell(this);
+            InvManagerHelper.SetHoveredCell(this);
         }
     }
 
@@ -35,7 +35,7 @@ public class CellInteract : MonoBehaviour, IPointerEnterHandler, IPointerExitHan
     {
         if (_grid != null)
         {
-            InvControlHelper.ClearHoveredCell(this);
+            InvManagerHelper.ClearHoveredCell(this);
         }
     }
 

@@ -3,13 +3,15 @@ using System;
 using System.Collections;
 using System.Collections.Generic;
 using Unity.VisualScripting;
+using UnityEditor.Compilation;
 using UnityEngine;
 using static UnityEditor.Progress;
 
-public class InvController : MonoBehaviour
+public class InvManager : MonoBehaviour
 {
+    [SerializeField] private ContextWindowController _contextWindowController;
     private InvGrid _invGrid;
-    [SerializeField] private InventoryItem _selectedItem;
+    [SerializeField] private InventoryItem _heldItem;
     [SerializeField] private GameObject _pointerContainer;
     [SerializeField] private Canvas _uiCanvas;
     [SerializeField] private Camera _uiCam;
@@ -17,9 +19,12 @@ public class InvController : MonoBehaviour
     private Vector2 _localPoint;
     [SerializeField] CellInteract _hoveredCell;
     (int,int) _hoveredCellIndex = (-1,-1);
+    (int, int) _contextualItemPosition = (-1, -1);
+    private InvGrid _contextualInvGrid;
     [SerializeField] Vector2Int _hoverIndex;
     [SerializeField] InventoryItem _itemInCell;
     HashSet<(int,int)> _itemCellOccupancy = new();
+    private List<ContextOption> _itemContextualOptions = new();
 
     [SerializeField] private GameObject _hoverGraphicPrefab;
     [SerializeField] List<GameObject> _unusedHoverTileGraphics = new();
@@ -39,10 +44,24 @@ public class InvController : MonoBehaviour
     //Monobehaviours
     private void Awake()
     {
+        _contextWindowController.gameObject.SetActive(true);
+        _contextWindowController.gameObject.SetActive(false);
+
         ScreenPositionerHelper.SetUiCamera(_uiCam);
-        InvControlHelper.SetInventoryController(this);
+        InvManagerHelper.SetInventoryController(this);
         _pointerRectTransform = _pointerContainer.GetComponent<RectTransform>();
     }
+
+    private void OnEnable()
+    {
+        _contextWindowController.OnOptionSelected += ListenForValidContextualOption;
+    }
+
+    private void OnDisable()
+    {
+        _contextWindowController.OnOptionSelected -= ListenForValidContextualOption;
+    }
+
 
     private void Update()
     {
@@ -60,19 +79,19 @@ public class InvController : MonoBehaviour
     //internals
     private void RespondToRotationCommands()
     {
-        if (_selectedItem != null)
+        if (_heldItem != null)
         {
 
             if (Input.GetKeyDown(KeyCode.Q))
             {
                 //rotate the item internally
-                _selectedItem.RotateItem(RotationDirection.CounterClockwise);
+                _heldItem.RotateItem(RotationDirection.CounterClockwise);
 
             }
             if (Input.GetKeyDown(KeyCode.E))
             {
                 //rotate the item internally
-                _selectedItem.RotateItem(RotationDirection.Clockwise);
+                _heldItem.RotateItem(RotationDirection.Clockwise);
             }
         }
     }
@@ -100,10 +119,10 @@ public class InvController : MonoBehaviour
 
 
             //highlight the previewed position of the held item
-            if (_selectedItem != null)
+            if (_heldItem != null)
             {
                 //Get the new potential placement positions
-                List<(int, int)> placementPositions = _invGrid.ConvertSpacialDefIntoGridIndexes(_hoveredCellIndex,_selectedItem.GetSpacialDefinition(),_selectedItem.ItemHandle());
+                List<(int, int)> placementPositions = _invGrid.ConvertSpacialDefIntoGridIndexes(_hoveredCellIndex,_heldItem.GetSpacialDefinition(),_heldItem.ItemHandle());
 
                 if (_invGrid.IsAreaWithinGrid(placementPositions))
                 {
@@ -119,7 +138,7 @@ public class InvController : MonoBehaviour
                     //clear and rerender the updated hover tiles
                     ClearHoverTiles();
                     RenderHoverTiles();
-                    RenderItemInfo(_selectedItem.ItemData().Name(), _selectedItem.ItemData().Desc());
+                    RenderItemInfo(_heldItem.ItemData().Name(), _heldItem.ItemData().Desc());
                 }
 
                 //just clear the hover tiles, if any exist
@@ -151,7 +170,7 @@ public class InvController : MonoBehaviour
             }
 
             //highlight the cell position
-            else if (_selectedItem == null && hoveredItem == null)
+            else if (_heldItem == null && hoveredItem == null)
             {
                 _hoveredIndexes.Add(_hoveredCellIndex);
 
@@ -168,26 +187,26 @@ public class InvController : MonoBehaviour
 
         if (_invGrid != null && Input.GetMouseButtonDown((int)MouseBtn.Left))
         {
-            //pickup item on grid if one exists
-            if (_selectedItem == null)
+            //if we're not holding an item, open the context menu for the item on the specified cell
+            if (_heldItem == null)
             {
+
                 if (_invGrid.IsCellOccupied(_hoveredCellIndex))
                 {
-                    //save the item reference
-                    _selectedItem = _invGrid.GetItemOnCell(_hoveredCellIndex);
-                    
-                    //remove the item from the invGrid
-                    _invGrid.RemoveItem(_selectedItem);
+                    //save the clicked index
+                    _contextualItemPosition = _hoveredCellIndex;
+                    _contextualInvGrid = _invGrid;
 
-                    BindSelectedItemToPointer();
+                    //open the context window
+                    ContextWindowHelper.ShowContextWindow(_invGrid.GetItemOnCell(_hoveredCellIndex).ContextualOptions());
                 }
-                
+
             }
 
-            //place item on grid
+            //else,place the held item on the grid
             else
             {
-                List<(int, int)> placementArea = _invGrid.ConvertSpacialDefIntoGridIndexes(_hoveredCellIndex, _selectedItem.GetSpacialDefinition(), _selectedItem.ItemHandle());
+                List<(int, int)> placementArea = _invGrid.ConvertSpacialDefIntoGridIndexes(_hoveredCellIndex, _heldItem.GetSpacialDefinition(), _heldItem.ItemHandle());
 
                 //First ensure the placement area is within the grid
                 if (_invGrid.IsAreaWithinGrid(placementArea))
@@ -202,7 +221,7 @@ public class InvController : MonoBehaviour
                         //find any cell that holds the preexisting item
                         //(any of them will do. Any occupied cell here will be holding the same item)
                         //verified this with the previous itemCount
-                        foreach ((int,int) index in placementArea)
+                        foreach ((int, int) index in placementArea)
                         {
                             pickedUpItem = _invGrid.GetItemOnCell(index);
                             if (pickedUpItem != null)
@@ -213,26 +232,27 @@ public class InvController : MonoBehaviour
                         _invGrid.RemoveItem(pickedUpItem);
 
                         //place the held item in the freed up space
-                        _invGrid.PositionItemIntoGridLogically(_selectedItem, placementArea);
-                        _invGrid.PositionItemGraphicOntoGridVisually(_hoveredCellIndex, _selectedItem);
-                        _selectedItem = null;
+                        _invGrid.PositionItemIntoGridLogically(_heldItem, placementArea);
+                        _invGrid.PositionItemGraphicOntoGridVisually(_hoveredCellIndex, _heldItem);
+                        _heldItem = null;
 
                         //make the picked-up item the new held item
-                        _selectedItem = pickedUpItem;
+                        _heldItem = pickedUpItem;
                         BindSelectedItemToPointer();
+
                     }
 
                     else if (itemCount == 0)
                     {
                         //place the held item into the open space and clear our held item reference
-                        _invGrid.PositionItemIntoGridLogically(_selectedItem, placementArea);
-                        _invGrid.PositionItemGraphicOntoGridVisually(_hoveredCellIndex, _selectedItem);
-                        _selectedItem = null;
+                        _invGrid.PositionItemIntoGridLogically(_heldItem, placementArea);
+                        _invGrid.PositionItemGraphicOntoGridVisually(_hoveredCellIndex, _heldItem);
+                        _heldItem = null;
+
                     }
 
                 }
             }
-    
         }
     }
 
@@ -252,19 +272,35 @@ public class InvController : MonoBehaviour
     }
     private void BindSelectedItemToPointer()
     {
-        if (_selectedItem != null)
+        if (_heldItem != null)
         {
             //parent the item to the pointer
-            _selectedItem.GetComponent<RectTransform>().SetParent(_pointerContainer.transform, false);
+            _heldItem.GetComponent<RectTransform>().SetParent(_pointerContainer.transform, false);
 
             //reset the item's local position to zero
-            RectTransform itemRectTransform = _selectedItem.GetComponent<RectTransform>();
+            RectTransform itemRectTransform = _heldItem.GetComponent<RectTransform>();
             itemRectTransform.localPosition = Vector3.zero;
 
             //ensure the sprite is of the appropriate size
-            itemRectTransform.sizeDelta = new Vector2(_selectedItem.Width() * _invGrid.CellSize().x, _selectedItem.Height() * _invGrid.CellSize().y);
+            itemRectTransform.sizeDelta = new Vector2(_heldItem.Width() * _invGrid.CellSize().x, _heldItem.Height() * _invGrid.CellSize().y);
         }
         
+    }
+    private void BindSelectedItemToPointer(InvGrid specificGrid)
+    {
+        if (_heldItem != null)
+        {
+            //parent the item to the pointer
+            _heldItem.GetComponent<RectTransform>().SetParent(_pointerContainer.transform, false);
+
+            //reset the item's local position to zero
+            RectTransform itemRectTransform = _heldItem.GetComponent<RectTransform>();
+            itemRectTransform.localPosition = Vector3.zero;
+
+            //ensure the sprite is of the appropriate size
+            itemRectTransform.sizeDelta = new Vector2(_heldItem.Width() * specificGrid.CellSize().x, _heldItem.Height() * specificGrid.CellSize().y);
+        }
+
     }
 
     private void ClearHoverTiles()
@@ -328,7 +364,6 @@ public class InvController : MonoBehaviour
             hoverGraphic.transform.position = new Vector3(hoverGraphic.transform.position.x, hoverGraphic.transform.position.y, 1);
         }
     }
-
     private void RenderItemInfo(string newItemName,string newDesc) 
     { 
         if (_invGrid != null)
@@ -338,6 +373,59 @@ public class InvController : MonoBehaviour
         }
             
     }
+
+
+
+    private void ListenForValidContextualOption(ContextOption selectedOption)
+    {
+        //only respond to the contextual menu if we have an active item selected
+        if (_contextualItemPosition != (-1, -1))
+        {
+            switch (selectedOption)
+            {
+                case ContextOption.OrganizeItem:
+                    RespondToOrganize();
+                    return;
+
+                case ContextOption.UseItem:
+                    RespondToUse();
+                    return;
+
+                case ContextOption.DiscardItem:
+                    RespondToDiscard();
+                    return;
+
+                default:
+                    return;
+
+            }
+        }
+        
+    }
+    private void RespondToOrganize()
+    {
+        //save the item reference
+        _heldItem = _contextualInvGrid.GetItemOnCell(_contextualItemPosition);
+
+        //remove the item from the invGrid
+        _contextualInvGrid.RemoveItem(_heldItem);
+
+        BindSelectedItemToPointer(_contextualInvGrid);
+
+        //reset the selected position
+        _contextualItemPosition = (-1, -1);
+    }
+
+    private void RespondToDiscard()
+    {
+
+    }
+
+    private void RespondToUse()
+    {
+
+    }
+
 
     //externals
     public void SetActiveItemGrid(InvGrid newGrid)
@@ -377,7 +465,7 @@ public class InvController : MonoBehaviour
     //debug utils
     private void ListenForDebugCommands()
     {
-        if (_createItem && _invGrid != null && _selectedItem == null)
+        if (_createItem && _invGrid != null && _heldItem == null)
         {
             
             GameObject newItemObject = null;
