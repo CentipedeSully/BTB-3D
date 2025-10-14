@@ -404,6 +404,14 @@ public class InvManager : MonoBehaviour
     }
     private void RespondToOrganize()
     {
+        //exit if the contextual data expired somehow
+        if (!IsContextualDataValid())
+        {
+            _contextualInvGrid = null;
+            _contextualItemPosition = (-1, -1);
+            return;
+        }
+
         //save the item reference
         _heldItem = _contextualInvGrid.GetItemOnCell(_contextualItemPosition);
 
@@ -418,14 +426,60 @@ public class InvManager : MonoBehaviour
 
     private void RespondToDiscard()
     {
+        //exit if the contextual data expired somehow
+        if (!IsContextualDataValid())
+            return;
 
+        //remove the item from inventory
+        InventoryItem contextualItem = _contextualInvGrid.GetItemOnCell(_contextualItemPosition);
+        _contextualInvGrid.RemoveItem(contextualItem);
     }
 
     private void RespondToUse()
     {
+        //exit if the contextual data expired somehow
+        if (!IsContextualDataValid())
+            return;
+
+
+        InventoryItem contextualItem = _contextualInvGrid.GetItemOnCell(_contextualItemPosition);
+
+        //use the item
+        Debug.Log($"Used {contextualItem.name}!");
+
+        //remove the item from inventory
+        _contextualInvGrid.RemoveItem(contextualItem);
 
     }
 
+    private bool IsContextualDataValid()
+    {
+        //check if our Inventory-Grid-in-context still exists
+        if (_contextualInvGrid == null)
+        {
+            Debug.LogWarning($"Attempted to organize an item at position ({_contextualItemPosition.Item1},{_contextualItemPosition.Item2}) within a Missing ItemGrid Reference. " +
+                "Somehow an inventory got deleted while the context menu was still showing for that invGrid. Ignoring organize command");
+            return false;
+        }
+
+        //check if the cell still exists on the grid
+        if (!_contextualInvGrid.IsCellOnGrid(_contextualItemPosition))
+        {
+            Debug.LogWarning($"Attempted to organize an item at position ({_contextualItemPosition.Item1},{_contextualItemPosition.Item2}), but the position no longer exists. " +
+                "Somehow an inventory got deleted while the context menu was still showing for that invGrid. Ignoring organize command");
+            return false;
+        }
+
+        InventoryItem contextualItem = _contextualInvGrid.GetItemOnCell(_contextualItemPosition);
+        if (contextualItem == null)
+        {
+            Debug.LogWarning($"Attempted to get an item at position ({_contextualItemPosition.Item1},{_contextualItemPosition.Item2}) within a Missing ItemGrid Reference. " +
+                "The item must've moved unexpectedly, since the context wouldn't have appeared for a empty position");
+            return false;
+        }
+
+        return true;
+    }
 
     //externals
     public void SetActiveItemGrid(InvGrid newGrid)
