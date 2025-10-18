@@ -136,7 +136,6 @@ public class ContextWindowController : MonoBehaviour , IPointerExitHandler
     {
         if (_isWindowOpen)
         {
-            _isWindowOpen = false;
             HideOptionsWindow();
             OnOptionSelected.Invoke(selectedOption);
         }
@@ -148,6 +147,4 @@ public class ContextWindowController : MonoBehaviour , IPointerExitHandler
     {
         HideOptionsWindow();
     }
-
-   
 }

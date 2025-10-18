@@ -18,19 +18,70 @@ public class ItemCreator : MonoBehaviour
 
     public GameObject CreateItem(ItemData itemData, float tileWidth, float tileHeight)
     {
+        //ignore the command if we have no items in the list to create.
         if (_itemsList.Count == 0 || _itemBasePrefab == null)
             return null;
 
+        //cache item's references for readability
         GameObject itemObject = Instantiate(_itemBasePrefab);
-        itemObject.name = itemData.name;
         InventoryItem invItem = itemObject.GetComponent<InventoryItem>();
-        RectTransform invRectTransform = itemObject.GetComponent<RectTransform>();
+        RectTransform itemRectTransform = itemObject.GetComponent<RectTransform>();
 
+        //initialize item's data
+        itemObject.name = itemData.name;
         invItem.SetItemData(itemData);
         itemObject.GetComponent<Image>().sprite = itemData.Sprite();
+        itemRectTransform.sizeDelta= new Vector2(invItem.Width(), invItem.Height());
 
-        invRectTransform.sizeDelta= new Vector2(invItem.Width(), invItem.Height());
-        invRectTransform.SetParent(_itemContainer,false);
+        //put the pivot position on the item's specified itemHandle cell position
+        Vector2 offsetToCellCenter = new Vector2(tileWidth / 2, tileHeight / 2);
+        Vector2 cellHandlePosition = new Vector2(invItem.ItemHandle().Item1 * tileWidth, invItem.ItemHandle().Item2 * tileHeight);
+        Vector2 offsetHandlePosition = new Vector2(cellHandlePosition.x + offsetToCellCenter.x, cellHandlePosition.y + offsetToCellCenter.y);
+
+        //calculate the item's size by inferring it through the item's spacialDef indexes
+        int xCellMinimum = int.MinValue;
+        int yCellMinimum = int.MinValue;
+        int xCellMaximum = int.MaxValue;
+        int yCellMaximum = int.MinValue;
+
+        for (int i = 0; i < invItem.GetSpacialDefinition().Count; i++)
+        {
+            (int,int) index = invItem.GetSpacialDefinition()[i];
+
+            //the first value is botht he min and max to start
+            if (i == 0)
+            {
+                xCellMinimum = index.Item1;
+                xCellMaximum = index.Item1;
+                yCellMaximum = index.Item2;
+                yCellMinimum = index.Item2;
+            }
+            else
+            {
+                if (index.Item1 < xCellMinimum)
+                    xCellMinimum = index.Item1;
+                if (index.Item1 > xCellMaximum)
+                    xCellMaximum = index.Item1;
+                if (index.Item2 < yCellMinimum)
+                    yCellMinimum= index.Item2;
+                if (index.Item2 > yCellMaximum)
+                    yCellMaximum = index.Item2;
+            }
+        }
+
+        //get the total range of cells along each dimension (width and height)
+        int xCellCount = xCellMaximum - xCellMinimum + 1; //add 1 to include the origin position)
+        int yCellCount = yCellMaximum - yCellMinimum + 1;
+
+        //finally, normalize the previously-calculated offsetHandlePosition by the item's total size
+        Vector2 itemSize = new Vector2(xCellCount * tileWidth, yCellCount * tileHeight);
+        Vector2 normalizedPivotPosition = new Vector2(offsetHandlePosition.x / itemSize.x, offsetHandlePosition.y / itemSize.y);
+
+        //set the item's pivot point
+        itemRectTransform.pivot = normalizedPivotPosition;
+
+        //reparent the item to the itemContainer (not an inventory)
+        itemRectTransform.SetParent(_itemContainer,false);
         return itemObject;
     }
 
