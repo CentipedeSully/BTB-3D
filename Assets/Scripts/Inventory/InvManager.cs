@@ -32,13 +32,6 @@ public class InvManager : MonoBehaviour
     [SerializeField] private HashSet<(int, int)> _hoveredIndexes = new();
     [SerializeField] private HashSet<(int,int)> _lastFramesHoveredIndexes = new();
 
-    [Header("Debug Commands")]
-    [SerializeField] private bool _isDebugActive = false;
-    [SerializeField] private bool _createItem;
-    [SerializeField] private ItemData _specifiedItem;
-    [SerializeField] private bool _removeItem;
-    [SerializeField] private int _quantity;
-    [SerializeField] private string _itemName;
     
 
     //Monobehaviours
@@ -65,9 +58,6 @@ public class InvManager : MonoBehaviour
 
     private void Update()
     {
-
-        if (_isDebugActive)
-            ListenForDebugCommands();
 
         RespondToRotationCommands();
         VisualizeHover();
@@ -515,85 +505,4 @@ public class InvManager : MonoBehaviour
     }
 
 
-
-    //debug utils
-    private void ListenForDebugCommands()
-    {
-        if (_createItem && _invGrid != null && _heldItem == null)
-        {
-            
-            GameObject newItemObject = null;
-            float cellWidth = _invGrid.CellSize().x;
-            float cellHeight = _invGrid.CellSize().y;
-
-            if (_specifiedItem == null)
-            {
-                newItemObject = ItemCreatorHelper.CreateRandomItem(cellWidth, cellHeight);
-            }
-            else newItemObject = ItemCreatorHelper.CreateItem(_specifiedItem, cellWidth, cellHeight);
-
-            InventoryItem item = newItemObject.GetComponent<InventoryItem>();
-
-
-            //calculate the object's pivot position
-            float xPivotPosition = cellWidth * item.ItemHandle().Item1 + cellWidth/2;
-            float yPivotPosition = cellHeight * item.ItemHandle().Item2 + cellHeight/2;
-
-            float normalizedPositionX = xPivotPosition / (item.Width() * cellWidth);
-            float normalizedPositionY = yPivotPosition / (item.Height() * cellHeight);
-
-            RectTransform itemRectTransform = item.GetComponent<RectTransform>();
-            itemRectTransform.pivot = new Vector2(normalizedPositionX, normalizedPositionY);
-
-
-            //find space on the current active grid
-            List<(int, int)> foundSpace = null;
-            (int, int) gridPosition = (-1, -1);
-            ItemRotation necessaryRotation = ItemRotation.None;
-
-            foundSpace = _invGrid.FindSpaceForItem(item, out gridPosition, out necessaryRotation);
-
-            if (foundSpace != null)
-            {
-                //rotate the item until it matches the necessary rotation
-                while (item.Rotation() != necessaryRotation)
-                    item.RotateItem(RotationDirection.Clockwise);
-
-                _invGrid.PositionItemIntoGridLogically(item, foundSpace);
-                _invGrid.PositionItemGraphicOntoGridVisually(gridPosition, item);
-
-                _createItem = false;
-            }
-            else
-            {
-                Debug.LogWarning($"Couldn't find space for item '{item.name}'.");
-            }
-
-        }
-        if (_invGrid != null && _removeItem)
-        {
-            if (_invGrid.DoesItemAndQuantityExist(_itemName, _quantity))
-            {
-
-                int removalsPerformed = 0;
-
-                //fix the test case where an invalid quantity is deliberately applied
-                if (_quantity < 1)
-                    _quantity = 1;
-
-                while (removalsPerformed < _quantity)
-                {
-                    _invGrid.RemoveItem(_itemName);
-                    removalsPerformed++;
-                }
-
-            }
-
-            else
-                Debug.LogWarning("Item or specified Quantity doesn't exist on grid. Ignoring Removal Request.");
-
-            _removeItem = false;
-
-        }
-    }
 }

@@ -22,13 +22,13 @@ public class MapPointer : MonoBehaviour
     [Header("Pointer Settings")]
     [SerializeField] private Camera _mapCamera;
     [SerializeField] private float _castDistance = 200;
-    [SerializeField] private LayerMask _layermask;
+    [SerializeField] private LayerMask _mapLayermask;
     [SerializeField] private float _inputCooldown = .1f;
     [SerializeField] private Color _pointerColor;
     
     private Ray _castRay;
 
-    [Header("Ui Object Settings")]
+    [Header("Ui Object References")]
     [SerializeField] private GameObject _hoverObject;
     [SerializeField] private Text _hoverText;
 
@@ -215,7 +215,7 @@ public class MapPointer : MonoBehaviour
     private RaycastHit[] CastDetections()
     {
         BuildCastRay();
-        return SortDetectionsClosestFirst( Physics.RaycastAll(_castRay, _castDistance, _layermask));
+        return SortDetectionsClosestFirst( Physics.RaycastAll(_castRay, _castDistance, _mapLayermask));
     }
 
     private RaycastHit[] SortDetectionsClosestFirst(RaycastHit[] detections)

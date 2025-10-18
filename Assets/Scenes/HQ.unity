@@ -3230,6 +3230,7 @@ MonoBehaviour:
   _spritesContainerTransform: {fileID: 988755355}
   _itemDescription: {fileID: 2101451438}
   _itemName: {fileID: 863386091}
+  _itemGrid: {fileID: 2002158865}
 --- !u!1 &1472047180
 GameObject:
   m_ObjectHideFlags: 0
@@ -3674,6 +3675,8 @@ GameObject:
   - component: {fileID: 1877100992}
   - component: {fileID: 1877100990}
   - component: {fileID: 1877100994}
+  - component: {fileID: 1877100995}
+  - component: {fileID: 1877100996}
   m_Layer: 0
   m_Name: Game Utilities
   m_TagString: Untagged
@@ -3712,7 +3715,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   _mapCamera: {fileID: 221735797}
   _castDistance: 200
-  _layermask:
+  _mapLayermask:
     serializedVersion: 2
     m_Bits: 448
   _inputCooldown: 0.1
@@ -3764,12 +3767,6 @@ MonoBehaviour:
     type: 3}
   _unusedHoverTileGraphics: []
   _hoverTileGraphics: []
-  _isDebugActive: 1
-  _createItem: 0
-  _specifiedItem: {fileID: 0}
-  _removeItem: 0
-  _quantity: 0
-  _itemName: Board
 --- !u!114 &1877100994
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -3783,6 +3780,36 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   _selfInvController: {fileID: 1455758843}
+--- !u!114 &1877100995
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1877100988}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 12ad2b59c15e4b0489573301d0432c0f, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  _escCommand: 0
+--- !u!114 &1877100996
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1877100988}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 3ac641dc9cb8d854b8066da877d52525, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  _spawnItem: 0
+  _removeItem: 0
+  _targetInv: {fileID: 1455758843}
+  _specificItem: {fileID: 0}
+  _amount: 0
 --- !u!1001 &1892202966
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -4644,7 +4671,7 @@ MonoBehaviour:
       m_Calls:
       - m_Target: {fileID: 1455758843}
         m_TargetAssemblyTypeName: InvWindow, Assembly-CSharp
-        m_MethodName: HideWindow
+        m_MethodName: CloseWindow
         m_Mode: 1
         m_Arguments:
           m_ObjectArgument: {fileID: 0}

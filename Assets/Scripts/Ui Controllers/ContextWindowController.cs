@@ -123,9 +123,14 @@ public class ContextWindowController : MonoBehaviour , IPointerExitHandler
 
     }
     public void HideOptionsWindow() 
-    { 
-        gameObject.SetActive(false); 
-        _isWindowOpen = false;
+    {
+
+        if (_isWindowOpen)
+        {
+            gameObject.SetActive(false);
+            _isWindowOpen = false;
+        }
+            
     }
     public void TriggerSelectionEventAndCloseWindow(ContextOption selectedOption)
     {
@@ -138,9 +143,11 @@ public class ContextWindowController : MonoBehaviour , IPointerExitHandler
         
     }
 
+
     public void OnPointerExit(PointerEventData eventData)
     {
-        if (_isWindowOpen)
-            HideOptionsWindow();
+        HideOptionsWindow();
     }
+
+   
 }

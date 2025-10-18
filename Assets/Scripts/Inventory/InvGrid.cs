@@ -449,6 +449,22 @@ public class InvGrid : MonoBehaviour
         if (matchingItem != null)
             RemoveItem(matchingItem);
     }
+    public void RemoveItem(ItemData itemData)
+    {
+        InventoryItem matchingItem = null;
+
+        foreach (KeyValuePair<InventoryItem, List<(int, int)>> entry in _containedItems)
+        {
+            if (entry.Key.ItemCode().ToLower() == itemData.ItemCode().ToLower())
+            {
+                matchingItem = entry.Key;
+                break;
+            }
+        }
+
+        if (matchingItem != null)
+            RemoveItem(matchingItem);
+    }
     public void PositionItemIntoGridLogically(InventoryItem item, List<(int, int)> gridPositions)
     {
         if (item == null)
@@ -637,5 +653,42 @@ public class InvGrid : MonoBehaviour
         }
 
         return false;
+    }
+    public bool DoesItemAndQuantityExist(ItemData itemData, int quantity)
+    {
+
+        if (quantity < 1)
+        {
+            Debug.LogWarning($"invalid Quantity '{quantity}' detected. Quantities should be greater than 0. Defaulting quantity to 1");
+            quantity = 1;
+        }
+
+        int itemCount = 0;
+
+        foreach (KeyValuePair<InventoryItem, List<(int, int)>> entry in _containedItems)
+        {
+            if (entry.Key.ItemCode().ToLower() == itemData.ItemCode().ToLower())
+            {
+                itemCount++;
+
+                if (itemCount >= quantity)
+                    return true;
+            }
+        }
+
+        return false;
+    }
+    public Dictionary<InventoryItem, List<(int, int)>> GetContainedItemsListCopy()
+    {
+        if (_containedItems == null)
+            return null;
+        
+        Dictionary<InventoryItem, List<(int, int)>> copy = new();
+
+        foreach (KeyValuePair<InventoryItem,List<(int,int)>> entry in _containedItems){
+            copy.Add(entry.Key, entry.Value);
+        }
+
+        return copy;
     }
 }

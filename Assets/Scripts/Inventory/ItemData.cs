@@ -7,6 +7,7 @@ using UnityEngine;
 public class ItemData : ScriptableObject
 {
     [SerializeField] private string _name;
+    [SerializeField] private string _itemCode;
     [SerializeField] private List<Vector2Int> _spacialDefinition = new();
     [SerializeField] private Vector2Int _itemHandle;
     [SerializeField] private string _desc = "";
@@ -14,6 +15,7 @@ public class ItemData : ScriptableObject
     [SerializeField] private bool _isUsable;
     [SerializeField] private bool _isDiscardable;
     [SerializeField] private bool _isOrganizable;
+    [SerializeField] private int _stackLimit = 1;
 
 
 
@@ -45,7 +47,7 @@ public class ItemData : ScriptableObject
             options.Add(ContextOption.DiscardItem);
 
         return options;
-        
-        
     }
+    public int StackLimit() { return _stackLimit; }
+    public string ItemCode() { return _itemCode; }
 }

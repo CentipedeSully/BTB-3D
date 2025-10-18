@@ -21,9 +21,9 @@ public class InventoryController : MonoBehaviour
         //toggle the inventory screen if "i" is pressed
         if (Input.GetKeyDown(KeyCode.I))
         {
-            if (_selfInvController.gameObject.activeSelf)
-                _selfInvController.gameObject.SetActive(false);
-            else _selfInvController.gameObject.SetActive(true);
+            if (_selfInvController.IsWindowOpen())
+                _selfInvController.CloseWindow();
+            else _selfInvController.OpenWindow();
         }
            
     }

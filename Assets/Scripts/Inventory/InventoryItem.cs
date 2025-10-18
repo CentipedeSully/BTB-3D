@@ -96,6 +96,7 @@ public class InventoryItem : MonoBehaviour
         _size = new Vector2Int(xMaxIndex - xMinIndex + 1, yMaxIndex - yMinIndex + 1);
 
     }
+    public string ItemCode() { return _itemData.ItemCode(); }
 
 
     public ItemRotation Rotation() {  return _rotation; }
