@@ -2,6 +2,7 @@ using mapPointer;
 using System;
 using System.Collections;
 using System.Collections.Generic;
+using System.Runtime.InteropServices.WindowsRuntime;
 using Unity.VisualScripting;
 using UnityEditor.Compilation;
 using UnityEngine;
@@ -12,6 +13,7 @@ public class InvManager : MonoBehaviour
     [SerializeField] private ContextWindowController _contextWindowController;
     private InvGrid _invGrid;
     [SerializeField] private InventoryItem _heldItem;
+    [SerializeField] private int _heldItemStackCount = 0;
     [SerializeField] private GameObject _pointerContainer;
     [SerializeField] private Canvas _uiCanvas;
     [SerializeField] private Camera _uiCam;
@@ -38,7 +40,6 @@ public class InvManager : MonoBehaviour
     private void Awake()
     {
         _contextWindowController.gameObject.SetActive(true);
-        _contextWindowController.gameObject.SetActive(false);
 
         ScreenPositionerHelper.SetUiCamera(_uiCam);
         InvManagerHelper.SetInventoryController(this);
@@ -104,15 +105,15 @@ public class InvManager : MonoBehaviour
 
         else
         {
-            _itemInCell = _invGrid.GetItemOnCell(_hoverIndex.x, _hoverIndex.y);
-            InventoryItem hoveredItem = _invGrid.GetItemOnCell(_hoverIndex.x, _hoverIndex.y);
+            _itemInCell = _invGrid.GetItemGraphicOnCell(_hoverIndex.x, _hoverIndex.y);
+            InventoryItem hoveredItem = _invGrid.GetItemGraphicOnCell(_hoverIndex.x, _hoverIndex.y);
 
 
             //highlight the previewed position of the held item
             if (_heldItem != null)
             {
                 //Get the new potential placement positions
-                List<(int, int)> placementPositions = _invGrid.ConvertSpacialDefIntoGridIndexes(_hoveredCellIndex,_heldItem.GetSpacialDefinition(),_heldItem.ItemHandle());
+                HashSet<(int, int)> placementPositions = _invGrid.ConvertSpacialDefIntoGridIndexes(_hoveredCellIndex,_heldItem.GetSpacialDefinition(),_heldItem.ItemHandle());
 
                 if (_invGrid.IsAreaWithinGrid(placementPositions))
                 {
@@ -141,7 +142,7 @@ public class InvManager : MonoBehaviour
             {
                 //Get the item's occupancy as the new frame's hovered data
                 string indexesString = "";
-                foreach ((int, int) index in _invGrid.GetItemOccupancy(hoveredItem))
+                foreach ((int, int) index in _invGrid.GetStackOccupancy(_hoveredCellIndex))
                 {
                     _hoveredIndexes.Add(index);
                     indexesString += index.ToString() + "\n";
@@ -188,7 +189,7 @@ public class InvManager : MonoBehaviour
                     _contextualInvGrid = _invGrid;
 
                     //open the context window
-                    ContextWindowHelper.ShowContextWindow(_invGrid.GetItemOnCell(_hoveredCellIndex).ContextualOptions());
+                    ContextWindowHelper.ShowContextWindow(_invGrid.GetStackItemData(_hoveredCellIndex).ContextualOptions());
                 }
 
             }
@@ -196,51 +197,92 @@ public class InvManager : MonoBehaviour
             //else,place the held item on the grid
             else
             {
-                List<(int, int)> placementArea = _invGrid.ConvertSpacialDefIntoGridIndexes(_hoveredCellIndex, _heldItem.GetSpacialDefinition(), _heldItem.ItemHandle());
+                HashSet<(int, int)> placementArea = _invGrid.ConvertSpacialDefIntoGridIndexes(_hoveredCellIndex, _heldItem.GetSpacialDefinition(), _heldItem.ItemHandle());
 
-                //First ensure the placement area is within the grid
+                //make sure the entire item area is within the grid
                 if (_invGrid.IsAreaWithinGrid(placementArea))
                 {
-                    int itemCount = _invGrid.CountItemsInArea(placementArea);
+                    int itemCount = _invGrid.CountUniqueStacksInArea(placementArea);
 
-                    //swap items if ONE item is within the palcement area
-                    if (itemCount == 1)
+                    //if position is completely empty, place here
+                    if (itemCount == 0)
                     {
-                        InventoryItem pickedUpItem = null;
-
-                        //find any cell that holds the preexisting item
-                        //(any of them will do. Any occupied cell here will be holding the same item)
-                        //verified this with the previous itemCount
-                        foreach ((int, int) index in placementArea)
+                        _invGrid.CreateStack(_hoveredCellIndex, _heldItem,_heldItemStackCount);
+                        _heldItem = null;
+                        _heldItemStackCount = 0;
+                        return;
+                    }
+                        
+                    else
+                    {
+                        //if any compatible stack found, place there
+                        foreach ((int,int) index in placementArea)
                         {
-                            pickedUpItem = _invGrid.GetItemOnCell(index);
-                            if (pickedUpItem != null)
-                                break;
+                            if (_invGrid.GetStackItemData(index) == _heldItem.ItemData())
+                            {
+                                int stackValue = _invGrid.GetStackValue(index);
+                                int stackMaxCapacity = _invGrid.GetStackItemData(index).StackLimit();
+                                int openCapacity = stackMaxCapacity - stackValue;
+
+                                if (openCapacity > 0)
+                                {
+                                    //place the remaining items here if the stack can take it
+                                    if (_heldItemStackCount <= openCapacity)
+                                    {
+                                        _invGrid.IncreaseStack(index, _heldItemStackCount);
+                                        ItemCreatorHelper.ReturnItemToCreator(_heldItem);
+                                        _heldItem = null;
+                                        _heldItemStackCount = 0;
+                                    }
+
+                                    //otherwise, only place enough items to fill the stack here. Don't clear the held item yet, since we have some left.
+                                    else
+                                    {
+                                        _invGrid.IncreaseStack(index, openCapacity);
+                                        _heldItemStackCount -= openCapacity;
+                                    }
+                                }
+                            }
                         }
 
-                        //save the reference to the item and remove the currently-stashed item from the grid
-                        _invGrid.RemoveItem(pickedUpItem);
+                        //if only one stack found, swap stacks
+                        if (itemCount == 1)
+                        {
+                            foreach ((int, int) index in placementArea)
+                            {
+                                if (_invGrid.IsCellOccupied(index))
+                                {
+                                    //save the found item's data
+                                    InventoryItem newGraphic = _invGrid.GetItemGraphicOnCell(index);
+                                    int stackSize = _invGrid.GetStackValue(index);
 
-                        //place the held item in the freed up space
-                        _invGrid.PositionItemIntoGridLogically(_heldItem, placementArea);
-                        _invGrid.PositionItemGraphicOntoGridVisually(_hoveredCellIndex, _heldItem);
-                        _heldItem = null;
+                                    //delete the currently-stored item
+                                    _invGrid.DeleteStack(index);
 
-                        //make the picked-up item the new held item
-                        _heldItem = pickedUpItem;
-                        BindSelectedItemToPointer();
+                                    //place the held item into the now-fully-open position
+                                    _invGrid.CreateStack(_hoveredCellIndex, _heldItem, _heldItemStackCount);
+
+                                    //update our held itemData
+                                    _heldItem = newGraphic;
+                                    _heldItemStackCount = stackSize;
+
+                                    BindHeldItemToPointer(_invGrid);
+                                    return;
+                                }
+                            }
+
+                            /* If here was reached, then no stacks were found.
+                             * This shouldn't ever happen, since we SUPPOSEDLY found exactly
+                             * 1 preexisting stack before we entered this block. 
+                             * Raise a red error. Something's wrong with our stack lookUp/creation
+                             */
+                            Debug.LogError($"Error during itemSwaping via InvManager: couldn't find the inventory stack that should definitely exist." +
+                                $" There's probably an error with itemStack lookup or item stack creation within the InvGrid, OR the InvManager isn't" +
+                                $" looking where it should be (mixed up indexes? Wrong parameter?).");
+                            
+                        }
 
                     }
-
-                    else if (itemCount == 0)
-                    {
-                        //place the held item into the open space and clear our held item reference
-                        _invGrid.PositionItemIntoGridLogically(_heldItem, placementArea);
-                        _invGrid.PositionItemGraphicOntoGridVisually(_hoveredCellIndex, _heldItem);
-                        _heldItem = null;
-
-                    }
-
                 }
             }
         }
@@ -260,7 +302,7 @@ public class InvManager : MonoBehaviour
             }
         }
     }
-    private void BindSelectedItemToPointer()
+    private void BindHeldItemToPointer()
     {
         if (_heldItem != null)
         {
@@ -276,7 +318,7 @@ public class InvManager : MonoBehaviour
         }
         
     }
-    private void BindSelectedItemToPointer(InvGrid specificGrid)
+    private void BindHeldItemToPointer(InvGrid specificGrid)
     {
         if (_heldItem != null)
         {
@@ -289,6 +331,8 @@ public class InvManager : MonoBehaviour
 
             //ensure the sprite is of the appropriate size
             itemRectTransform.sizeDelta = new Vector2(_heldItem.Width() * specificGrid.CellSize().x, _heldItem.Height() * specificGrid.CellSize().y);
+
+            itemRectTransform.gameObject.SetActive(true);
         }
 
     }
@@ -403,12 +447,15 @@ public class InvManager : MonoBehaviour
         }
 
         //save the item reference
-        _heldItem = _contextualInvGrid.GetItemOnCell(_contextualItemPosition);
+        _heldItem = _contextualInvGrid.GetItemGraphicOnCell(_contextualItemPosition);
+
+        //save the amount of the item held
+        _heldItemStackCount = _contextualInvGrid.GetStackValue(_contextualItemPosition);
 
         //remove the item from the invGrid
-        _contextualInvGrid.RemoveItem(_heldItem);
+        _contextualInvGrid.DeleteStack(_contextualItemPosition);
 
-        BindSelectedItemToPointer(_contextualInvGrid);
+        BindHeldItemToPointer(_contextualInvGrid);
 
         //reset the selected position
         _contextualItemPosition = (-1, -1);
@@ -421,8 +468,7 @@ public class InvManager : MonoBehaviour
             return;
 
         //remove the item from inventory
-        InventoryItem contextualItem = _contextualInvGrid.GetItemOnCell(_contextualItemPosition);
-        _contextualInvGrid.RemoveItem(contextualItem);
+        _contextualInvGrid.DeleteStack(_contextualItemPosition);
     }
 
     private void RespondToUse()
@@ -432,13 +478,13 @@ public class InvManager : MonoBehaviour
             return;
 
 
-        InventoryItem contextualItem = _contextualInvGrid.GetItemOnCell(_contextualItemPosition);
+        ItemData contextualItem = _contextualInvGrid.GetStackItemData(_contextualItemPosition);
 
         //use the item
         Debug.Log($"Used {contextualItem.name}!");
 
         //remove the item from inventory
-        _contextualInvGrid.RemoveItem(contextualItem);
+        _contextualInvGrid.RemoveItem(_contextualItemPosition,1);
 
     }
 
@@ -460,11 +506,11 @@ public class InvManager : MonoBehaviour
             return false;
         }
 
-        InventoryItem contextualItem = _contextualInvGrid.GetItemOnCell(_contextualItemPosition);
+        ItemData contextualItem = _contextualInvGrid.GetStackItemData(_contextualItemPosition);
         if (contextualItem == null)
         {
-            Debug.LogWarning($"Attempted to get an item at position ({_contextualItemPosition.Item1},{_contextualItemPosition.Item2}) within a Missing ItemGrid Reference. " +
-                "The item must've moved unexpectedly, since the context wouldn't have appeared for a empty position");
+            Debug.LogWarning($"Attempted to get an itemData at position ({_contextualItemPosition.Item1},{_contextualItemPosition.Item2}), which is empty. " +
+                "The item stack must've moved unexpectedly, since the context wouldn't have appeared for a empty position");
             return false;
         }
 

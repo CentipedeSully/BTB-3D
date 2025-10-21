@@ -44,17 +44,19 @@ public class ItemCreator : MonoBehaviour
         int xCellMaximum = int.MaxValue;
         int yCellMaximum = int.MinValue;
 
-        for (int i = 0; i < invItem.GetSpacialDefinition().Count; i++)
-        {
-            (int,int) index = invItem.GetSpacialDefinition()[i];
+        bool firstIteration = true;
 
-            //the first value is botht he min and max to start
-            if (i == 0)
+        foreach ((int,int) index in invItem.GetSpacialDefinition())
+        {
+            //the first value is both the min and max to start
+            if (firstIteration)
             {
                 xCellMinimum = index.Item1;
                 xCellMaximum = index.Item1;
                 yCellMaximum = index.Item2;
                 yCellMinimum = index.Item2;
+
+                firstIteration = false;
             }
             else
             {
@@ -63,7 +65,7 @@ public class ItemCreator : MonoBehaviour
                 if (index.Item1 > xCellMaximum)
                     xCellMaximum = index.Item1;
                 if (index.Item2 < yCellMinimum)
-                    yCellMinimum= index.Item2;
+                    yCellMinimum = index.Item2;
                 if (index.Item2 > yCellMaximum)
                     yCellMaximum = index.Item2;
             }
@@ -107,5 +109,25 @@ public class ItemCreator : MonoBehaviour
     public Transform GetItemContainer()
     {
         return _itemContainer;
+    }
+
+    public ItemData GetItemDataFromCode(string code)
+    {
+        foreach (ItemData data in _itemsList)
+        {
+            if (code == data.ItemCode())
+                return data;
+        }
+
+        return null;
+    }
+
+    public void ReturnItem(InventoryItem item)
+    {
+        if (item == null)
+            return;
+
+        item.GetComponent<RectTransform>().SetParent(_itemContainer, false);
+        item.gameObject.SetActive(false);
     }
 }

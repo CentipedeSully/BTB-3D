@@ -55,6 +55,8 @@ public class ContextWindowController : MonoBehaviour , IPointerExitHandler
 
             
         }
+
+        gameObject.SetActive(false);
         
 
     }

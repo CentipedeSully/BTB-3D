@@ -22,16 +22,11 @@ public static class UiTracker
     {
         _hoveredWindow = hoveredWindow;
 
-        if (_hoveredWindow != null)
-            Debug.Log($"Hovering Window: {_hoveredWindow.UiName()}");
     }
     public static void ExitHoveredWindow(IUiWindow window)
     {
         if (window == _hoveredWindow)
         {
-            if (_hoveredWindow != null)
-                Debug.Log($"Exiting Window: {_hoveredWindow.UiName()}");
-
             _hoveredWindow = null;
         }
             

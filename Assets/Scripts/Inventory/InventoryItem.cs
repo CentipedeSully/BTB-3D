@@ -23,7 +23,7 @@ public class InventoryItem : MonoBehaviour
     //Declarations
     [SerializeField] ItemData _itemData;
     [SerializeField] (int, int) _itemHandle;
-    [SerializeField] List<(int,int)> _spacialDefinition = new List<(int,int)> ();
+    [SerializeField] HashSet<(int,int)> _spacialDefinition = new();
     [SerializeField] private ItemRotation _rotation = ItemRotation.None;
     [SerializeField] private Vector2Int _size;
     private RectTransform _rectTransform;
@@ -32,7 +32,7 @@ public class InventoryItem : MonoBehaviour
 
     private void RotateIndexesClockwise()
     {
-        List<(int,int)> newIndexes = new List<(int,int)> ();
+        HashSet<(int,int)> newIndexes = new();
         foreach ((int,int) index in _spacialDefinition)
         {
             (int, int) newIndex = (index.Item2, -index.Item1);
@@ -48,7 +48,7 @@ public class InventoryItem : MonoBehaviour
 
     private void RotateIndexesCounterClockwise()
     {
-        List<(int, int)> newIndexes = new List<(int, int)>();
+        HashSet<(int, int)> newIndexes = new();
         foreach ((int, int) index in _spacialDefinition)
         {
             (int, int) newIndex = (-index.Item2, index.Item1);
@@ -173,7 +173,7 @@ public class InventoryItem : MonoBehaviour
         }
     }
 
-    public List<(int,int)> GetSpacialDefinition() { return _spacialDefinition; }
+    public HashSet<(int,int)> GetSpacialDefinition() { return _spacialDefinition; }
 
     public int Width() { return _size.x; }
     public int Height() { return _size.y; }

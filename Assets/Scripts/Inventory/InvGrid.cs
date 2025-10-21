@@ -2,8 +2,11 @@ using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
+using Unity.VisualScripting;
 using UnityEngine;
 using UnityEngine.UI;
+using UnityEngine.UIElements;
+using static UnityEditor.Progress;
 
 public class InvGrid : MonoBehaviour
 {
@@ -16,8 +19,21 @@ public class InvGrid : MonoBehaviour
     private GridLayoutGroup _layoutGroup;
     private RectTransform _rectTransform;
     private CellInteract[,] _cellObjects;
-    private Dictionary<InventoryItem, List<(int, int)>> _containedItems = new(); //used for quick referencing any item in the grid
-    private Dictionary<(int, int), InventoryItem> _cellOccupancy = new(); //used to quickly check if specific cells are occupied (& what occupies them)
+    //private Dictionary<InventoryItem, List<(int, int)>> _containedItems = new(); //used for quick referencing any item in the grid
+    //private Dictionary<(int, int), InventoryItem> _cellOccupancy = new(); //used to quickly check if specific cells are occupied (& what occupies them)
+    
+    /// <summary>
+    /// The current size of each stack. The keys are the stack's occupied gridPositions.
+    /// </summary>
+    private Dictionary<HashSet<(int,int)>,int> _stackCapacity = new();
+    /// <summary>
+    /// The itemData values that belong to each stack. The keys are the stack's occupied gridPositions.
+    /// </summary>
+    private Dictionary<HashSet<(int, int)>, ItemData> _stackItemDatas = new();
+    /// <summary>
+    /// The item graphic that visually defines the stack in the inventory window. The keys are the stack's occupied gridPositions.
+    /// </summary>
+    private Dictionary<HashSet<(int, int)>, InventoryItem> _stackSpriteObjects = new();
 
 
     //monobehaviours
@@ -41,6 +57,15 @@ public class InvGrid : MonoBehaviour
 
     private void Start()
     {
+        InitializeGrid();
+    }
+
+
+
+
+    //internals
+    private void InitializeGrid()
+    {
         //be mindful of the creation order of the cells. GridLayout configured to create them row by row.
         //(0,0) starts at the bottom, similar to the traditional cortesian coord system
         for (int y = 0; y < _containerSize.y; y++)//columns get created after rows
@@ -52,15 +77,9 @@ public class InvGrid : MonoBehaviour
                 cellInteract.SetGrid(this);
                 cellInteract.SetIndex((x, y));
                 _cellObjects[x, y] = cellInteract;
-                _cellOccupancy.Add((x, y), null);
             }
         }
     }
-
-
-
-
-    //internals
     private void SeparateItemFromGridGraphically(InventoryItem item)
     {
         Transform unusedItemsContainer = ItemCreatorHelper.GetUiItemsContainer();
@@ -68,7 +87,45 @@ public class InvGrid : MonoBehaviour
         item.GetComponent<RectTransform>().SetParent(unusedItemsContainer,false);
     }
 
+    /// <summary>
+    /// Returns all positions that correspond to single stack of items.
+    /// The returned indexes together form a key that links to either an itemCode 
+    /// or an integer (the number of items in the stack). If nothing is returned
+    /// then the position holds no stack of items. Never returns null.
+    /// </summary>
+    /// <param name="position">The grid position to check.
+    /// Any Grid position may belong to only one item stack at a time.</param>
+    /// <returns></returns>
+    private HashSet<(int,int)> GetStackArea((int,int) position)
+    {
+        //look at all the saved stack positionSets
+        foreach (HashSet<(int,int)> indexSet in _stackItemDatas.Keys)
+        {
+            if (indexSet.Contains(position))
+                return indexSet;
+        }
 
+        //return an empty dataCollection if the position doesn't exist among our saved stacks
+        return new();
+
+    }
+    private void PositionItemGraphicOntoGridVisually((int, int) index, InventoryItem item)
+    {
+        //reparent the item onto the grid visually
+        //Get the position of the hovered cell, local to the grid
+        Vector3 parentCellPosition = GetCellObject(index).GetComponent<RectTransform>().localPosition;
+
+        RectTransform itemRectTransform = item.GetComponent<RectTransform>();
+
+        //parent the item to the grid's sprite container
+        itemRectTransform.SetParent(_spritesContainer, false);
+        itemRectTransform.localPosition = parentCellPosition;
+
+        //ensure the sprite is of the appropriate size
+        itemRectTransform.sizeDelta = new Vector2(item.Width() * _cellSize.x, item.Height() * _cellSize.y);
+
+        itemRectTransform.gameObject.SetActive(true);
+    }
     /*
     public Dictionary<(int, int), InventoryItem> GetItemsInArea(int width, int height, (int, int) clickedGridPosition, (int, int) itemHandle)
     {
@@ -280,9 +337,30 @@ public class InvGrid : MonoBehaviour
             return false;
         return true;
     }
-    public bool IsCellOccupied((int, int) cell)
+    public bool IsCellOccupied((int, int) position)
     {
-        return _cellOccupancy[cell] != null;
+        //Debug.Log($"Checking 'IsCellOccupied Integrity. Provided Position: ({position.Item1},{position.Item2})\nFound Stack Area at position: " + GetStackArea(position).ToCommaSeparatedString());
+        //Debug.Log($"Is Cell Occupied: {GetStackArea(position).Count > 0}");
+        if (GetStackArea(position).Count > 0)
+            return true;
+        else return false;
+    }
+    public bool IsCellOccupied(int x,int y)
+    {
+        return IsCellOccupied((x, y));
+    }
+    public bool DoesItemGraphicAlreadyExistOnGrid(InventoryItem itemGraphic)
+    {
+        if (itemGraphic == null) 
+            return false;
+
+        foreach (InventoryItem itemReference in _stackSpriteObjects.Values)
+        {
+            if (itemReference == itemGraphic)
+                return true;
+        }
+
+        return false;
     }
     public CellInteract GetCellObject((int, int) index)
     {
@@ -292,26 +370,65 @@ public class InvGrid : MonoBehaviour
         return _cellObjects[index.Item1, index.Item2];
 
     }
-    public InventoryItem GetItemOnCell((int, int) index)
+    public ItemData GetStackItemData((int, int) index)
     {
         if (IsCellOnGrid(index))
-            return _cellOccupancy[index];
+            if (_stackItemDatas.ContainsKey(GetStackArea(index)))
+                return _stackItemDatas[GetStackArea(index)];
 
         return null;
     }
-    public InventoryItem GetItemOnCell(int x, int y)
+    public ItemData GetStackItemData(int x, int y)
     {
-        return GetItemOnCell((x, y));
+        return GetStackItemData((x, y));
     }
-    public List<(int,int)> GetItemOccupancy( InventoryItem item)
+    public InventoryItem GetItemGraphicOnCell((int,int) index)
     {
-        if (item == null)
-            return null;
+        if (IsCellOnGrid(index))
+        {
+            if (_stackSpriteObjects.ContainsKey(GetStackArea(index)))
+                return _stackSpriteObjects[GetStackArea(index)];
+        }
 
-        if (_containedItems.ContainsKey(item))
-            return _containedItems[item];
+        return null;
+    }
+    public InventoryItem GetItemGraphicOnCell(int x, int y)
+    {
+        return GetItemGraphicOnCell((x, y));
+    }
+    public int GetStackValue((int, int) position)
+    {
+        HashSet<(int, int)> stackPosition = GetStackArea(position);
+        if (stackPosition.Count > 0)
+            return _stackCapacity[stackPosition];
 
-        else return null;
+        return 0;
+    }
+    public int GetStackValue(int x, int y)
+    {
+        return GetStackValue((x, y));
+    }
+    /// <summary>
+    /// Returns all of the cells that the stack at the provided position is occupying.
+    /// Returns an empty collection if no stack exists at the provided position.
+    /// Nonexistent grid positions will also return an empty collection.
+    /// </summary>
+    /// <param name="position"></param>
+    /// <returns></returns>
+    public HashSet<(int,int)> GetStackOccupancy((int,int) position)
+    {
+        return GetStackArea(position);
+    }
+    /// <summary>
+    /// Returns all of the cells that the stack at the provided position is occupying.
+    /// Returns an empty collection if no stack exists at the provided position.
+    /// Nonexistent grid positions will also return an empty collection.
+    /// </summary>
+    /// <param name="position"></param>
+    /// <returns></returns>
+    public HashSet<(int, int)> GetStackOccupancy(int x, int y)
+    {
+        return GetStackArea((x,y));
     }
 
     /// <summary>
@@ -322,7 +439,7 @@ public class InvGrid : MonoBehaviour
     /// <param name="spacialDefinition">The objects size defined as indexes</param>
     /// <param name="itemHandle">The index within the provided spacial definition that should align with the selected grid position</param>
     /// <returns></returns>
-    public List<(int, int)> ConvertSpacialDefIntoGridIndexes((int, int) selectedGridPosition, List<(int, int)> spacialDefinition, (int, int) itemHandle)
+    public HashSet<(int, int)> ConvertSpacialDefIntoGridIndexes((int, int) selectedGridPosition, HashSet<(int, int)> spacialDefinition, (int, int) itemHandle)
     {
         if (spacialDefinition == null)
             return null;
@@ -330,7 +447,7 @@ public class InvGrid : MonoBehaviour
         if (spacialDefinition.Count < 1)
             return null;
 
-        List<(int, int)> gridPositions = new();
+        HashSet<(int, int)> gridPositions = new();
 
         //convert the provided spacialDefinition into gridPositions.
         foreach ((int, int) index in spacialDefinition)
@@ -345,57 +462,39 @@ public class InvGrid : MonoBehaviour
 
         return gridPositions;
     }
-    public bool IsAreaUnoccupiedANDWithinGrid(List<(int,int)> gridPositions)
+    public int CountUniqueStacksInArea(HashSet<(int,int)> gridPositions)
     {
         if (gridPositions == null)
-            return false;
-        if (gridPositions.Count < 1)
-            return false;
-
-        bool areAllPositionsValid = true;
-        string debugString = "Placement Check Results:\n";
-        foreach ((int,int) index in gridPositions)
         {
-            if (IsCellOnGrid(index))
-            {
-                if (IsCellOccupied(index))
-                {
-                    debugString += $"Position ({index.Item1},{index.Item2}) Invalid. Occupied by item '{_cellOccupancy[index].name}'\n";
-                    areAllPositionsValid = false;
-                }
-            }
-            else
-            {
-                debugString += $"Position ({index.Item1},{index.Item2}) Invalid. Not on grid\n";
-                areAllPositionsValid = false;
-            }
-        }
-
-        return areAllPositionsValid;
-
-    }
-
-    public int CountItemsInArea(List<(int,int)> gridPositions)
-    {
-        if (gridPositions == null)
+            //Debug.Log("No gridPositions were given to check for Uniqueness. Returning 0, since none we technically found");
             return 0;
-        
-        InventoryItem foundItem = null;
-        HashSet<InventoryItem> uniqueItems = new();
+        }
+            
 
-        foreach ((int,int) index in gridPositions)
+        //Save each found stack definition into a set. For convenient uniqueness checking
+        HashSet<HashSet<(int,int)>> uniqueStacks = new();
+        string positionSets = "";
+        string position = "";
+        foreach ((int, int) index in gridPositions)
         {
-            foundItem = GetItemOnCell(index);
+            HashSet<(int,int)> stackArea = GetStackArea(index);
+            if (stackArea.Count > 0)
+                uniqueStacks.Add(stackArea);
+            
+            position = "";
+            
+            foreach ((int,int) cell in stackArea)
+                position += $"({cell.Item1},{cell.Item2}), ";
 
-            if (foundItem != null)
-                uniqueItems.Add(foundItem);
+            positionSets += $"{position}\n";
+            
         }
 
-        return uniqueItems.Count;
+        //Debug.Log($"Unique Stacks Detected: {uniqueStacks.Count}\nBreakdown:{positionSets}");
+        return uniqueStacks.Count;
 
     }
-
-    public bool IsAreaWithinGrid(List<(int,int)> gridPositions)
+    public bool IsAreaWithinGrid(HashSet<(int,int)> gridPositions)
     {
         if (gridPositions == null)
             return false;
@@ -411,183 +510,213 @@ public class InvGrid : MonoBehaviour
 
         return true;
     }
-
-    public void RemoveItem(InventoryItem specifiedItem)
+    public void IncreaseStack((int,int) position, int increment)
     {
-        if (specifiedItem == null)
+        HashSet<(int,int)> stackArea = GetStackArea(position);
+        if (stackArea.Count <= 0)
             return;
 
-        if (_containedItems.ContainsKey(specifiedItem))
-        {
-            string debugString = $"Cells Cleared:\n";
-            //clear each cell that this item references 
-            foreach ((int, int) index in _containedItems[specifiedItem])
-            {
-                _cellOccupancy[index] = null;
-                debugString += $"({index.Item1},{index.Item2})\n";
-            }
+        //get the maximum stack value
+        int maxCapacity = _stackItemDatas[stackArea].StackLimit();
 
-            //Debug.Log(debugString);
-            _containedItems.Remove(specifiedItem);
-
-            SeparateItemFromGridGraphically(specifiedItem);
-        }
+        //make sure we don't overshoot the stack's limit
+        _stackCapacity[stackArea] = Mathf.Min(_stackCapacity[stackArea] + increment, maxCapacity);
     }
-    public void RemoveItem(string itemName)
+    public void DecreaseStack((int, int) position, int decrement)
     {
-        InventoryItem matchingItem = null;
+        HashSet<(int, int)> stackArea = GetStackArea(position);
+        if (stackArea.Count <= 0)
+            return;
 
-        foreach(KeyValuePair<InventoryItem,List<(int,int)>> entry in _containedItems)
-        {
-            if (entry.Key.name.ToLower() == itemName.ToLower())
-            {
-                matchingItem = entry.Key;
-                break;
-            }
-        }
-
-        if (matchingItem != null)
-            RemoveItem(matchingItem);
+        _stackCapacity[stackArea] -= decrement;
+        
+        //delete the stack if we've expended all the items
+        if (_stackCapacity[stackArea] <= 0)
+            DeleteStack(position);
     }
-    public void RemoveItem(ItemData itemData)
+    public void DeleteStack((int,int) position)
     {
-        InventoryItem matchingItem = null;
+        HashSet<(int, int)> stackArea = GetStackArea(position);
+        if (stackArea.Count <= 0)
+            return;
 
-        foreach (KeyValuePair<InventoryItem, List<(int, int)>> entry in _containedItems)
-        {
-            if (entry.Key.ItemCode().ToLower() == itemData.ItemCode().ToLower())
-            {
-                matchingItem = entry.Key;
-                break;
-            }
-        }
+        _stackCapacity.Remove(stackArea);
+        _stackItemDatas.Remove(stackArea);
+        InventoryItem itemGraphic = _stackSpriteObjects[stackArea];
+        _stackSpriteObjects.Remove(stackArea);
 
-        if (matchingItem != null)
-            RemoveItem(matchingItem);
+        ItemCreatorHelper.ReturnItemToCreator(itemGraphic);
     }
-    public void PositionItemIntoGridLogically(InventoryItem item, List<(int, int)> gridPositions)
+    public void CreateStack((int,int) position, InventoryItem item, int amount) //only items have the necessary rotation data to fit within a grid
     {
         if (item == null)
         {
-            Debug.LogWarning("Attempted to place a null item into the grid; Ignoring request");
+            Debug.LogWarning($"Attempted to create a new item stack using a Null item. Ignoring request.");
             return;
         }
 
-        if (gridPositions == null)
+        if (DoesItemGraphicAlreadyExistOnGrid(item))
         {
-            Debug.LogWarning("Placement area is null");
+            Debug.LogWarning($"Attempted to create a new item stack using an item graphic thats currently in use by another item stack ({item.name}). Ignoring request.");
             return;
         }
 
-        if (gridPositions.Count == 0)
+        if (!IsCellOnGrid(position))
         {
-            Debug.LogWarning("No indexes provided within placement area (not Null, just empty)");
+            Debug.LogWarning($"Attempted to create a new item stack ({item.name}) " +
+                $"onto an invalid grid position '({position.Item1},{position.Item2})'. Ignoring request.");
+            return;
+        }
+
+        //calculate the item's expectedGridPosition
+        HashSet<(int, int)> expectedGridOccupancy = ConvertSpacialDefIntoGridIndexes(position, item.GetSpacialDefinition(), item.ItemHandle());
+
+        //check if all of the positions are within the grid
+        if (!IsAreaWithinGrid(expectedGridOccupancy))
+        {
+            Debug.LogWarning($"Attempted to create a new item stack ({item.name}) to position ({position.Item1},{position.Item2}), " +
+                $"but item won't fit based on the item's spacial definition + itemHandle Combination. Ignoring request.");
             return;
         }
 
 
-        int itemsFoundInArea = CountItemsInArea(gridPositions);
-
-        //make sure the position is valid and the item isn't already in the grid
-        if (IsAreaWithinGrid(gridPositions) && itemsFoundInArea == 0 && !_containedItems.ContainsKey(item))
+        string overlappedPositions = "";
+        bool isAreaOccupied = false;
+        //check if all expected positions are available
+        foreach ((int,int) index in expectedGridOccupancy)
         {
-            List<(int, int)> itemIndexes = new();
-
-            //update our cellOccupancy references
-            foreach ((int, int) index in gridPositions)
+            if (IsCellOccupied(index))
             {
-                _cellOccupancy[index] = item;
-
-                itemIndexes.Add(index); //also creating a copy of the gridPositions collection 
+                isAreaOccupied = true;
+                overlappedPositions += $"({index.Item1},{index.Item2}): occupied by '{GetStackItemData(index).name}'\n";
+                
             }
 
-            //add the item to our container registry, along
-            //with the newly created copy of the grid positions list
-            _containedItems.Add(item, itemIndexes);
-
-            return;
+            if (isAreaOccupied)
+            {
+                Debug.LogWarning($"Attempted to create a new item stack ({item.name}) onto position ({position.Item1},{position.Item2}), " +
+                $"but the item stack's placement overlaps other stacks. Ignoring request.\nDetected overlaps:\n" + overlappedPositions);
+                return;
+            }
         }
 
-        else
-        {
-            if (_containedItems.ContainsKey(item))
-                Debug.LogWarning($"Item '{item}' Already exists within the grid. Ignoring request");
+        //everything is good! create the stack (clamp the amount to legit values)
+        _stackItemDatas.Add(expectedGridOccupancy, item.ItemData());
+        _stackCapacity.Add(expectedGridOccupancy, Mathf.Clamp(amount,1,item.ItemData().StackLimit()));
+        _stackSpriteObjects.Add(expectedGridOccupancy, item);
 
-            if (!IsAreaWithinGrid(gridPositions))
-            {
-                string providedGridPositions = "";
-                string offGridPositions = "";
+        PositionItemGraphicOntoGridVisually(position, item);
 
-                foreach((int,int) index in gridPositions)
-                {
-                    providedGridPositions += $"({index.Item1},{index.Item2})\n";
-
-                    if (!IsCellOnGrid(index))
-                        offGridPositions += $"({index.Item1},{index.Item2})\n";
-                }
-
-                Debug.LogWarning($"Some elements of the provided dont exist on the grid:\n" +
-                    $"Off-grid positions:\n {offGridPositions}" +
-                    $"Provided grid Positions:\n{providedGridPositions}");
-            }
-
-            if (itemsFoundInArea > 0)
-            {
-                string providedGridPositions = "";
-                HashSet<InventoryItem> uniqueItems = new();
-                InventoryItem foundItem = null;
-                foreach ((int, int) index in gridPositions)
-                {
-                    providedGridPositions += $"({index.Item1},{index.Item2})\n";
-
-                    foundItem = GetItemOnCell(index);
-                    if (foundItem != null)
-                        uniqueItems.Add(foundItem);
-
-                }
-
-                string itemList = "";
-                foreach (InventoryItem invItem in uniqueItems)
-                    itemList += invItem.name + "\n";
-                    
-
-
-                Debug.LogWarning($"placement area currently occupied by {itemsFoundInArea} items:\n{itemList}" +
-                    $"provided grid positions:\n{providedGridPositions}");
-            }
-
-        }
     }
-    public void PositionItemGraphicOntoGridVisually((int,int) index, InventoryItem item)
+
+
+
+    public void RemoveItem((int,int) position, int amount)
     {
-        //reparent the item onto the grid visually
-        //Get the position of the hovered cell, local to the grid
-        Vector3 parentCellPosition = GetCellObject(index).GetComponent<RectTransform>().localPosition;
-
-        RectTransform itemRectTransform = item.GetComponent<RectTransform>();
-
-        //parent the item to the grid's sprite container
-        itemRectTransform.SetParent(_spritesContainer, false);
-        itemRectTransform.localPosition = parentCellPosition;
-
-        //ensure the sprite is of the appropriate size
-        itemRectTransform.sizeDelta = new Vector2(item.Width() * _cellSize.x, item.Height() * _cellSize.y);
+        DecreaseStack(position, amount);   
     }
-    public List<(int,int)> FindSpaceForItem(InventoryItem item, out (int,int) gridPosition,out ItemRotation necessaryRotation)
+    public void RemoveItem(string itemCode, int amount)
+    {
+        //check each itemStack's itemData for a matching itemCode
+        foreach(KeyValuePair<HashSet<(int,int)>,ItemData> entry in _stackItemDatas)
+        {
+            if (entry.Value.ItemCode().ToLower() == itemCode.ToLower())
+            {
+                //find the first match and remove an item from that specified stack
+                RemoveItem(entry.Key.First(), amount);
+                break;
+            }
+        }
+    }
+    public void RemoveItem(ItemData itemData, int amount)
+    {
+        RemoveItem(itemData.ItemCode(),amount);
+    }
+
+    /// <summary>
+    /// Attempts to find an open position to place an new specified item.
+    /// Searches for an available stack to fill before creating a new stack within the grid.
+    /// </summary>
+    /// <param name="itemData"></param>
+    public void AddItem(ItemData itemData, int amount)
+    {
+        //make sure the parameter is valid
+        if (itemData == null)
+        {
+            Debug.LogWarning("Attempted to add a Null itemData to the grid. Ignoring request.");
+            return;
+        }
+
+        int itemsAdded = 0;
+        bool inventoryFull = false;
+        bool stackIncrementPerformed = false;
+        int totalIterations = 0; //just in case a failure occurs while attempting to creating a stack, break the while to prevent program 'ascension'
+        while (itemsAdded < amount && !inventoryFull && totalIterations < amount)
+        {
+            totalIterations++;
+            stackIncrementPerformed = false;
+            //Try to increase a compatible stack that isnt full yet
+            foreach (KeyValuePair<HashSet<(int, int)>, ItemData> entry in _stackItemDatas)
+            {
+                //if the item is similar
+                if (itemData == entry.Value)
+                {
+                    //if the stack isn't full yet
+                    if (_stackCapacity[entry.Key] < itemData.StackLimit())
+                    {
+                        //increment the amount of items in this stack
+                        _stackCapacity[entry.Key] += 1;
+                        stackIncrementPerformed = true;
+                        break;
+                    }
+                }
+            }
+            
+            if (stackIncrementPerformed)
+            {
+                itemsAdded++;
+                continue;
+            }
+
+            //no open stacks were found. Now try to create a new stack.
+            InventoryItem newItem = ItemCreatorHelper.CreateItem(itemData, _cellSize.x, _cellSize.y).GetComponent<InventoryItem>();
+
+            (int, int) openPosition = (-1, -1);
+            ItemRotation necessaryRotation = ItemRotation.None;
+            HashSet<(int, int)> openArea = FindSpaceForItem(newItem, out openPosition, out necessaryRotation);
+            //Debug.Log($"FoundPositions: {openArea.ToCommaSeparatedString()}");
+
+            if (openArea.Count == 0)
+            {
+                inventoryFull = true;
+                Debug.LogWarning($"No open position was found for item. Inventory must be full, or the item may be too big.\nLast Index checked: {openPosition}");
+                return;
+            }
+
+            CreateStack(openPosition,newItem, 1);
+            itemsAdded++;
+        }
+
+        
+    }
+
+
+
+    public HashSet<(int,int)> FindSpaceForItem(InventoryItem item, out (int,int) gridPosition,out ItemRotation necessaryRotation)
     {
         //Default the out parameters to invalid states
         gridPosition = (-1, -1);
         necessaryRotation = ItemRotation.None;
 
         if (item == null)
-            return null;
+            return new();
         if (item.GetSpacialDefinition() == null)
-            return null;
+            return new();
         if (item.GetSpacialDefinition().Count < 1)
-            return null;
+            return new();
 
         ItemRotation originalRotation = item.Rotation();
-        List<(int, int)> calculatedPositions = new();
+        HashSet<(int, int)> calculatedPositions = new();
         int width = _containerSize.x;
         int height = _containerSize.y;
         int rotationCount = 0;
@@ -596,9 +725,14 @@ public class InvGrid : MonoBehaviour
         {
             for (int w = 0; w < width; w++)
             {
+                
                 //save time and skip cells that are directly occupied
                 if (IsCellOccupied((w, h)))
+                {
+                    //Debug.Log($"Tracing 'FindSpaceForItem':\n Cell iteration: ({w},{h})\nStatus: SKIPPED [CELL OCCUPIED]");
                     continue;
+                }
+                    
 
                 //check if the item fits with its origin (itemHandle) centered on this cell
                 //check all rotations
@@ -606,7 +740,8 @@ public class InvGrid : MonoBehaviour
                 {
                     calculatedPositions = ConvertSpacialDefIntoGridIndexes((w, h), item.GetSpacialDefinition(), item.ItemHandle());
 
-                    if (CountItemsInArea(calculatedPositions) == 0 && IsAreaWithinGrid(calculatedPositions))
+
+                    if (CountUniqueStacksInArea(calculatedPositions) == 0 && IsAreaWithinGrid(calculatedPositions))
                     {
                         necessaryRotation = item.Rotation();
                         gridPosition = (w, h);
@@ -615,6 +750,7 @@ public class InvGrid : MonoBehaviour
                         while (item.Rotation() != originalRotation) //only 4 exist in a cycle
                             item.RotateItem(RotationDirection.Clockwise);
 
+                        //Debug.Log($"Tracing 'FindSpaceForItem':\n Cell iteration: ({w},{h})\nStatus: success! Returning '{calculatedPositions.Count()}' calculatedPositions...");
                         return calculatedPositions;
                     }
                         
@@ -623,72 +759,17 @@ public class InvGrid : MonoBehaviour
                     rotationCount++;
                 }
 
+                //Debug.Log($"Tracing 'FindSpaceForItem':\n Cell iteration: ({w},{h})\nStatus: NO SPACE FOUND");
+
                 //none found. Reset the rotationCount and move on to the next cell
                 rotationCount = 0;
             }
         }
 
         //None were found.
-        return null;
+        //Debug.Log($"Tracing 'FindSpaceForItem':\n No Positions Found. Returning an empty collection...");
+        return new();
     }
-    public bool DoesItemAndQuantityExist(string itemName,int quantity)
-    {
-        if (quantity < 1)
-        {
-            Debug.LogWarning($"invalid Quantity '{quantity}' detected. Quantities should be greater than 0. Defaulting quantity to 1");
-            quantity = 1;
-        }
 
-        int itemCount = 0;
 
-        foreach ( KeyValuePair<InventoryItem,List<(int,int)>> entry in _containedItems)
-        {
-            if (entry.Key.name.ToLower() == itemName.ToLower())
-            {
-                itemCount++;
-
-                if (itemCount >= quantity)
-                    return true;
-            }
-        }
-
-        return false;
-    }
-    public bool DoesItemAndQuantityExist(ItemData itemData, int quantity)
-    {
-
-        if (quantity < 1)
-        {
-            Debug.LogWarning($"invalid Quantity '{quantity}' detected. Quantities should be greater than 0. Defaulting quantity to 1");
-            quantity = 1;
-        }
-
-        int itemCount = 0;
-
-        foreach (KeyValuePair<InventoryItem, List<(int, int)>> entry in _containedItems)
-        {
-            if (entry.Key.ItemCode().ToLower() == itemData.ItemCode().ToLower())
-            {
-                itemCount++;
-
-                if (itemCount >= quantity)
-                    return true;
-            }
-        }
-
-        return false;
-    }
-    public Dictionary<InventoryItem, List<(int, int)>> GetContainedItemsListCopy()
-    {
-        if (_containedItems == null)
-            return null;
-        
-        Dictionary<InventoryItem, List<(int, int)>> copy = new();
-
-        foreach (KeyValuePair<InventoryItem,List<(int,int)>> entry in _containedItems){
-            copy.Add(entry.Key, entry.Value);
-        }
-
-        return copy;
-    }
 }

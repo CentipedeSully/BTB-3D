@@ -13,6 +13,8 @@ public static class ItemCreatorHelper
     public static GameObject CreateItem(ItemData itemData, float tileWidth, float tileHeight) { return _creator.CreateItem(itemData, tileWidth, tileHeight);}
     public static GameObject CreateRandomItem(float tileWidth, float tileHeight) { return _creator.CreateRandomItem(tileWidth, tileHeight); }
     public static Transform GetUiItemsContainer() { return _creator.GetItemContainer(); }
+    public static ItemData GetItemDataFromItemCode(string code) { return _creator.GetItemDataFromCode(code); }
+    public static void ReturnItemToCreator(InventoryItem item) { _creator.ReturnItem(item); }
 
 
 }

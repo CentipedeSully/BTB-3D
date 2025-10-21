@@ -12,25 +12,28 @@ public class ItemData : ScriptableObject
     [SerializeField] private Vector2Int _itemHandle;
     [SerializeField] private string _desc = "";
     [SerializeField] private Sprite _sprite;
+    [SerializeField] private int _stackLimit = 1;
+    [Header("Possible UI Options")]
     [SerializeField] private bool _isUsable;
     [SerializeField] private bool _isDiscardable;
     [SerializeField] private bool _isOrganizable;
-    [SerializeField] private int _stackLimit = 1;
+    
 
 
 
 
 
     public string Name() { return _name; }
-    public List<(int, int)> SpacialDefinition() 
+    public HashSet<(int, int)> SpacialDefinition() 
     {
         //Convert the vector2Int types into tuples
         //tuples aren't serialized in the inspector, but they're faster to type on the keyboard XD
-        List<(int, int)> spacialDefTuples = new();
+        HashSet<(int, int)> spacialDefTuples = new();
 
         foreach (Vector2Int index in _spacialDefinition)
             spacialDefTuples.Add((index.x,index.y));
 
+        //Debug.Log($"Tracing Item Creation:\nSpacialDef size: {spacialDefTuples.Count}");
         return spacialDefTuples;
     }
     public (int, int) ItemHandle() { return (_itemHandle.x, _itemHandle.y); }
