@@ -6,11 +6,14 @@ using System.Runtime.InteropServices.WindowsRuntime;
 using Unity.VisualScripting;
 using UnityEditor.Compilation;
 using UnityEngine;
+using UnityEngine.UI;
 using static UnityEditor.Progress;
 
 public class InvManager : MonoBehaviour
 {
     [SerializeField] private ContextWindowController _contextWindowController;
+    [SerializeField] private Text _heldStackText;
+    [SerializeField] private RectTransform _heldStackContainer;
     private InvGrid _invGrid;
     [SerializeField] private InventoryItem _heldItem;
     [SerializeField] private int _heldItemStackCount = 0;
@@ -210,9 +213,95 @@ public class InvManager : MonoBehaviour
                         _invGrid.CreateStack(_hoveredCellIndex, _heldItem,_heldItemStackCount);
                         _heldItem = null;
                         _heldItemStackCount = 0;
+
+                        UpdateHeldStackText();
                         return;
                     }
-                        
+
+                    //if only one stack found, top off the stack if compatible and available, or swap stacks otherwise
+                    else if (itemCount == 1)
+                    {
+                        foreach ((int, int) index in placementArea)
+                        {
+                            //find the first cell that our detected stack is occupying
+                            if (_invGrid.IsCellOccupied(index))
+                            {
+                                //if the stack is compatible and not yet full, top it off
+                                if (_invGrid.GetStackItemData(index).ItemCode() == _heldItem.ItemData().ItemCode() && _invGrid.GetStackValue(index) < _heldItem.ItemData().StackLimit())
+                                {
+                                    int stackValue = _invGrid.GetStackValue(index);
+                                    int stackMaxCapacity = _invGrid.GetStackItemData(index).StackLimit();
+                                    int openCapacity = stackMaxCapacity - stackValue; //openCapacity will always be above zero if we've made it this far
+
+                                    //place all held items here if the stack can take it
+                                    if (_heldItemStackCount <= openCapacity)
+                                    {
+                                        _invGrid.IncreaseStack(index, _heldItemStackCount);
+                                        ItemCreatorHelper.ReturnItemToCreator(_heldItem);
+                                        _heldItem = null;
+                                        _heldItemStackCount = 0;
+
+                                        UpdateHeldStackText();
+
+                                        return;
+                                    }
+
+                                    //otherwise, only place enough items to fill the stack here. Don't clear the held item yet, since we have some left.
+                                    else
+                                    {
+                                        _invGrid.IncreaseStack(index, openCapacity);
+                                        _heldItemStackCount -= openCapacity;
+
+                                        UpdateHeldStackText();
+
+                                        return;
+                                    }
+
+                                }
+
+
+                                //otherwise, swap the stacks
+                                else 
+                                {
+                                    //save the found item's data
+                                    InventoryItem newGraphic = _invGrid.GetItemGraphicOnCell(index);
+                                    int stackSize = _invGrid.GetStackValue(index);
+
+                                    //delete the currently-stored item
+                                    _invGrid.DeleteStack(index);
+
+                                    //place the held item into the now-fully-open position
+                                    _invGrid.CreateStack(_hoveredCellIndex, _heldItem, _heldItemStackCount);
+
+                                    //update our held itemData
+                                    _heldItem = newGraphic;
+                                    _heldItemStackCount = stackSize;
+
+                                    BindHeldItemToPointer(_invGrid);
+                                    UpdateHeldStackText();
+
+                                    return;
+                                }
+
+
+
+                                
+                            }
+                        }
+
+                        /* If here was reached, then no stacks were found.
+                         * This shouldn't ever happen, since we SUPPOSEDLY found exactly
+                         * 1 preexisting stack before we entered this block. 
+                         * Raise a red error. Something's wrong with our stack lookUp/creation
+                         */
+                        Debug.LogError($"Error during itemSwaping via InvManager: couldn't find the inventory stack that should definitely exist." +
+                            $" There's probably an error with itemStack lookup or item stack creation within the InvGrid, OR the InvManager isn't" +
+                            $" looking where it should be (mixed up indexes? Wrong parameter?).");
+
+                    }
+
+                    //Ignore clicks that hover over multiple items
+                    /*
                     else
                     {
                         //if any compatible stack found, place there
@@ -233,6 +322,10 @@ public class InvManager : MonoBehaviour
                                         ItemCreatorHelper.ReturnItemToCreator(_heldItem);
                                         _heldItem = null;
                                         _heldItemStackCount = 0;
+
+                                        //update the heldStackText Ui
+                                        _heldStackText.text = $"{_heldItemStackCount}";
+                                        _heldStackText.gameObject.SetActive(false);
                                     }
 
                                     //otherwise, only place enough items to fill the stack here. Don't clear the held item yet, since we have some left.
@@ -240,49 +333,17 @@ public class InvManager : MonoBehaviour
                                     {
                                         _invGrid.IncreaseStack(index, openCapacity);
                                         _heldItemStackCount -= openCapacity;
+
+                                        //update the heldStackText Ui
+                                        _heldStackText.text = $"{_heldItemStackCount}";
                                     }
                                 }
                             }
                         }
 
-                        //if only one stack found, swap stacks
-                        if (itemCount == 1)
-                        {
-                            foreach ((int, int) index in placementArea)
-                            {
-                                if (_invGrid.IsCellOccupied(index))
-                                {
-                                    //save the found item's data
-                                    InventoryItem newGraphic = _invGrid.GetItemGraphicOnCell(index);
-                                    int stackSize = _invGrid.GetStackValue(index);
+                        
 
-                                    //delete the currently-stored item
-                                    _invGrid.DeleteStack(index);
-
-                                    //place the held item into the now-fully-open position
-                                    _invGrid.CreateStack(_hoveredCellIndex, _heldItem, _heldItemStackCount);
-
-                                    //update our held itemData
-                                    _heldItem = newGraphic;
-                                    _heldItemStackCount = stackSize;
-
-                                    BindHeldItemToPointer(_invGrid);
-                                    return;
-                                }
-                            }
-
-                            /* If here was reached, then no stacks were found.
-                             * This shouldn't ever happen, since we SUPPOSEDLY found exactly
-                             * 1 preexisting stack before we entered this block. 
-                             * Raise a red error. Something's wrong with our stack lookUp/creation
-                             */
-                            Debug.LogError($"Error during itemSwaping via InvManager: couldn't find the inventory stack that should definitely exist." +
-                                $" There's probably an error with itemStack lookup or item stack creation within the InvGrid, OR the InvManager isn't" +
-                                $" looking where it should be (mixed up indexes? Wrong parameter?).");
-                            
-                        }
-
-                    }
+                    } */
                 }
             }
         }
@@ -452,13 +513,30 @@ public class InvManager : MonoBehaviour
         //save the amount of the item held
         _heldItemStackCount = _contextualInvGrid.GetStackValue(_contextualItemPosition);
 
+        
+
+
         //remove the item from the invGrid
         _contextualInvGrid.DeleteStack(_contextualItemPosition);
 
         BindHeldItemToPointer(_contextualInvGrid);
+        UpdateHeldStackText();
+        
 
         //reset the selected position
         _contextualItemPosition = (-1, -1);
+    }
+    private void UpdateHeldStackText()
+    {
+        //update the heldStackText Ui
+        _heldStackText.text = $"{_heldItemStackCount}";
+
+        if (_heldItemStackCount > 1)
+            _heldStackContainer.gameObject.SetActive(true);
+        else _heldStackContainer.gameObject.SetActive(false);
+
+        //ensure the text is visible over the item graphic
+        _heldStackContainer.GetComponent<RectTransform>().SetAsLastSibling();
     }
 
     private void RespondToDiscard()
@@ -521,7 +599,6 @@ public class InvManager : MonoBehaviour
     public void SetActiveItemGrid(InvGrid newGrid)
     {
         _invGrid = newGrid;
-
     }
     public void LeaveGrid(InvGrid specificGrid)
     {

@@ -1,6 +1,7 @@
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
+using UnityEngine.UI;
 
 
 public enum ItemRotation
@@ -44,6 +45,7 @@ public class InventoryItem : MonoBehaviour
         }
 
         _spacialDefinition = newIndexes;
+
     }
 
     private void RotateIndexesCounterClockwise()
@@ -60,8 +62,9 @@ public class InventoryItem : MonoBehaviour
         }
 
         _spacialDefinition = newIndexes;
-
     }
+
+
 
 
 
@@ -179,5 +182,6 @@ public class InventoryItem : MonoBehaviour
     public int Height() { return _size.y; }
 
     public HashSet<ContextOption> ContextualOptions() { return _itemData.ContextualOptions(); }
+
 
 }

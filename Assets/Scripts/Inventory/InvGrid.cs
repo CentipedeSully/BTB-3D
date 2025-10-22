@@ -15,6 +15,9 @@ public class InvGrid : MonoBehaviour
     [SerializeField] private GameObject _cellPrefab;
     [SerializeField] private RectTransform _spritesContainer;
     [SerializeField] private InvWindow _parentWindow;
+    [SerializeField] private RectTransform _stackTextUiPrefab;
+    [SerializeField] private RectTransform _activeStackTextsContainer;
+    [SerializeField] private RectTransform _unusedStackTextsContainer;
 
     private GridLayoutGroup _layoutGroup;
     private RectTransform _rectTransform;
@@ -34,6 +37,7 @@ public class InvGrid : MonoBehaviour
     /// The item graphic that visually defines the stack in the inventory window. The keys are the stack's occupied gridPositions.
     /// </summary>
     private Dictionary<HashSet<(int, int)>, InventoryItem> _stackSpriteObjects = new();
+    private Dictionary<HashSet<(int, int)>, Text> _stackTexts = new();
 
 
     //monobehaviours
@@ -44,7 +48,7 @@ public class InvGrid : MonoBehaviour
         _layoutGroup = GetComponent<GridLayoutGroup>();
         _cellObjects = new CellInteract[_containerSize.x, _containerSize.y];
         _layoutGroup.cellSize = _cellSize;
-
+        _unusedStackTextsContainer.gameObject.SetActive(false);
 
         //Resize the UiWindow.
         Vector2 dynamicSize = new();
@@ -52,6 +56,7 @@ public class InvGrid : MonoBehaviour
         dynamicSize.y = _containerSize.y * _cellSize.y + _layoutGroup.padding.bottom + _layoutGroup.padding.top;
         _rectTransform.sizeDelta = dynamicSize;
         _spritesContainer.sizeDelta = dynamicSize;
+        _activeStackTextsContainer.sizeDelta = dynamicSize;
 
     }
 
@@ -123,8 +128,18 @@ public class InvGrid : MonoBehaviour
 
         //ensure the sprite is of the appropriate size
         itemRectTransform.sizeDelta = new Vector2(item.Width() * _cellSize.x, item.Height() * _cellSize.y);
-
+        
         itemRectTransform.gameObject.SetActive(true);
+
+        //ensure the stackText is positioned appropriately
+    }
+
+    private void ToggleStackTextViaCurrentAmount(RectTransform uiText, int stackSize)
+    {
+        if (stackSize <= 1)
+            uiText.gameObject.SetActive(false);
+
+        else uiText.gameObject.SetActive(true);
     }
     /*
     public Dictionary<(int, int), InventoryItem> GetItemsInArea(int width, int height, (int, int) clickedGridPosition, (int, int) itemHandle)
@@ -521,6 +536,12 @@ public class InvGrid : MonoBehaviour
 
         //make sure we don't overshoot the stack's limit
         _stackCapacity[stackArea] = Mathf.Min(_stackCapacity[stackArea] + increment, maxCapacity);
+
+        //update the stack's text
+        _stackTexts[stackArea].text = $"{_stackCapacity[stackArea]}";
+
+        //hide or toggle the stack text based on the new amount
+        ToggleStackTextViaCurrentAmount(_stackTexts[stackArea].GetComponent<RectTransform>(), _stackCapacity[stackArea]);
     }
     public void DecreaseStack((int, int) position, int decrement)
     {
@@ -529,9 +550,15 @@ public class InvGrid : MonoBehaviour
             return;
 
         _stackCapacity[stackArea] -= decrement;
-        
+        _stackTexts[stackArea].text = $"{_stackCapacity[stackArea]}";
+
+        int newCapacity = _stackCapacity[stackArea];
+
+        //show or hide the text depending on the stacksize
+        ToggleStackTextViaCurrentAmount(_stackTexts[stackArea].GetComponent<RectTransform>(), newCapacity);
+
         //delete the stack if we've expended all the items
-        if (_stackCapacity[stackArea] <= 0)
+        if (newCapacity <= 0)
             DeleteStack(position);
     }
     public void DeleteStack((int,int) position)
@@ -544,7 +571,10 @@ public class InvGrid : MonoBehaviour
         _stackItemDatas.Remove(stackArea);
         InventoryItem itemGraphic = _stackSpriteObjects[stackArea];
         _stackSpriteObjects.Remove(stackArea);
+        Text uiText = _stackTexts[stackArea];
+        _stackTexts.Remove(stackArea);
 
+        uiText.GetComponent<RectTransform>().SetParent(_unusedStackTextsContainer,false);
         ItemCreatorHelper.ReturnItemToCreator(itemGraphic);
     }
     public void CreateStack((int,int) position, InventoryItem item, int amount) //only items have the necessary rotation data to fit within a grid
@@ -600,10 +630,36 @@ public class InvGrid : MonoBehaviour
             }
         }
 
+        int stackAmount = Mathf.Clamp(amount, 1, item.ItemData().StackLimit());
+
+        //create a textUi to represent the item's stacksize
+        RectTransform uiTextTransform = null;
+
+        //either create a new text object, or reuse a discarded one as the new text object 
+        if (_unusedStackTextsContainer.childCount == 0)
+            uiTextTransform = Instantiate(_stackTextUiPrefab, _activeStackTextsContainer);
+        else
+        {
+            uiTextTransform = _unusedStackTextsContainer.GetChild(0).GetComponent<RectTransform>();
+            uiTextTransform.SetParent(_activeStackTextsContainer, false);
+        }
+
+        //set the text to match the stack's new value
+        Text uiText = uiTextTransform.GetComponent<Text>();
+        uiText.text = $"{stackAmount}";
+
+        //position the text to the lowest, rightmost cell positions
+        PositionUiTextOntoStack(uiTextTransform, expectedGridOccupancy);
+        
+        //show or hide the text depending on the stacksize
+        ToggleStackTextViaCurrentAmount(uiTextTransform, stackAmount);
+
+
         //everything is good! create the stack (clamp the amount to legit values)
         _stackItemDatas.Add(expectedGridOccupancy, item.ItemData());
-        _stackCapacity.Add(expectedGridOccupancy, Mathf.Clamp(amount,1,item.ItemData().StackLimit()));
+        _stackCapacity.Add(expectedGridOccupancy, stackAmount );
         _stackSpriteObjects.Add(expectedGridOccupancy, item);
+        _stackTexts.Add(expectedGridOccupancy, uiText);
 
         PositionItemGraphicOntoGridVisually(position, item);
 
@@ -665,7 +721,7 @@ public class InvGrid : MonoBehaviour
                     if (_stackCapacity[entry.Key] < itemData.StackLimit())
                     {
                         //increment the amount of items in this stack
-                        _stackCapacity[entry.Key] += 1;
+                        IncreaseStack(entry.Key.First<(int, int)>(), 1);
                         stackIncrementPerformed = true;
                         break;
                     }
@@ -692,6 +748,9 @@ public class InvGrid : MonoBehaviour
                 Debug.LogWarning($"No open position was found for item. Inventory must be full, or the item may be too big.\nLast Index checked: {openPosition}");
                 return;
             }
+
+            while (newItem.Rotation() != necessaryRotation)
+                newItem.RotateItem(RotationDirection.Clockwise);
 
             CreateStack(openPosition,newItem, 1);
             itemsAdded++;
@@ -743,6 +802,7 @@ public class InvGrid : MonoBehaviour
 
                     if (CountUniqueStacksInArea(calculatedPositions) == 0 && IsAreaWithinGrid(calculatedPositions))
                     {
+                        
                         necessaryRotation = item.Rotation();
                         gridPosition = (w, h);
 
@@ -750,7 +810,7 @@ public class InvGrid : MonoBehaviour
                         while (item.Rotation() != originalRotation) //only 4 exist in a cycle
                             item.RotateItem(RotationDirection.Clockwise);
 
-                        //Debug.Log($"Tracing 'FindSpaceForItem':\n Cell iteration: ({w},{h})\nStatus: success! Returning '{calculatedPositions.Count()}' calculatedPositions...");
+                        //Debug.Log($"Tracing 'FindSpaceForItem':\n Cell iteration: ({w},{h})\nStatus: success! Returning '{calculatedPositions.Count()}' calculatedPositions.\n DesiredRotation: {necessaryRotation}");
                         return calculatedPositions;
                     }
                         
@@ -769,6 +829,63 @@ public class InvGrid : MonoBehaviour
         //None were found.
         //Debug.Log($"Tracing 'FindSpaceForItem':\n No Positions Found. Returning an empty collection...");
         return new();
+    }
+
+
+
+    private void PositionUiTextOntoStack(RectTransform uiText,HashSet<(int,int)> stackPositions)
+    {
+
+        
+        //the stack value needs to be on the rightmost, lowest cell value.
+        //Find that cell index
+
+
+        //calculate the item's the rightmost, lowest cell
+        int xMaxPosition = 0;
+        int yMinPosition = 0;
+
+        //first find the lowest cell that exists
+        bool firstIteration = true;
+
+        foreach ((int, int) index in stackPositions)
+        {
+            if (firstIteration)
+            {
+                yMinPosition = index.Item2;
+                firstIteration = false;
+            }
+            else
+            {
+                if (index.Item2 < yMinPosition)
+                    yMinPosition = index.Item2;
+            }
+        }
+
+        //next find the rightmost cell that's also the lowest
+        firstIteration = false;
+        
+        foreach ((int, int) index in stackPositions)
+        {
+            if (index.Item2 == yMinPosition)
+            {
+                if (firstIteration)
+                {
+                    xMaxPosition = index.Item1;
+                    firstIteration = false;
+                }
+                else if (index.Item1 > xMaxPosition)
+                    xMaxPosition = index.Item1;
+            }
+            
+        }
+
+        //get the found cell's position on the grid
+        Vector2 bottomRightCellPosition = GetCellObject((xMaxPosition,yMinPosition)).GetComponent<RectTransform>().localPosition;
+
+        //set the stackText's transform to that cell's position. Different parents, but both object should be the same size and in the same place
+        uiText.localPosition = bottomRightCellPosition;
+
     }
 
 

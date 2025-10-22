@@ -13,6 +13,7 @@ MonoBehaviour:
   m_Name: Board
   m_EditorClassIdentifier: 
   _name: Board
+  _itemCode: 00
   _spacialDefinition:
   - {x: 0, y: 0}
   - {x: 1, y: 0}
@@ -21,6 +22,7 @@ MonoBehaviour:
   _itemHandle: {x: 1, y: 0}
   _desc: A rigid board. A popular fabrication material.
   _sprite: {fileID: -529813741, guid: 5aba311a53bea8e46bf9c998cced869e, type: 3}
+  _stackLimit: 3
   _isUsable: 0
   _isDiscardable: 1
   _isOrganizable: 1
