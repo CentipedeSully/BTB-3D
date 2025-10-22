@@ -123,6 +123,11 @@ public class CameraController : MonoBehaviour
 
     private void ControlCamera()
     {
+        //only move around the camera if the mouse isn't in a Ui window
+        //Used to prevent input from moving the cam when the player is trying to move 
+        //Ui stuff
+        if (UiTracker.GetHoveredWindow() != null)
+            return;
 
         //invert zoom if necessary
         if (_invertZoomControl)
