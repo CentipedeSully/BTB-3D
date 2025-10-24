@@ -3946,8 +3946,8 @@ MonoBehaviour:
   m_Direction: 0
   m_MinValue: 0
   m_MaxValue: 1
-  m_WholeNumbers: 1
-  m_Value: 0
+  m_WholeNumbers: 0
+  m_Value: 1
   m_OnValueChanged:
     m_PersistentCalls:
       m_Calls: []
@@ -4296,6 +4296,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   _hpSlider: {fileID: 1599318619}
   _healthBehaviour: {fileID: 2137410318}
+  _transitionTime: 0.25
 --- !u!1 &1847635316
 GameObject:
   m_ObjectHideFlags: 0
@@ -5675,7 +5676,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   _currentHp: 0
-  _maxHp: 2
+  _maxHp: 10
   _isDebugActive: 1
   _cmdValue: 0
   _cmdTakeDamage: 0
