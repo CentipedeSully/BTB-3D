@@ -9,9 +9,10 @@ using UnityEngine.AI;
 public enum UnitBehaviorState
 {
     unset,
+    KOed,
     Idle,
     Moving,
-    AttemptingInteraction
+    Interacting
 }
 
 public class UnitBehavior : MonoBehaviour
@@ -23,6 +24,7 @@ public class UnitBehavior : MonoBehaviour
     [SerializeField] private float _interactDistance;
     private Vector3 _targetPosition;
     private GameObject _targetGameObject;
+    private KnockOutBehaviour _koBehaviour;
 
 
     [Header("Debug")]
@@ -35,6 +37,7 @@ public class UnitBehavior : MonoBehaviour
     private void Start()
     {
         _unitState = UnitBehaviorState.Idle;
+        _koBehaviour = GetComponent<KnockOutBehaviour>();
     }
 
     private void Update()
@@ -42,7 +45,8 @@ public class UnitBehavior : MonoBehaviour
         if (_isDebugActive)
             ListenForDebugCommands();
 
-        ExecuteBehavior();
+        if (_unitState != UnitBehaviorState.KOed)
+            ExecuteBehavior();
     }
 
 
@@ -57,7 +61,7 @@ public class UnitBehavior : MonoBehaviour
             //perform any special-case cleanups
             switch (_unitState)
             {
-                case UnitBehaviorState.AttemptingInteraction:
+                case UnitBehaviorState.Interacting:
                     _targetGameObject = null;
                     break;
 
@@ -66,7 +70,9 @@ public class UnitBehavior : MonoBehaviour
             }
 
             _navAgent.ResetPath();
-            _unitState = UnitBehaviorState.Idle;
+
+            if (_unitState != UnitBehaviorState.KOed)
+                _unitState = UnitBehaviorState.Idle;
         }
     }
 
@@ -84,7 +90,7 @@ public class UnitBehavior : MonoBehaviour
                 break;
 
 
-            case UnitBehaviorState.AttemptingInteraction:
+            case UnitBehaviorState.Interacting:
 
                 //end the order if the target vanished
                 if (_targetGameObject == null)
@@ -135,7 +141,7 @@ public class UnitBehavior : MonoBehaviour
                 }
                 else return false;
 
-            case UnitBehaviorState.AttemptingInteraction:
+            case UnitBehaviorState.Interacting:
                 float sqrDistanceFromTarget2 = (_targetPosition - _navAgent.transform.position).sqrMagnitude;
                 float sqrInteractDistance = _interactDistance * _interactDistance;
 
@@ -180,12 +186,29 @@ public class UnitBehavior : MonoBehaviour
             ClearCurrentOrder();
         }
 
-        _unitState = UnitBehaviorState.AttemptingInteraction;
+        _unitState = UnitBehaviorState.Interacting;
         _targetGameObject = interactible.gameObject;
         ApproachPosition(interactible.transform.position);
     }
 
+    public void EnterKOed()
+    {
+        if (_unitState != UnitBehaviorState.KOed)
+        {
+            ClearCurrentOrder();
+            _unitState = UnitBehaviorState.KOed;
 
+            _koBehaviour.KnockOutUnit();
+        }
+    }
+    public void EndKOed()
+    {
+        if (_unitState == UnitBehaviorState.KOed)
+        {
+            _unitState = UnitBehaviorState.Idle;
+            _koBehaviour.ReviveUnit();
+        }
+    }
 
 
 

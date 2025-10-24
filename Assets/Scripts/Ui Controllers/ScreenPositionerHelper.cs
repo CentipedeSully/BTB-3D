@@ -5,11 +5,13 @@ using UnityEngine;
 public static  class ScreenPositionerHelper
 {
     private static Camera _uiCamera;
+    private static Camera _mainCamera;
 
 
 
 
-
+    public static void SetMainCamera(Camera mainCam) {  _mainCamera = mainCam; }
+    public static Camera GetMainCamera() { return _mainCamera; }
     public static void SetUiCamera(Camera uiCam) {  _uiCamera = uiCam; }
     public static Vector3 ScreenPosition(RectTransform UiElement)
     {

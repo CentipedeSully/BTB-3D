@@ -63,6 +63,7 @@ public class CameraController : MonoBehaviour
     //Internals
     private void InitializeUtils()
     {
+        ScreenPositionerHelper.SetMainCamera(_mapCamera);
 
         //save the original rotation
         _originalRotation = transform.localRotation.eulerAngles;
