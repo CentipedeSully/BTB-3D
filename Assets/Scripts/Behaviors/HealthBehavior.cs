@@ -19,7 +19,9 @@ public class HealthBehavior : MonoBehaviour
     private UnitBehavior _unitBehaviour;
 
     public delegate void HealthChangeEvent(int newValue);
+    public delegate void HealthEvent();
     public event HealthChangeEvent OnHealthChanged;
+    public event HealthEvent OnDamaged;
 
 
 
@@ -49,6 +51,7 @@ public class HealthBehavior : MonoBehaviour
     public void TakeDamage(int amount)
     {
         ChangeCurrentHp(_currentHp - amount);
+        OnDamaged?.Invoke();
         //Debug.Log($"Dmg taken: {amount}");
 
         if (_currentHp == 0)
