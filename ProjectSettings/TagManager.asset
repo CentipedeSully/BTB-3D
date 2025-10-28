@@ -45,6 +45,12 @@ TagManager:
   - name: Default
     uniqueID: 0
     locked: 0
+  - name: OverUnit Particles
+    uniqueID: 1433299659
+    locked: 0
+  - name: UnderUnit Particles
+    uniqueID: 2326334305
+    locked: 0
   - name: Ui notifications
     uniqueID: 497767389
     locked: 0
