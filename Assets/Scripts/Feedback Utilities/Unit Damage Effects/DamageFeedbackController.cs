@@ -8,11 +8,15 @@ public class DamageFeedbackController : MonoBehaviour
     [Header("References")]
     [SerializeField] private Transform _bodyContainer;
     [SerializeField] private HealthBehavior _healthBehavior;
+    [SerializeField] private Renderer _renderer;
 
     [Header("Settings")]
+    private Color _originalColor;
+    [SerializeField] private Color _damagedColor;
+    private float _colorInfluence = 0;
+    private Color _cachedTransitionColor;
+    [SerializeField] private AnimationCurve _flashAnimCurve;
     [SerializeField] private float _staggerDuration;
-    private Vector3 _originalBodyScale;
-    private Vector3 _originalBodyPosition;
     private Vector3 _currentStaggerScale;
     private Vector3 _currentStaggerPosition;
     private float _xScaleCurveValue;
@@ -21,6 +25,8 @@ public class DamageFeedbackController : MonoBehaviour
     private float _xPositionCurveValue;
     private float _yPositionCurveValue;
     private float _zPositionCurveValue;
+    private Vector3 _originalColorRGB;
+    private Vector3 _damageColorRGB;
 
     [Header("Scale Animation On Stagger")]
     [SerializeField] private AnimationCurve _xScaleAnimCurve;
@@ -49,8 +55,9 @@ public class DamageFeedbackController : MonoBehaviour
     //Monobehaviours
     private void Awake()
     {
-        _originalBodyScale = _bodyContainer.localScale;
-        _originalBodyPosition = _bodyContainer.localPosition;
+        _originalColor = _renderer.material.color;
+        _originalColorRGB = new Vector3(_originalColor.r, _originalColor.g, _originalColor.b);
+        SetDamageColor(_damagedColor);
     }
 
     private void OnEnable()
@@ -100,6 +107,13 @@ public class DamageFeedbackController : MonoBehaviour
         //apply this frames transformations
         _bodyContainer.localScale = _currentStaggerScale;
         _bodyContainer.localPosition = _currentStaggerPosition;
+
+
+        //update the shader's alpha based on the stagger's current time
+        _colorInfluence = _flashAnimCurve.Evaluate(_currentTime / _staggerDuration);
+        Vector3 rgb = Vector3.Lerp(_originalColorRGB, _damageColorRGB, _colorInfluence);
+        _cachedTransitionColor = new Color(rgb.x, rgb.y, rgb.z, _originalColor.a);
+        _renderer.material.SetColor("_Color", _cachedTransitionColor);
         
 
         if (_currentTime >= _staggerDuration)
@@ -116,7 +130,13 @@ public class DamageFeedbackController : MonoBehaviour
     {
         _isStaggering = true;
         _currentTime = 0;
+        CamshakeHelper.ShakeCamera(.5f, _staggerDuration/3);
 
+    }
+
+    public void SetDamageColor(Color newColor)
+    {
+        _damageColorRGB = new Vector3(newColor.r, newColor.g, newColor.b);
     }
 
 
