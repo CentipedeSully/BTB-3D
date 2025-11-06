@@ -8,7 +8,7 @@ public class RagdollSwitch : MonoBehaviour
     [Header("Settings")]
     [SerializeField] private bool _ragdollMode = false;
     [SerializeField] private List<Rigidbody> _rbs = new List<Rigidbody>();
-    [SerializeField] private List<(Vector3, Vector3)> _originalPositionsAndRotations = new List<(Vector3, Vector3)>();
+    [SerializeField] private Dictionary<Rigidbody,(Vector3,Vector3)> _originalPositionsAndRotations = new();
 
     [Header("Debugging")]
     [SerializeField] private bool _isDebugActive = false;
@@ -39,7 +39,12 @@ public class RagdollSwitch : MonoBehaviour
             Vector3 pos = rb.transform.localPosition;
             Vector3 eulers = rb.transform.localEulerAngles;
 
-            _originalPositionsAndRotations.Add((pos, eulers));
+            //update the dictionary if the rb is new
+            if (!_originalPositionsAndRotations.ContainsKey(rb))
+                _originalPositionsAndRotations.Add(rb, (pos, eulers));
+            else //otherwise just replace the current transform as the new original
+                _originalPositionsAndRotations[rb] = (pos, eulers);
+            
         }
     }
 
@@ -51,11 +56,15 @@ public class RagdollSwitch : MonoBehaviour
 
     private void ResetRbsToOriginalPositions()
     {
+
+        if (_originalPositionsAndRotations == null || _originalPositionsAndRotations.Count == 0)
+            SaveOriginalTransforms();
+
         for (int i = 0; i < _rbs.Count; i++)
         {
             //get the corresponding data for each rb
             Rigidbody rb = _rbs[i];
-            (Vector3,Vector3) posAndEuler = _originalPositionsAndRotations[i];
+            (Vector3,Vector3) posAndEuler = _originalPositionsAndRotations[rb];
 
 
             rb.isKinematic = true;
@@ -78,6 +87,11 @@ public class RagdollSwitch : MonoBehaviour
             RemoveKinematicsFromRbs();
         else 
             ResetRbsToOriginalPositions();
+    }
+
+    public Vector3 GetRagdollPosition()
+    {
+        return _rbs[0].position;
     }
 
 

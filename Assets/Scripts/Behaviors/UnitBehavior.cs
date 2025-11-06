@@ -210,6 +210,8 @@ public class UnitBehavior : MonoBehaviour
         }
     }
 
+    public UnitBehaviorState GetCurrentState(){return _unitState;}
+
 
 
     //DEBUG

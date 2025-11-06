@@ -51,17 +51,16 @@ public class KnockOutBehaviour : MonoBehaviour
     private void TransferControlToPhysics()
     {
         _navMeshAgent.enabled = false;
-        _animController.GoRagdoll();
+        _animController.Ragdoll();
 
     }
     private void TransferControlToNavAgent()
     {
-        if ( _navMeshAgent!= null && _rigidbody != null)
-        {
-            _navMeshAgent.enabled = true;
-            _throwBody.isKinematic = true;
-            _animController.StopRagdoll();
-        }
+        //make the unit's navBody match where the unit's ragdoll body's current position
+        transform.position = _animController.GetBodyPosition();
+
+        _animController.EndRagdoll();
+        _navMeshAgent.enabled = true;
     }
     private static float RandomizeValue(float min, float max){return Random.Range(min, max);}
     private float RandomizeVerticalThrow() { return RandomizeValue(_yThrowForceRange.x, _yThrowForceRange.y); }

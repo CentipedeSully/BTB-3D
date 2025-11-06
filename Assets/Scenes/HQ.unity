@@ -1347,6 +1347,8 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: f6291ecefbb337a46a07f01928871b25, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+  _ragdollBody: {fileID: 1441122527}
+  _animationBody: {fileID: 694130742}
   _ragdollSwitch: {fileID: 1441122529}
   _isDebugActive: 0
 --- !u!1 &554032422
@@ -1493,12 +1495,12 @@ Transform:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 565913679}
   serializedVersion: 2
-  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 0, y: -0.120000124, z: 0}
+  m_LocalRotation: {x: -0, y: -0, z: -0, w: 1}
+  m_LocalPosition: {x: 0, y: -0.8100001, z: 0}
   m_LocalScale: {x: 0.98, y: 0.98, z: 0.98}
   m_ConstrainProportionsScale: 1
   m_Children: []
-  m_Father: {fileID: 1441122528}
+  m_Father: {fileID: 2125324328}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!23 &565913681
 MeshRenderer:
@@ -1850,7 +1852,8 @@ Transform:
   m_LocalPosition: {x: 0, y: 1.76, z: 0}
   m_LocalScale: {x: 0.65, y: 0.65, z: 0.65}
   m_ConstrainProportionsScale: 1
-  m_Children: []
+  m_Children:
+  - {fileID: 1592022090}
   m_Father: {fileID: 1441122528}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!65 &652600972
@@ -4396,9 +4399,7 @@ Transform:
   m_Children:
   - {fileID: 928552618}
   - {fileID: 652600971}
-  - {fileID: 1592022090}
   - {fileID: 2125324328}
-  - {fileID: 565913680}
   - {fileID: 1799992509}
   m_Father: {fileID: 545778210}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
@@ -4840,12 +4841,12 @@ Transform:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1592022089}
   serializedVersion: 2
-  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 0, y: 1.3299999, z: 0}
-  m_LocalScale: {x: 0.5, y: 0.5, z: 0.5}
+  m_LocalRotation: {x: -0, y: -0, z: -0, w: 1}
+  m_LocalPosition: {x: 0, y: -0.6615386, z: 0}
+  m_LocalScale: {x: 0.7692308, y: 0.7692308, z: 0.7692308}
   m_ConstrainProportionsScale: 1
   m_Children: []
-  m_Father: {fileID: 1441122528}
+  m_Father: {fileID: 652600971}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!23 &1592022091
 MeshRenderer:
@@ -7125,7 +7126,8 @@ Transform:
   m_LocalPosition: {x: 0, y: 0.69, z: 0}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 1
-  m_Children: []
+  m_Children:
+  - {fileID: 565913680}
   m_Father: {fileID: 1441122528}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!65 &2125324329
@@ -7397,8 +7399,8 @@ MonoBehaviour:
   _yThrowForceRange: {x: 1, y: 7}
   _xzThrowForceRange: {x: 1, y: 7}
   _calculatedThrowDirection: {x: 0, y: 0, z: 0}
-  _animController: {fileID: 0}
-  _throwBody: {fileID: 0}
+  _animController: {fileID: 545778211}
+  _throwBody: {fileID: 2125324332}
   _isDebugActive: 0
   _cmdKnockOutUnit: 0
   _cmdReviveUnit: 0

@@ -4,6 +4,9 @@ using UnityEngine;
 
 public class AnimationController : MonoBehaviour
 {
+    [Header("Settings")]
+    [SerializeField] private GameObject _ragdollBody;
+    [SerializeField] private GameObject _animationBody;
     [SerializeField] private RagdollSwitch _ragdollSwitch;
 
     [Header("Debugging")]
@@ -17,16 +20,24 @@ public class AnimationController : MonoBehaviour
     }
 
 
-    public void GoRagdoll()
+    public void Ragdoll()
     {
+        _animationBody.SetActive(false);
+        _ragdollBody.SetActive(true);
         _ragdollSwitch.SetRagdollMode(true);
     }
 
-    public void StopRagdoll()
+    public void EndRagdoll()
     {
+        _animationBody.SetActive(true);
+        _ragdollBody.SetActive(false);
         _ragdollSwitch.SetRagdollMode(false);
     }
 
+    public Vector3 GetBodyPosition()
+    {
+        return _ragdollSwitch.GetRagdollPosition();
+    }
 
 
 

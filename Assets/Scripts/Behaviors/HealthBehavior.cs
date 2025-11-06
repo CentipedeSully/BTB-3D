@@ -62,10 +62,16 @@ public class HealthBehavior : MonoBehaviour
     public void RecoverHealth(int amount)
     {
         ChangeCurrentHp(_currentHp + amount);
+
+        if (_unitBehaviour.GetCurrentState() == UnitBehaviorState.KOed && _currentHp > 0)
+            _unitBehaviour.EndKOed();
     }
     public void FullRestore()
     {
         ChangeCurrentHp(_maxHp);
+
+        if (_unitBehaviour.GetCurrentState() == UnitBehaviorState.KOed)
+            _unitBehaviour.EndKOed();
     }
     public void SetMaxHp(int amount)
     {
