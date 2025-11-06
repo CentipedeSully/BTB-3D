@@ -18,8 +18,8 @@ TagManager:
   - Ground
   - Unit
   - Interactible
-  - 
-  - 
+  - BodyPart
+  - Ragdoll Bodies
   - 
   - 
   - 

@@ -11,6 +11,8 @@ public class KnockOutBehaviour : MonoBehaviour
     [SerializeField] private Vector2 _yThrowForceRange = new(1,7);
     [SerializeField] private Vector2 _xzThrowForceRange = new(1, 7);
     [SerializeField] private Vector3 _calculatedThrowDirection;
+    [SerializeField] private AnimationController _animController;
+    [SerializeField] private Rigidbody _throwBody;
     //[SerializeField] private LayerMask _groundLayers;
 
     [Header("Debug")]
@@ -21,7 +23,6 @@ public class KnockOutBehaviour : MonoBehaviour
 
     private NavMeshAgent _navMeshAgent;
     private Rigidbody _rigidbody;
-    private UnitBehavior _unitBehavior;
 
 
 
@@ -49,19 +50,17 @@ public class KnockOutBehaviour : MonoBehaviour
     //internals
     private void TransferControlToPhysics()
     {
-        if (_navMeshAgent!= null && _rigidbody != null)
-        {
-            _navMeshAgent.enabled = false;
-            _rigidbody.isKinematic = false;
-        }
-       
+        _navMeshAgent.enabled = false;
+        _animController.GoRagdoll();
+
     }
     private void TransferControlToNavAgent()
     {
         if ( _navMeshAgent!= null && _rigidbody != null)
         {
             _navMeshAgent.enabled = true;
-            _rigidbody.isKinematic = true;
+            _throwBody.isKinematic = true;
+            _animController.StopRagdoll();
         }
     }
     private static float RandomizeValue(float min, float max){return Random.Range(min, max);}
@@ -83,8 +82,8 @@ public class KnockOutBehaviour : MonoBehaviour
 
             //randomize the throw force and direction
             _calculatedThrowDirection = RandomizeThrowDirection() + new Vector3(RandomizeHorizontalThrow(), RandomizeVerticalThrow(), RandomizeHorizontalThrow());
-            _rigidbody.AddForce(_calculatedThrowDirection, ForceMode.Impulse);
-            _rigidbody.AddTorque(_calculatedThrowDirection, ForceMode.Force);
+            _throwBody.AddForce(_calculatedThrowDirection, ForceMode.Impulse);
+            _throwBody.AddTorque(_calculatedThrowDirection, ForceMode.Force);
 
         }
     }

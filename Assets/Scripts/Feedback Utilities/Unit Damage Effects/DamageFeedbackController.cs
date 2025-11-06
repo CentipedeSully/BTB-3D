@@ -55,7 +55,7 @@ public class DamageFeedbackController : MonoBehaviour
     //Monobehaviours
     private void Awake()
     {
-        _originalColor = _renderer.material.color;
+        //_originalColor = _renderer.material.color;
         _originalColorRGB = new Vector3(_originalColor.r, _originalColor.g, _originalColor.b);
         SetDamageColor(_damagedColor);
     }
@@ -75,8 +75,10 @@ public class DamageFeedbackController : MonoBehaviour
         if (_isDebugActive)
             ListenForDebugCommands();
 
+        /*
         if (_isStaggering)
             ApplyStaggerAnimationTransformation();
+        */
     }
 
 
