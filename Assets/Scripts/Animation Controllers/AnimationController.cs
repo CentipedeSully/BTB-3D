@@ -22,15 +22,11 @@ public class AnimationController : MonoBehaviour
 
     public void Ragdoll()
     {
-        _animationBody.SetActive(false);
-        _ragdollBody.SetActive(true);
         _ragdollSwitch.SetRagdollMode(true);
     }
 
     public void EndRagdoll()
     {
-        _animationBody.SetActive(true);
-        _ragdollBody.SetActive(false);
         _ragdollSwitch.SetRagdollMode(false);
     }
 

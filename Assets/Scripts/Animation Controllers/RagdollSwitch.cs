@@ -94,6 +94,8 @@ public class RagdollSwitch : MonoBehaviour
         return _rbs[0].position;
     }
 
+    public bool RagdollMode() { return _ragdollMode; }
+
 
 
     //Debug
