@@ -18,6 +18,7 @@ public enum UnitBehaviorState
 public class UnitBehavior : MonoBehaviour
 {
     //Declarations
+    [SerializeField] private int _unitId;
     [SerializeField] private NavMeshAgent _navAgent;
     [SerializeField] private UnitBehaviorState _unitState;
     [SerializeField] private float _closeEnoughDistance;
@@ -34,6 +35,10 @@ public class UnitBehavior : MonoBehaviour
 
 
     //Monobehaviours
+    private void Awake()
+    {
+        _unitId = gameObject.GetInstanceID();
+    }
     private void Start()
     {
         _unitState = UnitBehaviorState.Idle;
@@ -166,6 +171,7 @@ public class UnitBehavior : MonoBehaviour
 
 
     //Externals
+    public int GetUnitID() { return _unitId; }
     public void MoveToPosition(Vector3 point)
     {
         if (_unitState != UnitBehaviorState.Idle)

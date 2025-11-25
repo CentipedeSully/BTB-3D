@@ -2,9 +2,10 @@ using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 
-public class HealthBehavior : MonoBehaviour
+public class HealthBehavior : MonoBehaviour, IAttackable
 {
     [Header("Settings")]
+    [SerializeField] private int _unitID;
     [SerializeField] private int _currentHp;
     [SerializeField] private int _maxHp;
 
@@ -27,7 +28,15 @@ public class HealthBehavior : MonoBehaviour
 
     private void Awake()
     {
-        _unitBehaviour = GetComponent<UnitBehavior>();
+        if (_unitBehaviour != null)
+        {
+            _unitBehaviour = GetComponent<UnitBehavior>();
+            _unitID = _unitBehaviour.GetUnitID();
+        }
+
+        else 
+            _unitID = gameObject.GetInstanceID();
+
         FullRestore();
     }
 
@@ -56,30 +65,36 @@ public class HealthBehavior : MonoBehaviour
 
         if (_currentHp == 0)
         {
-            _unitBehaviour.EnterKOed();
+            if (_unitBehaviour !=null)
+                _unitBehaviour.EnterKOed();
         }
     }
     public void RecoverHealth(int amount)
     {
         ChangeCurrentHp(_currentHp + amount);
 
-        if (_unitBehaviour.GetCurrentState() == UnitBehaviorState.KOed && _currentHp > 0)
-            _unitBehaviour.EndKOed();
+        if (_unitBehaviour != null)
+        {
+            if (_unitBehaviour.GetCurrentState() == UnitBehaviorState.KOed && _currentHp > 0)
+                _unitBehaviour.EndKOed();
+        }
     }
     public void FullRestore()
     {
         ChangeCurrentHp(_maxHp);
 
-        if (_unitBehaviour.GetCurrentState() == UnitBehaviorState.KOed)
-            _unitBehaviour.EndKOed();
+        if (_unitBehaviour != null)
+        {
+            if (_unitBehaviour.GetCurrentState() == UnitBehaviorState.KOed)
+                _unitBehaviour.EndKOed();
+        }
+        
     }
-    public void SetMaxHp(int amount)
-    {
-        _maxHp = Mathf.Max(1,amount);
-    }
+    public void SetMaxHp(int amount) { _maxHp = Mathf.Max(1,amount); }
 
     public int GetMaxHp() { return _maxHp; }
     public int GetCurrentHp() { return _currentHp; }
+    public int GetUnitID() { return _unitID; }
 
 
     //debug
