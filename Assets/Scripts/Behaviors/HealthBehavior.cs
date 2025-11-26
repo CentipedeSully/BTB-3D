@@ -17,27 +17,19 @@ public class HealthBehavior : MonoBehaviour, IAttackable
     [SerializeField] private bool _cmdRecoverHealth = false;
     [SerializeField] private bool _cmdFullRestore = false;
 
-    private UnitBehavior _unitBehaviour;
-
     public delegate void HealthChangeEvent(int newValue);
     public delegate void HealthEvent();
     public event HealthChangeEvent OnHealthChanged;
     public event HealthEvent OnDamaged;
+    public event HealthEvent OnKoed;
+    public event HealthEvent OnRevived;
 
 
 
     private void Awake()
     {
-        if (_unitBehaviour != null)
-        {
-            _unitBehaviour = GetComponent<UnitBehavior>();
-            _unitID = _unitBehaviour.GetUnitID();
-        }
 
-        else 
-            _unitID = gameObject.GetInstanceID();
-
-        FullRestore();
+        FullRestore(true);
     }
 
     private void Update()
@@ -64,37 +56,44 @@ public class HealthBehavior : MonoBehaviour, IAttackable
         //Debug.Log($"Dmg taken: {amount}");
 
         if (_currentHp == 0)
-        {
-            if (_unitBehaviour !=null)
-                _unitBehaviour.EnterKOed();
-        }
+            OnKoed?.Invoke();
     }
+
     public void RecoverHealth(int amount)
     {
         ChangeCurrentHp(_currentHp + amount);
-
-        if (_unitBehaviour != null)
-        {
-            if (_unitBehaviour.GetCurrentState() == UnitBehaviorState.KOed && _currentHp > 0)
-                _unitBehaviour.EndKOed();
-        }
     }
-    public void FullRestore()
-    {
-        ChangeCurrentHp(_maxHp);
 
-        if (_unitBehaviour != null)
+    public void FullRestore(bool reviveIfDowned = false)
+    {
+        if (_currentHp == 0 && reviveIfDowned)
         {
-            if (_unitBehaviour.GetCurrentState() == UnitBehaviorState.KOed)
-                _unitBehaviour.EndKOed();
+            OnRevived?.Invoke();
+            ChangeCurrentHp(_maxHp);
         }
+
+        else if (_currentHp > 0)
+            ChangeCurrentHp(_maxHp);
+        
         
     }
+
+    public void Revive(int gainedHp = 1)
+    {
+        if (_currentHp == 0)
+        {
+            gainedHp = Mathf.Max(1, gainedHp);
+            OnRevived?.Invoke();
+            ChangeCurrentHp(gainedHp);
+        }
+    }
+
     public void SetMaxHp(int amount) { _maxHp = Mathf.Max(1,amount); }
 
     public int GetMaxHp() { return _maxHp; }
     public int GetCurrentHp() { return _currentHp; }
     public int GetUnitID() { return _unitID; }
+    public void SetUnitID(int newID) { _unitID = newID; }
 
 
     //debug

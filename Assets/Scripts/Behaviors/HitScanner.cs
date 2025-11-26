@@ -7,15 +7,13 @@ public class HitScanner : MonoBehaviour
     [SerializeField] private Transform _scanStart;
     [SerializeField] private Transform _scanEnd;
     [SerializeField] private float _scanRadius;
-
     [SerializeField] private bool _isHitScanningActive;
-    [SerializeField] private LayerMask _hittableLayers;
-    [SerializeField] private List<int> _safeIds = new List<int>();
     private Collider[] _hitsDetected;
     private IAttackable _detectedAttackable;
-    private List<int> _attackablesDetected = new();
+    private IAttack _attack;
+    private HashSet<int> _detectedAttackableIDs = new HashSet<int>();
 
-    public delegate void HitsDetectedEvent(List<int> hits);
+    public delegate void HitsDetectedEvent(HashSet<int> hits);
     public event HitsDetectedEvent OnHitsDetected;
 
     private void Start()
@@ -32,27 +30,27 @@ public class HitScanner : MonoBehaviour
 
     private void ScanForHits()
     {
-        _attackablesDetected.Clear();
-        _hitsDetected = Physics.OverlapCapsule(_scanStart.position, _scanEnd.position, _scanRadius,_hittableLayers);
+        _detectedAttackableIDs.Clear();
+        _hitsDetected = Physics.OverlapCapsule(_scanStart.position, _scanEnd.position, _scanRadius,_attack.GetHittableLayers());
         
 
         foreach (Collider collider in _hitsDetected)
         {
-            //add the detected attackable if it exists, and hasn't already been detected during this scan
+            //cache the attackle behaviour for clarit, if it exists
             _detectedAttackable = collider.GetComponent<IAttackable>();
             if (_detectedAttackable != null)
             {
                 
                 int detectedId = _detectedAttackable.GetUnitID();
 
-                //also filter out the safe and already-detected unit IDs
-                if (!_attackablesDetected.Contains(detectedId) && !_safeIds.Contains(detectedId))
-                    _attackablesDetected.Add(detectedId);
+                //only add the detected ID if it's not on the ignore list
+                if (!_attack.GetIgnoreList().Contains(detectedId))
+                    _detectedAttackableIDs.Add(detectedId);
             }
         }
 
-        if (_attackablesDetected.Count > 0)
-            OnHitsDetected?.Invoke(_attackablesDetected);
+        if (_detectedAttackableIDs.Count > 0)
+            OnHitsDetected?.Invoke(_detectedAttackableIDs);
     }
 
 
@@ -69,13 +67,8 @@ public class HitScanner : MonoBehaviour
         _scanEnd.gameObject.SetActive(false);
     }
 
-    public void AddSafeUnitID(int id)
+    public void SetAtkBehavior(IAttack atk)
     {
-        if (!_safeIds.Contains(id))
-            _safeIds.Add(id);
-    }
-    public void RemoveSafeID(int id)
-    {
-        _safeIds.Remove(id);
+        _attack = atk;
     }
 }

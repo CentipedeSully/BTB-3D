@@ -32,12 +32,12 @@ public class BasicMeleeBehaviour : AbstractAttack
 
     protected override void SetupChildStartUtils()
     {
-        if (_unitBehaviour != null)
-            _hitscanner.AddSafeUnitID(_personalUnitId);
+        _hitscanner.SetAtkBehavior(this);
     }
 
-    private void SaveHitUnits(List<int> hitsDetected)
+    private void SaveHitUnits(HashSet<int> hitsDetected)
     {
+
         //create a copy of the data, don't copy the reference
         foreach (int hit in hitsDetected)
         {

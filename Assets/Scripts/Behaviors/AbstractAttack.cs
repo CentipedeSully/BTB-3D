@@ -1,6 +1,7 @@
 using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
+using System.Runtime.InteropServices.WindowsRuntime;
 using UnityEngine;
 
 
@@ -18,11 +19,21 @@ public interface IAttackable
     int GetUnitID();
 }
 
-public abstract class AbstractAttack : MonoBehaviour
+public interface IAttack
+{
+    void SetUnitID(int ID);
+    void AddIDToIgnoreList(int ID);
+    void RemoveIDFromIgnoreList(int ID);
+    HashSet<int> GetIgnoreList();
+    LayerMask GetHittableLayers();
+    GameObject GetGameObject();
+}
+
+public abstract class AbstractAttack : MonoBehaviour, IAttack
 {
     [Header("General Attack Settings")]
-    [SerializeField] protected UnitBehavior _unitBehaviour;
-    protected int _personalUnitId;
+    [SerializeField] protected int _unitID;
+    protected HashSet<int> _ignoreList= new();
     [SerializeField] protected AtkState _atkState = AtkState.Unset;
     [SerializeField] protected float _atkWarmup;
     [SerializeField] protected float _atkHitTime;
@@ -90,9 +101,6 @@ public abstract class AbstractAttack : MonoBehaviour
 
     private void Start()
     {
-        if (_unitBehaviour != null)
-            _personalUnitId = _unitBehaviour.GetUnitID();
-
         _atkState = AtkState.Standby;
         OnStandByEntered?.Invoke();
 
@@ -166,20 +174,20 @@ public abstract class AbstractAttack : MonoBehaviour
 
 
 
-    protected virtual void CaptureAttackableObjectsWithinRange()
+    protected virtual void ScanRange()
     {
         _attackableIdsWithinRange.Clear();
 
         _detectionsWithinRange = Physics.OverlapSphere(_rangeCheckTransform.position, _rangeScanRadius);
         foreach (Collider collider in _detectionsWithinRange)
         {
-            //add the detected attackable if it exists, and hasn't already been detected during this scan
+            //cache the detected attackable for clarity, if it exists
             _detectedAttackable = collider.GetComponent<IAttackable>();
             if (_detectedAttackable != null)
             {
-                //make sure the detected object isn't ourself
+                //only report attackables that aren't on the ignore list
                 int detectedId = _detectedAttackable.GetUnitID();
-                if (!_attackableIdsWithinRange.Contains(detectedId) && detectedId != _personalUnitId)
+                if (!_ignoreList.Contains(detectedId))
                     _attackableIdsWithinRange.Add(detectedId);
             }
         }
@@ -202,10 +210,19 @@ public abstract class AbstractAttack : MonoBehaviour
 
     public bool IsTargetInRange(int targetID)
     {
-        CaptureAttackableObjectsWithinRange();
+        ScanRange();
 
         return (_attackableIdsWithinRange.Contains(targetID));
     }
+
+    public GameObject GetGameObject() { return gameObject; }
+    public virtual void SetUnitID(int id) {  _unitID = id; AddIDToIgnoreList(_unitID); }
+    public void AddIDToIgnoreList(int ID) { _ignoreList.Add(ID); }
+    public void RemoveIDFromIgnoreList(int ID) { _ignoreList.Remove(ID); }
+    public HashSet<int> GetIgnoreList() { return _ignoreList; }
+    public LayerMask GetHittableLayers() {  return _hittableLayers; }
+
+
 
 
     //debug
@@ -233,7 +250,7 @@ public abstract class AbstractAttack : MonoBehaviour
         if (_cmdCaptureObjectsInRange)
         {
             _cmdCaptureObjectsInRange = false;
-            CaptureAttackableObjectsWithinRange();
+            ScanRange();
         }
 
         if (_cmdDeclareAtkState)

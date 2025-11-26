@@ -23,9 +23,10 @@ public class UnitBehavior : MonoBehaviour
     [SerializeField] private UnitBehaviorState _unitState;
     [SerializeField] private float _closeEnoughDistance;
     [SerializeField] private float _interactDistance;
+    private IAttack _attack;
+    private HealthBehavior _healthBehavior;
     private Vector3 _targetPosition;
     private GameObject _targetGameObject;
-    private KnockOutBehaviour _koBehaviour;
 
 
     [Header("Debug")]
@@ -38,11 +39,26 @@ public class UnitBehavior : MonoBehaviour
     private void Awake()
     {
         _unitId = gameObject.GetInstanceID();
+        _healthBehavior = GetComponent<HealthBehavior>();
+        _healthBehavior.SetUnitID(_unitId);
+        _attack = GetComponent<IAttack>();
+        _attack.SetUnitID(_unitId);
     }
     private void Start()
     {
         _unitState = UnitBehaviorState.Idle;
-        _koBehaviour = GetComponent<KnockOutBehaviour>();
+    }
+
+    private void OnEnable()
+    {
+        _healthBehavior.OnKoed += EnterKOed;
+        _healthBehavior.OnRevived += EndKOed;
+    }
+
+    private void OnDisable()
+    {
+        _healthBehavior.OnKoed -= EnterKOed;
+        _healthBehavior.OnRevived -= EndKOed;
     }
 
     private void Update()
@@ -203,8 +219,6 @@ public class UnitBehavior : MonoBehaviour
         {
             ClearCurrentOrder();
             _unitState = UnitBehaviorState.KOed;
-
-            _koBehaviour.KnockOutUnit();
         }
     }
     public void EndKOed()
@@ -212,7 +226,6 @@ public class UnitBehavior : MonoBehaviour
         if (_unitState == UnitBehaviorState.KOed)
         {
             _unitState = UnitBehaviorState.Idle;
-            _koBehaviour.ReviveUnit();
         }
     }
 
