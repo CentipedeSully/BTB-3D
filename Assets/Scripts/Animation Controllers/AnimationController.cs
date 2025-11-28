@@ -5,19 +5,32 @@ using UnityEngine;
 public class AnimationController : MonoBehaviour
 {
     [Header("Settings")]
-    [SerializeField] private GameObject _ragdollBody;
-    [SerializeField] private GameObject _animationBody;
+    [SerializeField] private Animator _animator;
+    [SerializeField] private float _onHitTriggerResetTimer = .1f;
     [SerializeField] private RagdollSwitch _ragdollSwitch;
 
     [Header("Debugging")]
     [SerializeField] private bool _isDebugActive = false;
-
 
     private void Update()
     {
         if (_isDebugActive)
             ListenForDebugCommands();
     }
+
+   public void SetMovement(bool value)
+    {
+        _animator.SetBool("IsMoving", value);
+    }
+
+    public void TriggerDamageTaken()
+    {
+        _animator.SetTrigger("OnDamageTaken");
+        Invoke(nameof(ResetOnHitTrigger), _onHitTriggerResetTimer);
+        
+    }
+
+    private void ResetOnHitTrigger() { _animator.ResetTrigger("OnDamageTaken"); }
 
 
     public void Ragdoll()

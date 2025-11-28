@@ -17,6 +17,7 @@ public enum AtkState
 public interface IAttackable
 {
     int GetUnitID();
+    void TakeDamage(int damage);
 }
 
 public interface IAttack
@@ -24,6 +25,8 @@ public interface IAttack
     void SetUnitID(int ID);
     void AddIDToIgnoreList(int ID);
     void RemoveIDFromIgnoreList(int ID);
+    int GetDamage();
+    void SetDamage(int newValue);
     HashSet<int> GetIgnoreList();
     LayerMask GetHittableLayers();
     GameObject GetGameObject();
@@ -33,6 +36,7 @@ public abstract class AbstractAttack : MonoBehaviour, IAttack
 {
     [Header("General Attack Settings")]
     [SerializeField] protected int _unitID;
+    [SerializeField] protected int _damage;
     protected HashSet<int> _ignoreList= new();
     [SerializeField] protected AtkState _atkState = AtkState.Unset;
     [SerializeField] protected float _atkWarmup;
@@ -221,6 +225,8 @@ public abstract class AbstractAttack : MonoBehaviour, IAttack
     public void RemoveIDFromIgnoreList(int ID) { _ignoreList.Remove(ID); }
     public HashSet<int> GetIgnoreList() { return _ignoreList; }
     public LayerMask GetHittableLayers() {  return _hittableLayers; }
+    public int GetDamage() { return _damage; }
+    public void SetDamage(int newDamage) { _damage = newDamage; }
 
 
 

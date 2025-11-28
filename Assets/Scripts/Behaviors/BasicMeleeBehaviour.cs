@@ -6,7 +6,8 @@ public class BasicMeleeBehaviour : AbstractAttack
 {
     [Header("Basic Melee Settings")]
     [SerializeField] private HitScanner _hitscanner;
-    [SerializeField] private List<int> _unitsHit = new List<int>();
+    [SerializeField] private List<int> _unitsAttacked = new List<int>();
+    private HashSet<int> _unitsDamaged = new HashSet<int>();
 
 
 
@@ -14,20 +15,20 @@ public class BasicMeleeBehaviour : AbstractAttack
 
     protected override void SetupChildOnEnableUtils()
     {
-        OnHitStepEntered += ClearOldHitData;
+        OnHitStepEntered += ResetHitData;
         OnHitStepEntered += _hitscanner.ActivateHitScanner;
         OnCooldownEntered += _hitscanner.DeactivateHitScanner;
         OnAtkInterrupted += _hitscanner.DeactivateHitScanner;
-        _hitscanner.OnHitsDetected += SaveHitUnits;
+        _hitscanner.OnAttackableDetected += ProcessDetection;
     }
 
     protected override void SetupChildOnDisableUtils()
     {
-        OnHitStepEntered -= ClearOldHitData;
+        OnHitStepEntered -= ResetHitData;
         OnHitStepEntered -= _hitscanner.ActivateHitScanner;
         OnCooldownEntered -= _hitscanner.DeactivateHitScanner;
         OnAtkInterrupted -= _hitscanner.DeactivateHitScanner;
-        _hitscanner.OnHitsDetected -= SaveHitUnits;
+        _hitscanner.OnAttackableDetected -= ProcessDetection;
     }
 
     protected override void SetupChildStartUtils()
@@ -35,19 +36,25 @@ public class BasicMeleeBehaviour : AbstractAttack
         _hitscanner.SetAtkBehavior(this);
     }
 
-    private void SaveHitUnits(HashSet<int> hitsDetected)
+    private void ProcessDetection(IAttackable attackableBehaviour)
     {
 
-        //create a copy of the data, don't copy the reference
-        foreach (int hit in hitsDetected)
+        //damage the attackable if it didn't get damaged yet
+        if (!_unitsDamaged.Contains(attackableBehaviour.GetUnitID()))
         {
-            if (!_unitsHit.Contains(hit))
-                _unitsHit.Add(hit);
+            attackableBehaviour.TakeDamage(_damage);
+
+            //add this unit as already damaged to prevent multi-hits
+            _unitsDamaged.Add(attackableBehaviour.GetUnitID());
+
+            //also add the unit's ID to the inspector variable, for visibility
+            _unitsAttacked.Add(attackableBehaviour.GetUnitID());
         }
     }
 
-    private void ClearOldHitData()
+    private void ResetHitData()
     {
-        _unitsHit.Clear();
+        _unitsAttacked.Clear();
+        _unitsDamaged.Clear();
     }
 }

@@ -13,8 +13,8 @@ public class HitScanner : MonoBehaviour
     private IAttack _attack;
     private HashSet<int> _detectedAttackableIDs = new HashSet<int>();
 
-    public delegate void HitsDetectedEvent(HashSet<int> hits);
-    public event HitsDetectedEvent OnHitsDetected;
+    public delegate void HitsDetectedEvent(IAttackable detectedAttackable);
+    public event HitsDetectedEvent OnAttackableDetected;
 
     private void Start()
     {
@@ -36,21 +36,22 @@ public class HitScanner : MonoBehaviour
 
         foreach (Collider collider in _hitsDetected)
         {
-            //cache the attackle behaviour for clarit, if it exists
+            //cache the attackle behaviour for clarity
             _detectedAttackable = collider.GetComponent<IAttackable>();
+
+            //raise the detection event if an attackable behaviour exists on the detected object
+            //Don't raise the event if we're supposed to ignore this attackable
             if (_detectedAttackable != null)
             {
                 
                 int detectedId = _detectedAttackable.GetUnitID();
 
-                //only add the detected ID if it's not on the ignore list
+                //only raise event if this isn't on the ignore list
                 if (!_attack.GetIgnoreList().Contains(detectedId))
-                    _detectedAttackableIDs.Add(detectedId);
+                    OnAttackableDetected?.Invoke(_detectedAttackable);
             }
         }
-
-        if (_detectedAttackableIDs.Count > 0)
-            OnHitsDetected?.Invoke(_detectedAttackableIDs);
+            
     }
 
 

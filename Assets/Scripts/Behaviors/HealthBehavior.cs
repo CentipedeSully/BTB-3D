@@ -116,7 +116,7 @@ public class HealthBehavior : MonoBehaviour, IAttackable
         if (_cmdFullRestore)
         {
             _cmdFullRestore = false;
-            FullRestore();
+            FullRestore(true);
             return;
         }
     }

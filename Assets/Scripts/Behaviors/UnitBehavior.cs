@@ -23,10 +23,14 @@ public class UnitBehavior : MonoBehaviour
     [SerializeField] private UnitBehaviorState _unitState;
     [SerializeField] private float _closeEnoughDistance;
     [SerializeField] private float _interactDistance;
+
+
+    private AnimationController _animController;
     private IAttack _attack;
     private HealthBehavior _healthBehavior;
     private Vector3 _targetPosition;
     private GameObject _targetGameObject;
+    private KnockOutBehaviour _knockoutBehaviour;
 
 
     [Header("Debug")]
@@ -43,6 +47,8 @@ public class UnitBehavior : MonoBehaviour
         _healthBehavior.SetUnitID(_unitId);
         _attack = GetComponent<IAttack>();
         _attack.SetUnitID(_unitId);
+        _animController = GetComponent<AnimationController>();
+        _knockoutBehaviour = GetComponent<KnockOutBehaviour>();
     }
     private void Start()
     {
@@ -53,12 +59,14 @@ public class UnitBehavior : MonoBehaviour
     {
         _healthBehavior.OnKoed += EnterKOed;
         _healthBehavior.OnRevived += EndKOed;
+        _healthBehavior.OnDamaged += _animController.TriggerDamageTaken;
     }
 
     private void OnDisable()
     {
         _healthBehavior.OnKoed -= EnterKOed;
         _healthBehavior.OnRevived -= EndKOed;
+        _healthBehavior.OnDamaged -= _animController.TriggerDamageTaken;
     }
 
     private void Update()
@@ -67,7 +75,11 @@ public class UnitBehavior : MonoBehaviour
             ListenForDebugCommands();
 
         if (_unitState != UnitBehaviorState.KOed)
+        {
             ExecuteBehavior();
+            Animatebehavior();
+        }
+            
     }
 
 
@@ -148,6 +160,18 @@ public class UnitBehavior : MonoBehaviour
         }
     }
 
+    private void Animatebehavior()
+    {
+        if (_unitState == UnitBehaviorState.Idle)
+        {
+            _animController.SetMovement(false);
+        }
+        if (_unitState == UnitBehaviorState.Moving)
+        {
+            _animController.SetMovement(true);
+        }
+    }
+
     private bool IsCloseEnough()
     {
         switch (_unitState)
@@ -219,12 +243,14 @@ public class UnitBehavior : MonoBehaviour
         {
             ClearCurrentOrder();
             _unitState = UnitBehaviorState.KOed;
+            _knockoutBehaviour.KnockOutUnit();
         }
     }
     public void EndKOed()
     {
         if (_unitState == UnitBehaviorState.KOed)
         {
+            _knockoutBehaviour.ReviveUnit();
             _unitState = UnitBehaviorState.Idle;
         }
     }
