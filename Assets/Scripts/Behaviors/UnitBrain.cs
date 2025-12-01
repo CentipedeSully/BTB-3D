@@ -76,11 +76,20 @@ public class UnitBrain : MonoBehaviour, IIdentity, IInteractable
     [SerializeField] private UnitState _state = UnitState.unset;
     [SerializeField] private string _currentActionVerb = "";
     private string _defaultActionVerb = "[doing nothing]";
-    private IBehavior _currentDrivingBehavior;
+    [SerializeField] private bool _isStunnable = true;
+    private float _stunDuration;
+    private string _stunnedVerb = "stunned";
+
+
+    [Header("Debug")]
+    [SerializeField] private bool _isDebugActive = false;
+    [SerializeField] private bool _cmdForceStunUnit = false;
+    [SerializeField] private float _paramStunDuration = 4f;
 
     /// <summary>
     /// All currently-watched behaviors paired with their priority.
     /// </summary>
+    private IBehavior _currentDrivingBehavior;
     private Dictionary<IBehavior,int> _knownBehaviors = new Dictionary<IBehavior,int>();
     private IBehavior[] _scannedBehaviors;
 
@@ -89,6 +98,8 @@ public class UnitBrain : MonoBehaviour, IIdentity, IInteractable
     public event UnitBrainEvent OnBehaviorStarted;
     public event UnitBrainEvent OnBehaviorInterrupted;
     public event UnitBrainEvent OnBehaviorCompleted;
+    public event UnitBrainEvent OnStunEntered;
+    public event UnitBrainEvent OnStunExited;
 
 
 
@@ -107,6 +118,14 @@ public class UnitBrain : MonoBehaviour, IIdentity, IInteractable
         UnsubFromInternalEvents();
         ClearKnownBehaviors();
     }
+    private void Update()
+    {
+        if (_isDebugActive)
+            ListenForDebugCommands();
+
+        if (_state == UnitState.Stunned)
+            TickStunDuration();
+    }
 
 
 
@@ -124,20 +143,36 @@ public class UnitBrain : MonoBehaviour, IIdentity, IInteractable
         OnBehaviorStarted += EnterPerformingBehaviorState;
         OnBehaviorCompleted += EnterIdleState;
         OnBehaviorInterrupted += EnterIdleState;
+        OnStunEntered += EnterStunnedState;
+        OnStunExited += EnterIdleState;
     }
     private void UnsubFromInternalEvents()
     {
         OnBehaviorStarted -= EnterPerformingBehaviorState;
         OnBehaviorCompleted -= EnterIdleState;
         OnBehaviorInterrupted -= EnterIdleState;
+        OnStunEntered -= EnterStunnedState;
+        OnStunExited -= EnterIdleState;
     }
 
 
 
-    private void EnterIdleState(){ _state = UnitState.Idle; }
+    private void EnterIdleState(){ _state = UnitState.Idle;}
     private void EnterPerformingBehaviorState() { _state = UnitState.PerformingBehavior; }
     private void EnterStunnedState() { _state= UnitState.Stunned; }
     private void EnterKOedState() {  _state= UnitState.KOed; }
+    private void TickStunDuration()
+    {
+        _stunDuration -= Time.deltaTime;
+        if (_stunDuration <= 0)
+        {
+            _stunDuration = 0;
+            _currentActionVerb = _defaultActionVerb;
+            OnStunExited?.Invoke();
+        }
+    }
+
+
 
 
 
@@ -348,7 +383,46 @@ public class UnitBrain : MonoBehaviour, IIdentity, IInteractable
     public string GetCurrentActionVerb() {  return _currentActionVerb; }
     public void SetActionVerb(string newVerb) {  _currentActionVerb = newVerb; }
 
-    
+
+    /// <summary>
+    /// Stuns the unit if it's currently stunnable. Stunned units interrupt their current behavior 
+    /// and ignore future behavior triggers until the stun state is exited.
+    /// </summary>
+    /// <param name="duration"></param>
+    /// <param name="reason">Optional additional verbage to describe how the stun occured</param>
+    public void StunUnit(float duration, string reason = "")
+    {
+        //ignore stun calls if the unit is immune or KOed
+        if (!_isStunnable || _state == UnitState.KOed)
+            return;
 
 
+        //set the duration
+        _stunDuration = duration;
+
+        //interrupt any currently driving behaviors
+        InterruptCurrentDrivingBehavior();
+
+        //set the reason
+        if (reason == "")
+            _currentActionVerb = _stunnedVerb + $" by Developer Powers for {duration} seconds";
+        else
+            _currentActionVerb = _stunnedVerb + $" {reason} for {duration} seconds";
+
+        OnStunEntered?.Invoke();
+    }
+
+
+
+
+
+    //Debug
+    private void ListenForDebugCommands()
+    {
+        if (_cmdForceStunUnit)
+        {
+            _cmdForceStunUnit = false;
+            StunUnit(_paramStunDuration);
+        }
+    }
 }
