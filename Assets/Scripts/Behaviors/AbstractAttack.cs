@@ -1,3 +1,4 @@
+using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
@@ -22,6 +23,8 @@ public interface IAttackable
 
 public interface IAttack
 {
+    void PerformAttack();
+    bool IsTargetInRange(int targetID);
     void SetUnitID(int ID);
     void AddIDToIgnoreList(int ID);
     void RemoveIDFromIgnoreList(int ID);
@@ -30,15 +33,17 @@ public interface IAttack
     HashSet<int> GetIgnoreList();
     LayerMask GetHittableLayers();
     GameObject GetGameObject();
+    IInteractionBehavior GetAsInteractBehavior();
 }
 
-public abstract class AbstractAttack : MonoBehaviour, IAttack
+public abstract class AbstractAttack : MonoBehaviour, IAttack, IInteractionBehavior
 {
     [Header("General Attack Settings")]
     [SerializeField] protected int _unitID;
     [SerializeField] protected int _damage;
     protected HashSet<int> _ignoreList= new();
     [SerializeField] protected AtkState _atkState = AtkState.Unset;
+    [SerializeField] protected string _interactionVerb = "(Abstract) Attacking";
     [SerializeField] protected float _atkWarmup;
     [SerializeField] protected float _atkHitTime;
     [SerializeField] protected float _atkCooldown;
@@ -75,6 +80,7 @@ public abstract class AbstractAttack : MonoBehaviour, IAttack
     public AttackEvent OnCooldownEntered;
     public AttackEvent OnStandByEntered;
 
+    public event Action OnInteractionCompleted;
 
     private  void OnEnable()
     {
@@ -151,6 +157,7 @@ public abstract class AbstractAttack : MonoBehaviour, IAttack
         _attackCounter = null;
         _atkState = AtkState.Standby;
         OnStandByEntered?.Invoke();
+        RaiseCompletionEvent();
     }
 
 
@@ -197,6 +204,11 @@ public abstract class AbstractAttack : MonoBehaviour, IAttack
         }
     }
 
+    protected void RaiseCompletionEvent()
+    {
+        OnInteractionCompleted?.Invoke();
+    }
+
 
 
     //Externals
@@ -227,7 +239,17 @@ public abstract class AbstractAttack : MonoBehaviour, IAttack
     public LayerMask GetHittableLayers() {  return _hittableLayers; }
     public int GetDamage() { return _damage; }
     public void SetDamage(int newDamage) { _damage = newDamage; }
+    public void PerformAttack(){EnterAttack();}
+    public virtual string GetInteractionVerb() { return _interactionVerb; }
 
+    public virtual bool IsInteractionInProgress() { return _atkState != AtkState.Standby; }
+
+    public void PerformInteraction() {EnterAttack();}
+
+    public void InterruptInteraction() { CancelAttack(); }
+
+    public bool IsTargetInRange(IInteractable interactible) { return IsTargetInRange(interactible.GetIdentityInterface().GetID()); }
+    public IInteractionBehavior GetAsInteractBehavior() { return this; }
 
 
 
@@ -265,4 +287,6 @@ public abstract class AbstractAttack : MonoBehaviour, IAttack
             Debug.Log("AtkState: " + _atkState);
         }
     }
+
+  
 }

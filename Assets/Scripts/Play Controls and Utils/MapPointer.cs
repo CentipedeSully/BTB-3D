@@ -157,7 +157,7 @@ public class MapPointer : MonoBehaviour
                             GameObject interactibleObject = closestDetection.collider.gameObject;
                             InteractibleBehavior behaviour= interactibleObject.GetComponent<InteractibleBehavior>();
 
-                            unitBehavior.InteractWithInteractible(behaviour);
+                            //unitBehavior.InteractWithInteractible(behaviour);
                             break;
 
                         case "Unit":
