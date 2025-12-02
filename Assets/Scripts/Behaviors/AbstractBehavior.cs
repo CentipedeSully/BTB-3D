@@ -23,12 +23,15 @@ public abstract class AbstractBehavior : MonoBehaviour, IBehavior
     [SerializeField] protected bool _isDebugActive = false;
     [SerializeField] private bool _cmdForceTriggerEvent = false;
     [SerializeField] private bool _cmdForceCompletionEvent = false;
+    [SerializeField] private bool _cmdUpdatePassiveState = false;
+    [SerializeField] private bool _paramNewPassiveState = false;
 
 
 
     public event Action OnBehaviorCompleted;
     public event Action<IBehavior> OnBehaviorTriggered;
     public event Action<string> OnVerbUpdated;
+    public event Action<IBehavior> OnPassiveStateUpdated;
 
 
     //monobehaviors
@@ -88,6 +91,7 @@ public abstract class AbstractBehavior : MonoBehaviour, IBehavior
         _defaultActionVerb = newVerb;
         OnVerbUpdated?.Invoke(_defaultActionVerb);
     }
+    protected virtual void UpdatePassiveState(bool newValue) { _isPassive = newValue; OnPassiveStateUpdated?.Invoke(this); }
     protected virtual void RunChildAwakeUtils(){}
     protected virtual void RunChildEnableUtils(){}
     protected virtual void RunChildDisableUtils(){}
@@ -105,7 +109,7 @@ public abstract class AbstractBehavior : MonoBehaviour, IBehavior
     public void StartBehaviorAsDriver(){StartBehavior();}
     public IIdentity GetUnitIdentity(){return _identity;}
     public void SetUnitIdentity(IIdentity newIdentity){_identity = newIdentity;}
-
+    public void SetPassiveState(bool newValue) { UpdatePassiveState(newValue);}
 
     //debug
     protected virtual void ListenForDebugCommands()
@@ -120,6 +124,12 @@ public abstract class AbstractBehavior : MonoBehaviour, IBehavior
         {
             _cmdForceCompletionEvent = false;
             OnBehaviorCompleted?.Invoke();
+        }
+
+        if (_cmdUpdatePassiveState)
+        {
+            _cmdUpdatePassiveState = false;
+            UpdatePassiveState(_paramNewPassiveState);
         }
     }
 }

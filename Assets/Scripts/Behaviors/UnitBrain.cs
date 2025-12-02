@@ -49,13 +49,14 @@ public interface IBehavior
     /// </summary>
     /// <returns>True if the behavior should run if the brain isn't doing anything. False if the behavior must be explicitly be triggered</returns>
     bool IsBehaviourPassive();
-
+    void SetPassiveState(bool newValue);
     string GetBehaviorVerb();
     GameObject GetGameObject();
     string GetBehaviorName();
     event Action OnBehaviorCompleted; //communicates to the brain when a behavior completed its goal
     event Action<IBehavior> OnBehaviorTriggered; //communicates to the brain when an external stimulus has occured
     event Action<string> OnVerbUpdated;
+    event Action <IBehavior> OnPassiveStateUpdated;
     bool IsBehaviorDrivingBrain();
     void InterruptBehavior();
     void StartBehaviorAsDriver();
@@ -79,6 +80,11 @@ public class UnitBrain : MonoBehaviour, IIdentity, IInteractable
     [SerializeField] private bool _isStunnable = true;
     private float _stunDuration;
     private string _stunnedVerb = "stunned";
+    [Tooltip("How long to wait when idle before autotriggering any passiveBehavior with the highest priority")]
+    [SerializeField] private float _passiveBehaviorTriggerTime = 1;
+    private float _currentPassiveTriggerTime = 0;
+    [SerializeField]private bool _passiveBehaviorDetected = false;
+
 
 
     [Header("Debug")]
@@ -92,14 +98,17 @@ public class UnitBrain : MonoBehaviour, IIdentity, IInteractable
     private IBehavior _currentDrivingBehavior;
     private Dictionary<IBehavior,int> _knownBehaviors = new Dictionary<IBehavior,int>();
     private IBehavior[] _scannedBehaviors;
+    private Dictionary<IBehavior,int> _passiveBehaviors = new Dictionary<IBehavior,int>();
 
 
     public delegate void UnitBrainEvent();
+    public delegate void UnitBrainAutoTriggerEvent(IBehavior behavior);
     public event UnitBrainEvent OnBehaviorStarted;
     public event UnitBrainEvent OnBehaviorInterrupted;
     public event UnitBrainEvent OnBehaviorCompleted;
     public event UnitBrainEvent OnStunEntered;
     public event UnitBrainEvent OnStunExited;
+    public event UnitBrainAutoTriggerEvent OnPassiveAutoTriggerTimerExpired;
 
 
 
@@ -125,6 +134,9 @@ public class UnitBrain : MonoBehaviour, IIdentity, IInteractable
 
         if (_state == UnitState.Stunned)
             TickStunDuration();
+
+        if (_state == UnitState.Idle && _passiveBehaviorDetected)
+            TickPassiveTriggerDuration();
     }
 
 
@@ -145,6 +157,7 @@ public class UnitBrain : MonoBehaviour, IIdentity, IInteractable
         OnBehaviorInterrupted += EnterIdleState;
         OnStunEntered += EnterStunnedState;
         OnStunExited += EnterIdleState;
+        OnPassiveAutoTriggerTimerExpired += RespondToPassiveAutoTriggerEvent;
     }
     private void UnsubFromInternalEvents()
     {
@@ -153,13 +166,14 @@ public class UnitBrain : MonoBehaviour, IIdentity, IInteractable
         OnBehaviorInterrupted -= EnterIdleState;
         OnStunEntered -= EnterStunnedState;
         OnStunExited -= EnterIdleState;
+        OnPassiveAutoTriggerTimerExpired -= RespondToPassiveAutoTriggerEvent;
     }
 
 
 
     private void EnterIdleState(){ _state = UnitState.Idle;}
-    private void EnterPerformingBehaviorState() { _state = UnitState.PerformingBehavior; }
-    private void EnterStunnedState() { _state= UnitState.Stunned; }
+    private void EnterPerformingBehaviorState() { _state = UnitState.PerformingBehavior; ResetPassiveCountdown(); }
+    private void EnterStunnedState() { _state= UnitState.Stunned; ResetPassiveCountdown(); }
     private void EnterKOedState() {  _state= UnitState.KOed; }
     private void TickStunDuration()
     {
@@ -171,6 +185,51 @@ public class UnitBrain : MonoBehaviour, IIdentity, IInteractable
             OnStunExited?.Invoke();
         }
     }
+    private void TickPassiveTriggerDuration()
+    {
+        _currentPassiveTriggerTime += Time.deltaTime;
+
+        if (_currentPassiveTriggerTime >= _passiveBehaviorTriggerTime)
+        {
+            //find the passive behavior with the highest priority
+            IBehavior highestPriorityBehavior = null;
+            int highestPriority = int.MinValue;
+
+            foreach (KeyValuePair<IBehavior,int> entry in _passiveBehaviors)
+            {
+                ResetPassiveCountdown();
+                //default to the first entry found in this collection
+                if (highestPriorityBehavior == null)
+                {
+                    highestPriorityBehavior = entry.Key;
+                    highestPriority = entry.Value;
+                }
+                    
+                //save this entry if it's higher than the last saved entry
+                else if (entry.Value > highestPriority)
+                {
+                    highestPriority = entry.Value;
+                    highestPriorityBehavior = entry.Key;
+                }
+            }
+
+            //Log a warning if we somehow couldn't find a passive behavior
+            //[even though this timer only runs if already held passive behavior]
+            if (highestPriorityBehavior == null)
+            {
+                _passiveBehaviorDetected = false;
+                Debug.LogWarning("PassiveBehavior List is empty, but the PassiveDetected flag is set. Clearing the passives detected flag. " +
+                    "This shouldn't have happened. A passive behavior wasn't removed (or added) properly to the list. Did it become passive without the UnitBrain knowing?" +
+                    " No passive behaviors will run, since the UnitBrain doesn't see any");
+                return;
+            }
+
+            OnPassiveAutoTriggerTimerExpired?.Invoke(highestPriorityBehavior);
+
+        }
+    }
+
+    private void ResetPassiveCountdown(){_currentPassiveTriggerTime = 0;}
 
 
 
@@ -209,14 +268,14 @@ public class UnitBrain : MonoBehaviour, IIdentity, IInteractable
             RemoveBehavior(behaviors[i]);
 
             //remove from this list
-            _knownBehaviors.Remove(behaviors[i]);
+            behaviors.RemoveAt(i);
         }
     }
 
 
 
     /// <summary>
-    /// Unsubs from the behavior's 'OnTriggeredEvent' and removes that behavior from the know behaviors list.
+    /// Unsubs from the behavior's events and removes that behavior from the know behaviors list.
     /// If the requested behavior is driving this unit, then that behavior is also interrupted.
     /// </summary>
     /// <param name="behavior"></param>
@@ -226,8 +285,22 @@ public class UnitBrain : MonoBehaviour, IIdentity, IInteractable
         if (!_knownBehaviors.ContainsKey(behavior))
             return;
 
-        //unusb from the behavior's trigger event
+        //remove the behavior from the knownbehaviors Collection
+        _knownBehaviors.Remove(behavior);
+
+        //remove the behavior from the Passives Collection if it's passive
+        if (behavior.IsBehaviourPassive())
+        {
+            _passiveBehaviors.Remove(behavior);
+
+            //update the internal state. The passiveTimer mechanic won't execute if no passives exist.
+            if (_passiveBehaviors.Count == 0)
+                _passiveBehaviorDetected = false;
+        }
+
+        //unusb from the behavior's trigger and stateChange events
         behavior.OnBehaviorTriggered -= RespondToBehaviorTrigger;
+        behavior.OnPassiveStateUpdated -= RespondToPassiveStateChanged;
 
         //if the behavior is currently driving
         if (_currentDrivingBehavior == behavior)
@@ -297,7 +370,7 @@ public class UnitBrain : MonoBehaviour, IIdentity, IInteractable
 
 
     /// <summary>
-    /// Adds the behavior to the knownBehaviors collection and subscribes to that behavior's 'OnTriggered' event.
+    /// Adds the behavior to the knownBehaviors collection and subscribes to that behavior's events.
     /// </summary>
     /// <param name="newBehavior"></param>
     private void AddBehavior(IBehavior newBehavior)
@@ -309,8 +382,17 @@ public class UnitBrain : MonoBehaviour, IIdentity, IInteractable
         //add behavior to list
         _knownBehaviors.Add(newBehavior, newBehavior.GetBehaviorPriority());
 
-        //begin watching the behavior's trigger event
+        //track if the behavior is passive
+        if (newBehavior.IsBehaviourPassive())
+        {
+            _passiveBehaviors.Add(newBehavior, newBehavior.GetBehaviorPriority());
+            _passiveBehaviorDetected = true;
+        }
+            
+
+        //begin watching the behavior's onTriggered and StateChanged events
         newBehavior.OnBehaviorTriggered += RespondToBehaviorTrigger;
+        newBehavior.OnPassiveStateUpdated += RespondToPassiveStateChanged;
     }
 
 
@@ -367,6 +449,43 @@ public class UnitBrain : MonoBehaviour, IIdentity, IInteractable
 
 
 
+    /// <summary>
+    /// This responds to the internal timer that autoTriggers a passive behavior, assuming a
+    /// passive behavior exists. Passive behaviors should only auto trigger when the unit is idling.
+    /// </summary>
+    /// <param name="selectedPassiveBehavior"></param>
+    private void RespondToPassiveAutoTriggerEvent(IBehavior selectedPassiveBehavior)
+    {
+        if (_state == UnitState.Idle)
+            StartNewDrivingBehavior(selectedPassiveBehavior);
+    }
+
+
+    /// <summary>
+    /// Responds to any behavior that changes its isPassive state. Adjusts the UnitBrain's
+    /// collections to reflect the changes. UnitBrain won't try to autoTrigger a passiveBehavior if none exist.
+    /// </summary>
+    /// <param name="changedBehavior"></param>
+    private void RespondToPassiveStateChanged(IBehavior changedBehavior)
+    {
+        //add the behavior to the passiveBehaviors Collection if its passive and NOT already in the Collection
+        if (changedBehavior.IsBehaviourPassive() && !_passiveBehaviors.ContainsKey(changedBehavior))
+        {
+            _passiveBehaviors.Add(changedBehavior,changedBehavior.GetBehaviorPriority());
+            _passiveBehaviorDetected = true;
+        }
+
+        //remove the behavior from the passiveBehaviors Collecion if its not passive and IS SAVED AS a passive behavior
+        else if (!changedBehavior.IsBehaviourPassive() && _passiveBehaviors.ContainsKey(changedBehavior))
+        {
+            _passiveBehaviors.Remove(changedBehavior);
+            if (_passiveBehaviors.Count == 0)
+                _passiveBehaviorDetected= false;
+        }
+    }
+
+
+
 
     //externals
     public GameObject GetGameObject(){ return gameObject; }
@@ -413,6 +532,16 @@ public class UnitBrain : MonoBehaviour, IIdentity, IInteractable
     }
 
 
+
+
+    public void AddNewBehvior(IBehavior newBehavior)
+    {
+        AddBehavior(newBehavior);
+    }
+    public void RemoveExistingBehavior(IBehavior behavior)
+    {
+        RemoveBehavior(behavior);
+    }
 
 
 
