@@ -1,0 +1,14 @@
+Core abilities are the foundational capabilities that higher-level behaviors
+utilize to peform more complex actions
+
+examples of core abilities include
+ - Moving to a position
+ - Gaining or Losing Health
+ - Carrying an Inventory
+ - Watching for entities
+
+
+These core abilities are shared between behaviors; All behaviors that 
+move the unit will use the coreMovementAbility to accomplish the movement, for 
+example (assuming the movement itself isn't extraordinary --ex: teleporting)
+

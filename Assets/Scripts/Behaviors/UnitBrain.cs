@@ -101,6 +101,9 @@ public class UnitBrain : MonoBehaviour, IIdentity, IInteractable
     private Dictionary<IBehavior,int> _passiveBehaviors = new Dictionary<IBehavior,int>();
 
 
+    private CoreHealth _health;
+
+
     public delegate void UnitBrainEvent();
     public delegate void UnitBrainAutoTriggerEvent(IBehavior behavior);
     public event UnitBrainEvent OnBehaviorStarted;
@@ -110,22 +113,28 @@ public class UnitBrain : MonoBehaviour, IIdentity, IInteractable
     public event UnitBrainEvent OnStunExited;
     public event UnitBrainAutoTriggerEvent OnPassiveAutoTriggerTimerExpired;
 
+    public UnitBrainEvent OnKOedEntered;
+    public UnitBrainEvent OnKOedExited;
+
 
 
     //monobehaviours
     private void Awake()
     {
+        InitializeReferences();
         InitializeStates();
     }
     private void OnEnable()
     {
         SubToInternalEvents();
         ScanForBehaviorsOnGameObject();
+        SubToExternals();
     }
     private void OnDisable()
     {
         UnsubFromInternalEvents();
         ClearKnownBehaviors();
+        UnsubFromExternals();
     }
     private void Update()
     {
@@ -143,6 +152,10 @@ public class UnitBrain : MonoBehaviour, IIdentity, IInteractable
 
 
     //internals
+    private void InitializeReferences()
+    {
+        _health = GetComponent<CoreHealth>();
+    }
     private void InitializeStates()
     {
         _unitID = GetInstanceID();
@@ -168,13 +181,24 @@ public class UnitBrain : MonoBehaviour, IIdentity, IInteractable
         OnStunExited -= EnterIdleState;
         OnPassiveAutoTriggerTimerExpired -= RespondToPassiveAutoTriggerEvent;
     }
+    private void SubToExternals()
+    {
+        _health.OnKoed += RespondToKOedEvent;
+    }
+    private void UnsubFromExternals()
+    {
+        _health.OnKoed -= RespondToKOedEvent;
+    }
 
 
 
-    private void EnterIdleState(){ _state = UnitState.Idle;}
-    private void EnterPerformingBehaviorState() { _state = UnitState.PerformingBehavior; ResetPassiveCountdown(); }
-    private void EnterStunnedState() { _state= UnitState.Stunned; ResetPassiveCountdown(); }
+    private void EnterIdleState(){ _state = UnitState.Idle; ResetAutoStartPassiveBehaviorCountdown(); }
+    private void EnterPerformingBehaviorState() { _state = UnitState.PerformingBehavior; }
+    private void EnterStunnedState() { _state= UnitState.Stunned; ResetAutoStartPassiveBehaviorCountdown(); }
     private void EnterKOedState() {  _state= UnitState.KOed; }
+
+
+
     private void TickStunDuration()
     {
         _stunDuration -= Time.deltaTime;
@@ -197,7 +221,7 @@ public class UnitBrain : MonoBehaviour, IIdentity, IInteractable
 
             foreach (KeyValuePair<IBehavior,int> entry in _passiveBehaviors)
             {
-                ResetPassiveCountdown();
+                ResetAutoStartPassiveBehaviorCountdown();
                 //default to the first entry found in this collection
                 if (highestPriorityBehavior == null)
                 {
@@ -228,9 +252,7 @@ public class UnitBrain : MonoBehaviour, IIdentity, IInteractable
 
         }
     }
-
-    private void ResetPassiveCountdown(){_currentPassiveTriggerTime = 0;}
-
+    private void ResetAutoStartPassiveBehaviorCountdown(){_currentPassiveTriggerTime = 0;}
 
 
 
@@ -405,7 +427,8 @@ public class UnitBrain : MonoBehaviour, IIdentity, IInteractable
     /// <param name="triggeredBehavior"></param>
     private void RespondToBehaviorTrigger(IBehavior triggeredBehavior)
     {
-        Debug.Log($"Responded to {triggeredBehavior.GetBehaviorName()}'s OnTriggered Event");
+        if (_isDebugActive)
+            Debug.Log($"Responded to {triggeredBehavior.GetBehaviorName()}'s OnTriggered Event");
         
         if (_state == UnitState.Idle)
         {
@@ -432,7 +455,8 @@ public class UnitBrain : MonoBehaviour, IIdentity, IInteractable
     /// </summary>
     private void RespondToBehaviorCompletion()
     {
-        Debug.Log($"Completion Event Detected for behavior '{_currentDrivingBehavior.GetBehaviorName()}'." +
+        if (_isDebugActive)
+            Debug.Log($"Completion Event Detected for behavior '{_currentDrivingBehavior.GetBehaviorName()}'." +
             $" Clearing the behavior from the driver's seat");
 
         ClearCurrentDrivingBehaviorUtilities();
@@ -461,6 +485,7 @@ public class UnitBrain : MonoBehaviour, IIdentity, IInteractable
     }
 
 
+
     /// <summary>
     /// Responds to any behavior that changes its isPassive state. Adjusts the UnitBrain's
     /// collections to reflect the changes. UnitBrain won't try to autoTrigger a passiveBehavior if none exist.
@@ -483,6 +508,15 @@ public class UnitBrain : MonoBehaviour, IIdentity, IInteractable
                 _passiveBehaviorDetected= false;
         }
     }
+
+    private void RespondToKOedEvent()
+    {
+        InterruptCurrentDrivingBehavior();
+        EnterKOedState();
+        SetActionVerb("Is KOed");
+        OnKOedEntered?.Invoke();
+    }
+
 
 
 
@@ -530,8 +564,6 @@ public class UnitBrain : MonoBehaviour, IIdentity, IInteractable
 
         OnStunEntered?.Invoke();
     }
-
-
 
 
     public void AddNewBehvior(IBehavior newBehavior)
