@@ -27,7 +27,7 @@ public class CoreHealth : MonoBehaviour
     private void Awake()
     {
 
-        FullRestore(true);
+        FullRestore();
     }
 
     private void Update()
@@ -57,34 +57,22 @@ public class CoreHealth : MonoBehaviour
             OnKoed?.Invoke();
     }
 
-    public void RecoverHealth(int amount)
+    public void RecoverHealth(int amount, bool reviveUnit = false)
     {
-        ChangeCurrentHp(_currentHp + amount);
-    }
-
-    public void FullRestore(bool reviveIfDowned = false)
-    {
-        if (_currentHp == 0 && reviveIfDowned)
+        //only heal KOed units if the recovery effect affects KOed units
+        if (_currentHp == 0 && reviveUnit)
         {
+
+            ChangeCurrentHp(_currentHp + Mathf.Max(amount,1)); //ensure the revived unit has at least 1 health
             OnRevived?.Invoke();
-            ChangeCurrentHp(_maxHp);
+            return;
         }
 
-        else if (_currentHp > 0)
-            ChangeCurrentHp(_maxHp);
-
-
+        if (_currentHp != 0)
+            ChangeCurrentHp(_currentHp + amount);
     }
 
-    public void Revive(int gainedHp = 1)
-    {
-        if (_currentHp == 0)
-        {
-            gainedHp = Mathf.Max(1, gainedHp);
-            OnRevived?.Invoke();
-            ChangeCurrentHp(gainedHp);
-        }
-    }
+    public void FullRestore(){ RecoverHealth(_maxHp, true); }
 
     public void SetMaxHp(int amount) { _maxHp = Mathf.Max(1, amount); }
 
@@ -112,7 +100,7 @@ public class CoreHealth : MonoBehaviour
         if (_cmdFullRestore)
         {
             _cmdFullRestore = false;
-            FullRestore(true);
+            FullRestore();
             return;
         }
     }

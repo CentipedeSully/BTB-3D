@@ -83,9 +83,10 @@ public class UnitBrain : MonoBehaviour, IIdentity, IInteractable
     [Tooltip("How long to wait when idle before autotriggering any passiveBehavior with the highest priority")]
     [SerializeField] private float _passiveBehaviorTriggerTime = 1;
     private float _currentPassiveTriggerTime = 0;
-    [SerializeField]private bool _passiveBehaviorDetected = false;
+    [SerializeField] private bool _passiveBehaviorDetected = false;
 
-
+    [Header("Misc")]
+    [SerializeField] private float _koRecoveryTime;
 
     [Header("Debug")]
     [SerializeField] private bool _isDebugActive = false;
@@ -184,10 +185,12 @@ public class UnitBrain : MonoBehaviour, IIdentity, IInteractable
     private void SubToExternals()
     {
         _health.OnKoed += RespondToKOedEvent;
+        _health.OnRevived += RespondToRevivedEvent;
     }
     private void UnsubFromExternals()
     {
         _health.OnKoed -= RespondToKOedEvent;
+        _health.OnRevived -= RespondToRevivedEvent;
     }
 
 
@@ -515,6 +518,13 @@ public class UnitBrain : MonoBehaviour, IIdentity, IInteractable
         EnterKOedState();
         SetActionVerb("Is KOed");
         OnKOedEntered?.Invoke();
+    }
+
+    private void RespondToRevivedEvent()
+    {
+        _state = UnitState.unset;
+        OnKOedExited?.Invoke();
+        StunUnit(_koRecoveryTime, "Recovering From KOed");
     }
 
 
