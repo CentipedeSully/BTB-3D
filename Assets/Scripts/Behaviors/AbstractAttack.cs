@@ -6,14 +6,7 @@ using System.Runtime.InteropServices.WindowsRuntime;
 using UnityEngine;
 
 
-public enum AtkState
-{
-    Unset,
-    Standby,
-    WarmingUp,
-    Hitting,
-    CoolingDown
-}
+
 
 public interface IAttackable
 {

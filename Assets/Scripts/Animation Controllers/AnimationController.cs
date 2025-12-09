@@ -20,7 +20,9 @@ public class AnimationController : MonoBehaviour
 
    public void SetMovement(bool value)
     {
-        _animator.SetBool("IsMoving", value);
+        if (value == true)
+            _animator.SetFloat("MoveSpeed", .2f);
+        else _animator.SetFloat("MoveSpeed", 0);
     }
 
     public void TriggerDamageTaken()
