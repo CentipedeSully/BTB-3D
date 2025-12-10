@@ -1,8 +1,28 @@
+using System;
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 
-public class BasicAtk : MonoBehaviour
+[Serializable]
+public struct AtkCast
+{
+    public Transform _castOrigin;
+    public CastType _castType;
+    public float _radius;
+    public Vector3 _rectSize;
+    public Transform _capsuleSecondOrigin;
+
+}
+
+public enum CastType
+{
+    unset,
+    Sphere,
+    Rect,
+    Capsule
+}
+
+public class BasicAtk : MonoBehaviour, IAtk
 {
     [Header("Animation Setup")]
     [SerializeField] private Animator _animator;
@@ -13,15 +33,25 @@ public class BasicAtk : MonoBehaviour
     [SerializeField] private float _normalizedHitEnd;
     private float _normalizedCooldownEnd = 1;
 
+    [Header("Atk Cast Settings")]
+    [SerializeField] private LayerMask _detectableLayers;
+    [SerializeField] private List<AtkCast> _atkCasts;
+    private Collider[] _detections;
+    private IIdentity _cachedIdentity;
+    private HashSet<IIdentity> _uniqueIdentitiesDetected = new();
+    [SerializeField] private bool _isCastingAtk = false;
+
     [Header("Atk Settings")]
+    [SerializeField] private string _atkName = "Basic Atk";
     [SerializeField] private float _atkSpeed = 1;
+    
 
     [Header("Watch States")]
     [SerializeField] private float _animDuration;
     [SerializeField] private float _warmExitTime;
     [SerializeField] private float _hitExitTime;
     [SerializeField] private float _coolExitTime;
-
+    [SerializeField] private List<int> _detectedIdsSerialized = new();
     
 
 
@@ -33,6 +63,11 @@ public class BasicAtk : MonoBehaviour
 
     private static List<AnimationClip> _clipsFoundDuringLookup = new();
 
+    public event Action<HashSet<IIdentity>> OnHitsDetected;
+
+
+
+
     //monobehaviours
     private void Start()
     {
@@ -42,6 +77,9 @@ public class BasicAtk : MonoBehaviour
     {
         if (_isDebugActive)
             ListenForDebugCommands();
+
+        if (_isCastingAtk)
+            CastAtk();
     }
 
 
@@ -49,14 +87,77 @@ public class BasicAtk : MonoBehaviour
     private void CalculateAtkAnimSyncTimes()
     {
         _animDuration = GetAnimationClip(_animator, _atkClipName).length / _atkSpeed;
-        _warmExitTime = _animDuration * _normalizedWarmEnd / _atkSpeed;
-        _hitExitTime = _animDuration * _normalizedHitEnd / _atkSpeed;
+        _warmExitTime = _animDuration * _normalizedWarmEnd;
+        _hitExitTime = _animDuration * _normalizedHitEnd;
         _coolExitTime = _animDuration;
+        
     }
     private void UpdateAtkSpeed()
     {
         _animator.SetFloat(_atkSpeedName, _atkSpeed);
         CalculateAtkAnimSyncTimes();
+    }
+    private void CastAtk()
+    {
+        //clear the past frame's detection data
+        _uniqueIdentitiesDetected.Clear();
+        _detectedIdsSerialized.Clear();
+
+        foreach (AtkCast atkcast in _atkCasts)
+        {
+            //sphere cast if the castType is a sphere
+            if (atkcast._castType == CastType.Sphere)
+            {
+                _detections = Physics.OverlapSphere(atkcast._castOrigin.position, atkcast._radius, _detectableLayers);
+                if (_detections.Length > 0)
+                    ReadDetections();
+                continue;
+            }
+
+            //rect cast if the castType is a rect 
+            if (atkcast._castType == CastType.Rect)
+            {
+                _detections = Physics.OverlapBox(atkcast._castOrigin.position,atkcast._rectSize/2,Quaternion.identity,_detectableLayers);
+                if (_detections.Length > 0)
+                    ReadDetections();
+                continue;
+            }
+
+            //capsule cast if the castType is a capsule
+            if (atkcast._castType == CastType.Capsule)
+            {
+                _detections = Physics.OverlapCapsule(atkcast._castOrigin.position, atkcast._capsuleSecondOrigin.position, atkcast._radius, _detectableLayers);
+                if (_detections.Length > 0)
+                    ReadDetections();
+                continue;
+            }
+        }
+
+        if (_uniqueIdentitiesDetected.Count > 0)
+        {
+            if (_isDebugActive)
+                SerializeIdsFromDetectedIdentities();
+
+            OnHitsDetected?.Invoke(_uniqueIdentitiesDetected);
+        }
+            
+
+
+    }
+    private void ReadDetections()
+    {
+        foreach (Collider collider in _detections)
+        {
+            _cachedIdentity = collider.gameObject.GetComponent<IIdentity>();
+            if (_cachedIdentity != null)
+                _uniqueIdentitiesDetected.Add(_cachedIdentity);
+        }
+
+    }
+    private void SerializeIdsFromDetectedIdentities()
+    {
+        foreach (IIdentity identity in _uniqueIdentitiesDetected)
+            _detectedIdsSerialized.Add(identity.GetID());
     }
 
 
@@ -68,8 +169,16 @@ public class BasicAtk : MonoBehaviour
         UpdateAtkSpeed();
     }
     public float GetAtkSpeed() {  return _atkSpeed; }
-
-    
+    public void CastAtk(bool newState) { _isCastingAtk = newState; }
+    public bool IsCastingAtk() {  return _isCastingAtk; }
+    public LayerMask GetLayerMask() { return _detectableLayers; }
+    public void SetLayerMask(LayerMask newLayerMask) { _detectableLayers = newLayerMask; }
+    public string GetAtkName() { return _atkName; }
+    public void SetAtkName(string newName) {  _atkName = newName; }
+    public GameObject GetGameObject() { return gameObject; }
+    public float GetWarmTime() { return _warmExitTime; }
+    public float GetHitTime() { return _hitExitTime; }
+    public float GetCoolTime() { return _coolExitTime; }
 
 
     //debug
