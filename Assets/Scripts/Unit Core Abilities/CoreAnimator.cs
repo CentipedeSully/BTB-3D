@@ -12,6 +12,7 @@ public class CoreAnimator : MonoBehaviour
     [SerializeField] private float _fastMovementValue = 1f;
     private CoreHealth _healthAbility;
     private CoreMovement _movementAbility;
+    private CoreAtkDriver _atkDriver;
 
 
 
@@ -20,16 +21,35 @@ public class CoreAnimator : MonoBehaviour
     {
         _healthAbility = GetComponent<CoreHealth>();
         _movementAbility = GetComponent<CoreMovement>();
+        _atkDriver = GetComponent<CoreAtkDriver>();
     }
     private void OnEnable()
     {
         _movementAbility.OnMoveLevelUpdated += UpdateMoveLevel;
         _healthAbility.OnDamaged += TriggerDamaged;
+
+        _atkDriver.OnWarmupEntered += EnterCurrentAtkState;
+        _atkDriver.OnWarmupEnded += EndCurrentAtkState;
+        _atkDriver.OnHitStepEntered+= EnterCurrentAtkState;
+        _atkDriver.OnHitStepEnded+= EndCurrentAtkState;
+        _atkDriver.OnCooldownEntered += EnterCurrentAtkState;
+        _atkDriver.OnCooldownEnded += EndCurrentAtkState;
+        _atkDriver.OnAtkInterrupted += EndCurrentAtkState;
+
     }
 
     private void OnDisable()
     {
         _movementAbility.OnMoveLevelUpdated -= UpdateMoveLevel;
+        _healthAbility.OnDamaged -= TriggerDamaged;
+
+        _atkDriver.OnWarmupEntered -= EnterCurrentAtkState;
+        _atkDriver.OnWarmupEnded -= EndCurrentAtkState;
+        _atkDriver.OnHitStepEntered -= EnterCurrentAtkState;
+        _atkDriver.OnHitStepEnded -= EndCurrentAtkState;
+        _atkDriver.OnCooldownEntered -= EnterCurrentAtkState;
+        _atkDriver.OnCooldownEnded -= EndCurrentAtkState;
+        _atkDriver.OnAtkInterrupted -= EndCurrentAtkState;
 
     }
 
@@ -44,6 +64,10 @@ public class CoreAnimator : MonoBehaviour
             SetFloat(_onMovementParam, _fastMovementValue);
     }
     private void TriggerDamaged(){ SetTrigger(_onDamagedParam); }
+
+    //these are designed to account for changing atkParameters
+    private void EnterCurrentAtkState() { SetBool(_atkDriver.GetAtkParamName(), true); }
+    private void EndCurrentAtkState() { SetBool(_atkDriver.GetAtkParamName(), false); }
 
 
     //externals

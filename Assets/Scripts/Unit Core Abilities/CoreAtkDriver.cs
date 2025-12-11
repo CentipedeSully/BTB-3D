@@ -47,7 +47,6 @@ public class CoreAtkDriver : MonoBehaviour
     [Tooltip("All attack objects should exist here")]
     [SerializeField] private Transform _knownAtksContainer;
     private Dictionary<string, IAtk> _knownAtks = new();
-    private CoreAnimator _coreAnimator;
 
     [Header("General States")]
     [SerializeField] private List<string> _knownAtksSerialized = new();
@@ -77,8 +76,11 @@ public class CoreAtkDriver : MonoBehaviour
     public Action OnAtkInterrupted;
 
     public Action OnWarmupEntered;
+    public Action OnWarmupEnded;
     public Action OnHitStepEntered;
+    public Action OnHitStepEnded;
     public Action OnCooldownEntered;
+    public Action OnCooldownEnded;
     public Action OnStandByEntered;
 
     public Action<HashSet<IIdentity>> OnHitsDetected;
@@ -87,10 +89,6 @@ public class CoreAtkDriver : MonoBehaviour
 
 
     //monobehaviours
-    private void Awake()
-    {
-        _coreAnimator = GetComponent<CoreAnimator>();
-    }
     private void OnEnable()
     {
         OnStandByEntered += LogStandbyEntered;
@@ -101,7 +99,6 @@ public class CoreAtkDriver : MonoBehaviour
         OnCooldownEntered += LogCooldownEntered;
 
         OnAtkStarted += LogAtkStart;
-        OnAtkStarted += StartAtkAnimation;
         OnAtkInterrupted += LogAtkInterrupt;
 
         OnHitsDetected += LogHitsDetectedResponse;
@@ -116,7 +113,6 @@ public class CoreAtkDriver : MonoBehaviour
         OnCooldownEntered -= LogCooldownEntered;
 
         OnAtkStarted -= LogAtkStart;
-        OnAtkStarted -= StartAtkAnimation;
         OnAtkInterrupted -= LogAtkInterrupt;
 
         OnHitsDetected -= LogHitsDetectedResponse;
@@ -163,20 +159,21 @@ public class CoreAtkDriver : MonoBehaviour
         OnWarmupEntered?.Invoke();
         _currentAtk.EnterWarmup();
         yield return new WaitForSeconds(_atkWarmup);
-
+        OnWarmupEnded?.Invoke();
 
         //enter the hit step
         _atkState = AtkState.Hitting;
         OnHitStepEntered?.Invoke();
         _currentAtk.EnterHitStep();
         yield return new WaitForSeconds(_atkHitTime);
-
+        OnHitStepEnded?.Invoke();
 
         //enter the cooldown
         _atkState = AtkState.CoolingDown;
         OnCooldownEntered?.Invoke();
         _currentAtk.EnterCooldown();
         yield return new WaitForSeconds(_atkCooldown);
+        OnCooldownEnded?.Invoke();
 
 
         //Clear our current atk utilities
@@ -206,13 +203,12 @@ public class CoreAtkDriver : MonoBehaviour
     {
         if (_attackCounter != null)
         {
+            OnAtkInterrupted?.Invoke(); //placed here to read where the atk stopped before it gets cleared
             _currentAtk.AtkInterrupted();
             ClearAtk();
             StopCoroutine(_attackCounter);
             _attackCounter = null;
             _atkState = AtkState.Standby;
-
-            OnAtkInterrupted?.Invoke();
             OnStandByEntered?.Invoke();
         }
     }
@@ -248,7 +244,6 @@ public class CoreAtkDriver : MonoBehaviour
         _atkCooldown = 0;
     }
     private void RespondToAtksOnHitsDetectedEvent(HashSet<IIdentity> detectedIdentities) { OnHitsDetected?.Invoke(detectedIdentities);}
-    private void StartAtkAnimation(){_coreAnimator.SetTrigger(_currentAtk.GetAtkAnimationParameterName());}
 
 
 
@@ -261,6 +256,13 @@ public class CoreAtkDriver : MonoBehaviour
     public void CancelAttack(){InterruptAttack();}
     public AtkState GetAtkState() { return _atkState; }
     public bool IsAtkKnown(string atkName) { return _knownAtks.ContainsKey(atkName); }
+    public string GetAtkParamName()
+    {
+        if (_currentAtk == null)
+            return null;
+        else return _currentAtk.GetAtkAnimationParameterName();
+    }
+    
 
 
     //debug

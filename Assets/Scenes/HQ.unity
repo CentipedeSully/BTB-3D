@@ -4525,7 +4525,7 @@ MonoBehaviour:
     m_Bits: 128
   _isDebugActive: 1
   _debugDeclareEventPassage: 0
-  _paramAtkName: Basic Atk
+  _paramAtkName: isBasicAttacking
   _cmdStartAtk: 0
   _cmdInterruptAtk: 0
   _cmdRebuildKnownAtks: 0
@@ -5126,7 +5126,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   _animator: {fileID: 1378111280}
   _atkClipName: basicAtk
-  _atkParamName: OnBasicAttack
+  _atkParamName: isBasicAttacking
   _atkSpeedName: BasicAttackSpeed
   _normalizedWarmEnd: 0.4
   _normalizedHitEnd: 0.6
