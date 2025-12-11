@@ -1,6 +1,7 @@
 using System;
 using System.Collections;
 using System.Collections.Generic;
+using System.Security.Cryptography;
 using UnityEngine;
 
 [Serializable]
@@ -26,6 +27,7 @@ public class BasicAtk : MonoBehaviour, IAtk
 {
     [Header("Animation Setup")]
     [SerializeField] private Animator _animator;
+    [Tooltip("The name of the animation state in the Animator")]
     [SerializeField] private string _atkClipName;
     [SerializeField] private string _atkParamName;
     [SerializeField] private string _atkSpeedName;
@@ -44,7 +46,16 @@ public class BasicAtk : MonoBehaviour, IAtk
     [Header("Atk Settings")]
     [SerializeField] private string _atkName = "Basic Atk";
     [SerializeField] private float _atkSpeed = 1;
+
+    [Header("RangeCheck")]
+    [Tooltip("If the target entity is detected in ANY of these casts [at least one], then the rangeCheck will return true")]
+    [SerializeField] private List<AtkCast> _rangeCasts = new();
+    [SerializeField] private IIdentity _targetIdentity;
     
+
+
+
+
 
     [Header("Watch States")]
     [SerializeField] private float _animDuration;
@@ -60,6 +71,14 @@ public class BasicAtk : MonoBehaviour, IAtk
     [SerializeField] private float _paramAtkSpeed = 1;
     [SerializeField] private bool _cmdSetAtkSpeed;
     [SerializeField] private bool _cmdRecalculateSyncTimes;
+    [SerializeField] private GameObject _paramTargetWithAnIIdentity;
+    [SerializeField] private bool _cmdRangeCheckForTarget;
+    [SerializeField] private bool _cmdForceRangeCast;
+    [SerializeField] private Transform _paramDistanceTestTransform1;
+    [SerializeField] private Transform _paramDistanceTestTransform2;
+    [SerializeField] private bool _cmdTestHorizontalDistanceUtilityUsingTarget;
+    [SerializeField] private bool _cmdTestVerticalDistanceUtilityUsingTarget;
+    [SerializeField] private bool _cmdTestDistanceUtilityUsingTarget;
 
     private static List<AnimationClip> _clipsFoundDuringLookup = new();
 
@@ -76,7 +95,12 @@ public class BasicAtk : MonoBehaviour, IAtk
     private void Update()
     {
         if (_isDebugActive)
+        {
             ListenForDebugCommands();
+            if (_cmdForceRangeCast && _paramTargetWithAnIIdentity != null)
+                IsEntityInRange(_paramTargetWithAnIIdentity.GetComponent<IIdentity>());
+        }
+            
 
         if (_isCastingAtk)
             CastAtk();
@@ -103,7 +127,20 @@ public class BasicAtk : MonoBehaviour, IAtk
         _uniqueIdentitiesDetected.Clear();
         _detectedIdsSerialized.Clear();
 
-        foreach (AtkCast atkcast in _atkCasts)
+        CheckAtkCastsForDetections(_atkCasts);
+
+        if (_uniqueIdentitiesDetected.Count > 0)
+        {
+            if (_isDebugActive)
+                SerializeIdsFromDetectedIdentities();
+
+            OnHitsDetected?.Invoke(_uniqueIdentitiesDetected);
+        }
+            
+    }
+    private void CheckAtkCastsForDetections(List<AtkCast> atkCastList)
+    {
+        foreach (AtkCast atkcast in atkCastList)
         {
             //sphere cast if the castType is a sphere
             if (atkcast._castType == CastType.Sphere)
@@ -117,7 +154,7 @@ public class BasicAtk : MonoBehaviour, IAtk
             //rect cast if the castType is a rect 
             if (atkcast._castType == CastType.Rect)
             {
-                _detections = Physics.OverlapBox(atkcast._castOrigin.position,atkcast._rectSize/2,Quaternion.identity,_detectableLayers);
+                _detections = Physics.OverlapBox(atkcast._castOrigin.position, atkcast._rectSize / 2, Quaternion.identity, _detectableLayers);
                 if (_detections.Length > 0)
                     ReadDetections();
                 continue;
@@ -132,17 +169,6 @@ public class BasicAtk : MonoBehaviour, IAtk
                 continue;
             }
         }
-
-        if (_uniqueIdentitiesDetected.Count > 0)
-        {
-            if (_isDebugActive)
-                SerializeIdsFromDetectedIdentities();
-
-            OnHitsDetected?.Invoke(_uniqueIdentitiesDetected);
-        }
-            
-
-
     }
     private void ReadDetections()
     {
@@ -179,6 +205,53 @@ public class BasicAtk : MonoBehaviour, IAtk
     public float GetWarmTime() { return _warmExitTime; }
     public float GetHitTime() { return _hitExitTime; }
     public float GetCoolTime() { return _coolExitTime; }
+    public bool IsEntityInRange(IIdentity entityIdentity)
+    {
+        if (entityIdentity == null)
+        {
+            if (_isDebugActive)
+                Debug.LogWarning("Attempted to rangeCheck against a null target. Returning false");
+            return false;
+        }
+
+        //clear the past frame's detection data
+        _uniqueIdentitiesDetected.Clear();
+        _detectedIdsSerialized.Clear();
+        CheckAtkCastsForDetections(_rangeCasts);
+        if (_uniqueIdentitiesDetected.Count == 0)
+        {
+            if (_isDebugActive)
+                Debug.Log("target not detected. NOTHING detected in rangeCast");
+            return false;
+        }
+
+
+
+        //if the entity is detected, return true
+        foreach (IIdentity identity in _uniqueIdentitiesDetected)
+        {
+            if (identity.GetID() == entityIdentity.GetID())
+            {
+                if (_isDebugActive)
+                    Debug.Log("Target Detected!");
+                return true;
+            }
+                
+        }
+
+        //the entity wasn't found
+        if (_isDebugActive)
+            Debug.Log("Target not detected");
+        return false;
+    }
+    public string GetAtkAnimationParameterName() { return _atkParamName; }
+
+
+    public virtual void EnterWarmup() { if (_isDebugActive) Debug.Log("BasicAtk warmupEntered"); }
+    public virtual void EnterHitStep() { if (_isDebugActive) Debug.Log("BasicAtk hitstepEntered"); _isCastingAtk = true; }
+    public virtual void EnterCooldown() { if (_isDebugActive) Debug.Log("BasicAtk cooldownEntered"); _isCastingAtk = false; }
+    public virtual void AtkCompleted() { if (_isDebugActive) Debug.Log("BasicAtk Completed"); }
+    public virtual void AtkInterrupted() { if (_isDebugActive) Debug.Log("BasicAtk Interrupted"); _isCastingAtk = false; }
 
 
     //debug
@@ -193,6 +266,26 @@ public class BasicAtk : MonoBehaviour, IAtk
         {
             _cmdRecalculateSyncTimes = false;
             CalculateAtkAnimSyncTimes();
+        }
+        if (_cmdRangeCheckForTarget)
+        {
+            _cmdRangeCheckForTarget = false;
+            IsEntityInRange(_paramTargetWithAnIIdentity.GetComponent<IIdentity>());
+        }
+        if (_cmdTestDistanceUtilityUsingTarget)
+        {
+            _cmdTestDistanceUtilityUsingTarget = false;
+            Debug.Log($"Distance from Target: {CalculateDistance.GetDistance(_paramDistanceTestTransform1, _paramDistanceTestTransform2)}");
+        }
+        if (_cmdTestHorizontalDistanceUtilityUsingTarget)
+        {
+            _cmdTestHorizontalDistanceUtilityUsingTarget= false;
+            Debug.Log($"Horizontal Distance from Target: {CalculateDistance.GetHorizontalDistance(_paramDistanceTestTransform1, _paramDistanceTestTransform2)}");
+        }
+        if (_cmdTestVerticalDistanceUtilityUsingTarget)
+        {
+            _cmdTestVerticalDistanceUtilityUsingTarget = false;
+            Debug.Log($"Vertical Distance from Target: {CalculateDistance.GetVerticalDistance(_paramDistanceTestTransform1, _paramDistanceTestTransform2)}");
         }
     }
 

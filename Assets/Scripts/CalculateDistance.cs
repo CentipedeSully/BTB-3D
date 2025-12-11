@@ -75,4 +75,23 @@ public static class CalculateDistance
         
     }
 
+    public static float GetHorizontalDistance(Transform t1, Transform t2)
+    {
+        _t1Position = new Vector3(t1.position.x, 0, t1.position.z);
+        _t2Position = new Vector3(t2.position.x, 0, t2.position.z);
+
+        return Vector3.Distance(_t1Position, _t2Position);
+    }
+    public static float GetVerticalDistance(Transform t1, Transform t2)
+    {
+        _t1Position = new Vector3(0, t1.position.y, 0);
+        _t2Position = new Vector3(0, t2.position.y, 0);
+
+        return Vector3.Distance(_t1Position, _t2Position);
+    }
+    public static float GetDistance(Transform t1, Transform t2)
+    {
+        return Vector3.Distance(t1.position, t2.position);
+    }
+
 }

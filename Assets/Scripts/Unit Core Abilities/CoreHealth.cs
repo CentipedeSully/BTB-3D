@@ -49,6 +49,9 @@ public class CoreHealth : MonoBehaviour
     //externals
     public void TakeDamage(int amount)
     {
+        if (_currentHp <= 0)
+            return;
+
         ChangeCurrentHp(_currentHp - amount);
         OnDamaged?.Invoke();
         //Debug.Log($"Dmg taken: {amount}");

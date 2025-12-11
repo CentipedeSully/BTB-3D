@@ -1,10 +1,18 @@
 using System;
 using System.Collections;
 using System.Collections.Generic;
+using Unity.VisualScripting;
 using UnityEngine;
 using UnityEngine.AI;
+using UnityEngine.PlayerLoop;
 
 
+public enum MoveSpeedLevel
+{
+    None,
+    Basic,
+    Fast
+}
 
 public class CoreMovement : MonoBehaviour
 {
@@ -13,10 +21,15 @@ public class CoreMovement : MonoBehaviour
     [Tooltip("How close is 'close enough' before a move order is considered fulilled")]
     [SerializeField] private float _stopRange = .25f;
     [SerializeField] private float _baseSpeed;
+    private float _currentSpeed;
+    [SerializeField] private float _basicMoveLevelMinSpeed;
+    [SerializeField] private float _basicMoveLevelMaxSpeed;
+    [SerializeField] private MoveSpeedLevel _moveLevel = MoveSpeedLevel.None;
     [SerializeField] private bool _pathCalculationInProgress = false;
     [SerializeField] private bool _isMoving = false;
     private NavMeshAgent _navAgent;
     private IEnumerator _pathingWaiter;
+    
 
 
     [Header("Debug")]
@@ -32,7 +45,7 @@ public class CoreMovement : MonoBehaviour
     public Action OnMoveInterrupted;
     public Action OnMoveEnded;
 
-
+    public Action<MoveSpeedLevel> OnMoveLevelUpdated;
 
 
 
@@ -42,6 +55,8 @@ public class CoreMovement : MonoBehaviour
         InitializeReferences();
         InitializeUtilities();
     }
+
+
     private void OnEnable()
     {
         OnMoveStarted += LogMoveStartedResponse;
@@ -62,7 +77,10 @@ public class CoreMovement : MonoBehaviour
             ListenForDebugCommands();
 
         if (_isMoving)
+        {
+            WatchForMoveLevelChanges();
             WatchForMovementEnd();
+        }
     }
 
 
@@ -78,6 +96,28 @@ public class CoreMovement : MonoBehaviour
         _isMoving = false;
         SetBaseSpeed(_baseSpeed);
         SetStopRange(_stopRange);
+    }
+    private void WatchForMoveLevelChanges()
+    {
+        _currentSpeed = _navAgent.speed;
+        if (_currentSpeed < _basicMoveLevelMinSpeed && _moveLevel != MoveSpeedLevel.None)
+        {
+            _moveLevel = MoveSpeedLevel.None;
+            OnMoveLevelUpdated?.Invoke(_moveLevel);
+        }
+
+        if (_currentSpeed >= _basicMoveLevelMinSpeed && _currentSpeed <= _basicMoveLevelMaxSpeed && _moveLevel != MoveSpeedLevel.Basic)
+        {
+            _moveLevel = MoveSpeedLevel.Basic;
+            OnMoveLevelUpdated?.Invoke(_moveLevel);
+        }
+
+        if (_navAgent.speed > _basicMoveLevelMaxSpeed && _moveLevel != MoveSpeedLevel.Fast)
+        {
+            _moveLevel = MoveSpeedLevel.Fast;
+            OnMoveLevelUpdated?.Invoke(_moveLevel);
+        }
+            
     }
     private void WatchForMovementEnd()
     {
@@ -96,6 +136,9 @@ public class CoreMovement : MonoBehaviour
         _isMoving = false;
         _navAgent.isStopped = true;
         _navAgent.ResetPath();
+
+        _moveLevel = MoveSpeedLevel.None;
+        OnMoveLevelUpdated?.Invoke(_moveLevel);
     }
 
     private IEnumerator WaitForCalculatedPath()
@@ -120,8 +163,6 @@ public class CoreMovement : MonoBehaviour
         }
 
     }
-
-
 
 
 
