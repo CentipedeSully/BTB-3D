@@ -7,6 +7,7 @@ using UnityEngine.Rendering;
 public abstract class AbstractBehavior : MonoBehaviour, IBehavior
 {
     [Header("General Settings")]
+    [SerializeField] protected GameObject _coreObject;
     [SerializeField] protected string _behaviorName;
     [SerializeField] protected int _priority;
     [Tooltip("The default verbage that's used to describe what the behavior is currently doing, or attempting to do. " +
@@ -37,7 +38,14 @@ public abstract class AbstractBehavior : MonoBehaviour, IBehavior
     //monobehaviors
     private void Awake()
     {
-        IIdentity detectedIdentity = GetComponent<IIdentity>();
+        //read either the core object or this object to find an identification script
+        IIdentity detectedIdentity;
+        if (_coreObject != null)
+             detectedIdentity = _coreObject.GetComponent<IIdentity>();
+        else
+            detectedIdentity = GetComponent<IIdentity>();
+
+
         if (detectedIdentity != null)
             _identity = detectedIdentity;
         RunChildAwakeUtils();
@@ -51,6 +59,10 @@ public abstract class AbstractBehavior : MonoBehaviour, IBehavior
     {
         OnBehaviorCompleted -= ResetBehavior;
         RunChildDisableUtils();
+    }
+    private void Start()
+    {
+        RunChildStartUtils();
     }
     private void Update()
     {
@@ -95,7 +107,18 @@ public abstract class AbstractBehavior : MonoBehaviour, IBehavior
     protected virtual void RunChildAwakeUtils(){}
     protected virtual void RunChildEnableUtils(){}
     protected virtual void RunChildDisableUtils(){}
+    protected virtual void RunChildStartUtils() { }
     protected virtual void RunChildUpdateUtils(){}
+    protected T GetCoreComponent<T>()
+    {
+        if (_coreObject!= null)
+            return _coreObject.GetComponent<T>();
+
+        else return GetComponent<T>();
+    }
+    protected void TriggerOnTriggeredEvent(){OnBehaviorTriggered?.Invoke(this);}
+    protected void TriggerOnCompletedEvent(){OnBehaviorCompleted?.Invoke();}
+
 
 
     //externals

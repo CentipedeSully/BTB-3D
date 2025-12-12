@@ -67,6 +67,8 @@ public interface IBehavior
 
 public class UnitBrain : MonoBehaviour, IIdentity, IInteractable
 {
+    [SerializeField] private Transform _behaviorsContainer;
+
     [Header("Unit Identity")]
     [SerializeField] private int _unitID;
     [SerializeField] private UnitType _unitType = UnitType.unset;
@@ -267,7 +269,10 @@ public class UnitBrain : MonoBehaviour, IIdentity, IInteractable
     /// </summary>
     private void ScanForBehaviorsOnGameObject()
     {
-        _scannedBehaviors = GetComponents<IBehavior>();
+        if (_behaviorsContainer != null)
+            _scannedBehaviors = _behaviorsContainer.GetComponentsInChildren<IBehavior>();
+        else 
+            _scannedBehaviors = GetComponents<IBehavior>();
 
         foreach (IBehavior behavior in _scannedBehaviors)
             AddBehavior(behavior);
@@ -539,6 +544,7 @@ public class UnitBrain : MonoBehaviour, IIdentity, IInteractable
     public InteractableType GetInteractableType() { return InteractableType.Unit; }
     public string GetName() {  return _unitName; }
     public Vector3 GetPosition() { return transform.position; }
+    public bool IsAttackable() { return _state != UnitState.KOed && _state != UnitState.unset; }
 
 
     public UnitState GetState() { return _state; }

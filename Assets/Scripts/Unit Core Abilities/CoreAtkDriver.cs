@@ -262,6 +262,19 @@ public class CoreAtkDriver : MonoBehaviour
             return null;
         else return _currentAtk.GetAtkAnimationParameterName();
     }
+    public bool IsTargetInRange(IIdentity target, string atkName)
+    {
+        if (!IsAtkKnown(atkName))
+        {
+            Debug.LogWarning($"AtkDriver Failed to rangeCheck. Atk '{atkName}' doesn't exist. returning False [target is not in range]");
+            return false;
+        }
+
+        else
+            return _knownAtks[atkName].IsEntityInRange(target);
+            
+    }
+
     
 
 

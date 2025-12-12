@@ -31,6 +31,7 @@ public interface IIdentity
     int GetID();
     InteractableType GetInteractableType();
     IInteractable GetInteractableInterface();
+    bool IsAttackable();
 }
 
 public interface IInteractable
@@ -391,6 +392,8 @@ public class UnitBehavior : MonoBehaviour , IIdentity, IInteractable
     }
 
     public UnitBehaviorState GetCurrentState(){return _unitState;}
+
+    public bool IsAttackable() { return _unitState != UnitBehaviorState.KOed && _unitState != UnitBehaviorState.unset; }
 
     public bool IsInteracting() 
     {
