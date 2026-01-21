@@ -1,101 +1,63 @@
-using System.Collections;
-using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.EventSystems;
 using UnityEngine.UI;
 
-public class InvWindow : MonoBehaviour, IDragHandler, IUiWindow, IPointerEnterHandler, IPointerExitHandler
+namespace dtsInventory
 {
-    [Header("References")]
-    [SerializeField] private RectTransform _headerRectTransform;
-    [SerializeField] private RectTransform _descRectTransform;
-    [SerializeField] private RectTransform _gridAreaRectTransform;
-    [SerializeField] private RectTransform _actualGridRectTransform;
-    [SerializeField] private RectTransform _spritesContainerTransform;
-
-    [SerializeField] private Text _itemDescription;
-    [SerializeField] private Text _itemName;
-    [SerializeField] private InvGrid _itemGrid;
-
-
-
-    private RectTransform _rectTransform;
-    private Canvas _canvas;
-
-
-    public InvGrid GetItemGrid() {  return _itemGrid; }
-    public void OnDrag(PointerEventData eventData)
+    public class InvWindow : MonoBehaviour, IDragHandler
     {
-        _rectTransform.anchoredPosition += eventData.delta / _canvas.scaleFactor;
-    }
+        [Header("References")]
+        [SerializeField] private RectTransform _headerRectTransform;
+        [SerializeField] private RectTransform _descRectTransform;
+        [SerializeField] private RectTransform _gridAreaRectTransform;
+        [SerializeField] private RectTransform _actualGridRectTransform;
+        [SerializeField] private RectTransform _spritesContainerTransform;
 
-    private void Awake()
-    {
-        _rectTransform = GetComponent<RectTransform>();
-    }
-
-    private void Start()
-    {
-        float gridWidth = _actualGridRectTransform.sizeDelta.x;
-        float headerHeight = _headerRectTransform.sizeDelta.y;
-        float descHeight = _descRectTransform.sizeDelta.y;
-        float gridHeight = _actualGridRectTransform.sizeDelta.y;
-        _gridAreaRectTransform.sizeDelta = new Vector2(gridWidth, gridHeight);
-        _rectTransform.sizeDelta = new Vector2(gridWidth, headerHeight + descHeight + gridHeight);
-        _spritesContainerTransform.localPosition = _actualGridRectTransform.localPosition;
-
-        _canvas = CanvasReferenceHelper.GetCanvas();
-    }
+        [SerializeField] private Text _itemDescription;
+        [SerializeField] private Text _itemName;
+        [SerializeField] private InvGrid _itemGrid;
 
 
 
-    public void SetItemDescription(string newDescription) { _itemDescription.text = newDescription; }
-    public void SetItemName(string itemName) { _itemName.text = itemName; }
+        private RectTransform _rectTransform;
+        private Canvas _canvas;
 
 
-    public bool IsWindowOpen()
-    {
-        return gameObject.activeSelf == true;
-    }
 
-    public void OpenWindow()
-    {
-        gameObject.SetActive(true);
-    }
+        //monobehaviours
 
-    public void CloseWindow()
-    {
-        gameObject.SetActive(false);
-        TrackHoverExit(); //keep the UI tracker updated
-    }
 
-    public void TrackHoverEnter()
-    {
-        UiTracker.SetHoveredWindow(this);
-    }
 
-    public void TrackHoverExit()
-    {
-        UiTracker.ExitHoveredWindow(this);
-    }
 
-    public void MoveWindowToFront()
-    {
-        _rectTransform.SetAsLastSibling();
-    }
+        //internals
+        private void Awake()
+        {
+            _rectTransform = GetComponent<RectTransform>();
+        }
 
-    public void OnPointerEnter(PointerEventData eventData)
-    {
-        TrackHoverEnter();
-    }
+        private void Start()
+        {
+            float gridWidth = _actualGridRectTransform.sizeDelta.x;
+            float headerHeight = _headerRectTransform.sizeDelta.y;
+            float descHeight = _descRectTransform.sizeDelta.y;
+            float gridHeight = _actualGridRectTransform.sizeDelta.y;
+            _gridAreaRectTransform.sizeDelta = new Vector2(gridWidth, gridHeight);
+            _rectTransform.sizeDelta = new Vector2(gridWidth, headerHeight + descHeight + gridHeight);
+            _spritesContainerTransform.localPosition = _actualGridRectTransform.localPosition;
 
-    public void OnPointerExit(PointerEventData eventData)
-    {
-        TrackHoverExit();
-    }
+            _canvas = CanvasReferenceHelper.GetCanvas();
+        }
 
-    public string UiName()
-    {
-        return gameObject.name;
+
+
+
+        //externals
+        public InvGrid GetItemGrid() { return _itemGrid; }
+        public void OnDrag(PointerEventData eventData)
+        {
+            _rectTransform.anchoredPosition += eventData.delta / _canvas.scaleFactor;
+        }
+        public void SetItemDescription(string newDescription) { _itemDescription.text = newDescription; }
+        public void SetItemName(string itemName) { _itemName.text = itemName; }
     }
 }
