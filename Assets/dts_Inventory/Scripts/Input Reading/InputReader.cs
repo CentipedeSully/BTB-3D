@@ -86,22 +86,25 @@ namespace dtsInventory
         
         private void ShareInputsWithInvInteracter()
         {
+            
+
+            //respond to rotation commands
             if (_lRotate)
-                _invInteracter.RotateItemCounterClockwise();
+                _invInteracter.RotateHeldItemCounterClockwise();
             if (_rRotate)
-                _invInteracter.RotateItemClockwise();
+                _invInteracter.RotateHeldItemClockwise();
 
-            if (Mathf.Abs(_horizontalInput) >= 0.1f || Mathf.Abs(_verticalInput) >= 0.1f || _confirm || _back || _alternativeInput || _alternativeInput2)
-                _invInteracter.UpdateInputMode(InputMode.Directional);
+            //Update any combo-button states
+            //...
 
-            else if ((_lClick || _rClick || _mClick)) //to prevent accidental multiclicks
-            {
-                _invInteracter.UpdateInputMode(InputMode.Pointer);
+            //Update the InvInteracter's mouse Position
+            _invInteracter.SetMousePosition(Input.mousePosition);
 
-                
-            }
-
+            //respond to pointer inputs
             _invInteracter.TriggerPointerInputs(_lClick, _rClick, _mClick);
+
+            //respond to directional inputs
+            //...
 
         }
 

@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using System.Linq;
 using UnityEngine;
 
 
@@ -23,6 +24,31 @@ namespace dtsInventory
 
 
 
+
+        public static HashSet<(int,int)> CalculateClockWiseRotation(HashSet<(int,int)> indexes)
+        {
+            HashSet<(int, int)> newIndexes = new();
+            foreach ((int,int) index in indexes)
+            {
+                (int, int) newIndex = (index.Item2, -index.Item1);
+                newIndexes.Add(newIndex);
+            }
+
+            return newIndexes;
+
+        }
+
+        public static HashSet<(int,int)> CalculateCounterClockwiseRotation(HashSet<(int, int)> indexes)
+        {
+            HashSet<(int, int)> newIndexes = new();
+            foreach ((int, int) index in indexes)
+            {
+                (int, int) newIndex = (-index.Item2, index.Item1);
+                newIndexes.Add(newIndex);
+            }
+
+            return newIndexes;
+        }
 
 
 
@@ -56,6 +82,58 @@ namespace dtsInventory
         }
         public int StackLimit() { return _stackLimit; }
         public string ItemCode() { return _itemCode; }
+        public HashSet<(int,int)> RotatedSpacialDef(ItemRotation desiredRotation)
+        {
+            HashSet<(int,int)> rotatedIndexes = new();
+
+            switch (desiredRotation)
+            {
+                case ItemRotation.None:
+                    rotatedIndexes = SpacialDefinition();
+                    break;
+
+                case ItemRotation.Once:
+                    rotatedIndexes = CalculateClockWiseRotation(SpacialDefinition());
+                    break;
+
+                case ItemRotation.Twice:
+                    rotatedIndexes = CalculateClockWiseRotation(CalculateClockWiseRotation(SpacialDefinition()));
+                    break;
+
+                case ItemRotation.Thrice: // :)
+                    rotatedIndexes = CalculateClockWiseRotation(CalculateClockWiseRotation(CalculateClockWiseRotation(SpacialDefinition())));
+                    break;
+            }
+
+            return rotatedIndexes;
+        }
+
+        public (int,int) RotatedItemHandle(ItemRotation desiredRotation)
+        {
+            HashSet<(int, int)> handleHash = new();
+            handleHash.Add(ItemHandle());
+
+            switch (desiredRotation)
+            {
+                case ItemRotation.None:
+                    handleHash = SpacialDefinition();
+                    break;
+
+                case ItemRotation.Once:
+                    handleHash = CalculateClockWiseRotation(SpacialDefinition());
+                    break;
+
+                case ItemRotation.Twice:
+                    handleHash = CalculateClockWiseRotation(CalculateClockWiseRotation(SpacialDefinition()));
+                    break;
+
+                case ItemRotation.Thrice: // :)
+                    handleHash = CalculateClockWiseRotation(CalculateClockWiseRotation(CalculateClockWiseRotation(SpacialDefinition())));
+                    break;
+            }
+
+            return handleHash.First();
+        }
     }
 }
 

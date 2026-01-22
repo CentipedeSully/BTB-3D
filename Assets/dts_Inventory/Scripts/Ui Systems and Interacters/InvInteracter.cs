@@ -23,6 +23,8 @@ namespace dtsInventory
         [SerializeField] private Camera _uiCam;
         [SerializeField] private GameObject _hoverGraphicPrefab;
         private InvGrid _invGrid;
+        [SerializeField] private AudioClip _gridMovementAudio;
+        [SerializeField] private AudioClip _gridSelectionAudio;
 
         [Header("Watch/Debug Values [Do Not Touch]")]
         [SerializeField] private InvItem _heldItem;
@@ -69,6 +71,7 @@ namespace dtsInventory
 
         private bool _rotateLeft;
         private bool _rotateRight;
+        private Vector2 _mousePosition;
 
 
         //Monobehaviours
@@ -576,7 +579,7 @@ namespace dtsInventory
             {
                 if (RectTransformUtility.ScreenPointToLocalPointInRectangle(
                     _uiCanvas.GetComponent<RectTransform>(),
-                    Input.mousePosition,
+                    _mousePosition,
                     _uiCam,
                     out _localPoint))
                 {
@@ -847,12 +850,12 @@ namespace dtsInventory
         }
 
 
-        public void RotateItemClockwise()
+        public void RotateHeldItemClockwise()
         {
             if (_heldItem != null)
                 _heldItem.RotateItem(RotationDirection.Clockwise);
         }
-        public void RotateItemCounterClockwise()
+        public void RotateHeldItemCounterClockwise()
         {
             if (_heldItem != null)
                 _heldItem.RotateItem(RotationDirection.CounterClockwise);
@@ -868,6 +871,7 @@ namespace dtsInventory
             _mClick = mClick;
             RespondToPointerClicks();
         }
+        public void SetMousePosition(Vector2 position) { _mousePosition = position; }
 
         
     }
