@@ -110,25 +110,26 @@ namespace dtsInventory
 
         public (int,int) RotatedItemHandle(ItemRotation desiredRotation)
         {
-            HashSet<(int, int)> handleHash = new();
-            handleHash.Add(ItemHandle());
+            HashSet<(int, int)> handleHash = new()
+            {
+                ItemHandle()
+            };
 
             switch (desiredRotation)
             {
                 case ItemRotation.None:
-                    handleHash = SpacialDefinition();
                     break;
 
                 case ItemRotation.Once:
-                    handleHash = CalculateClockWiseRotation(SpacialDefinition());
+                    handleHash = CalculateClockWiseRotation(handleHash);
                     break;
 
                 case ItemRotation.Twice:
-                    handleHash = CalculateClockWiseRotation(CalculateClockWiseRotation(SpacialDefinition()));
+                    handleHash = CalculateClockWiseRotation(CalculateClockWiseRotation(handleHash));
                     break;
 
                 case ItemRotation.Thrice: // :)
-                    handleHash = CalculateClockWiseRotation(CalculateClockWiseRotation(CalculateClockWiseRotation(SpacialDefinition())));
+                    handleHash = CalculateClockWiseRotation(CalculateClockWiseRotation(CalculateClockWiseRotation(handleHash)));
                     break;
             }
 

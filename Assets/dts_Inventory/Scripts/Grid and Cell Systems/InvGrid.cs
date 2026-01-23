@@ -761,7 +761,9 @@ namespace dtsInventory
 
             //create the utilities that'll track all checked spaces
             int totalSpacesFound = 0;
-            Dictionary<HashSet<(int, int)>, int> availableStacks = new();
+
+            
+            Dictionary<HashSet<(int, int)>, int> availableStacks = new(); // Key:Value -> StackPositions:RemainingValue
 
             //first, find preexisting stacks that aren't yet full
             foreach (KeyValuePair<HashSet<(int,int)>,ItemData> stack in _stackItemDatas)
@@ -782,10 +784,12 @@ namespace dtsInventory
                 }
             }
 
+            int remainingAmount = amount;
+
             //if we found enough vacancies among unfinished stacks, then add the requested amount and return
             if (totalSpacesFound >= amount)
             {
-                int remainingAmount = amount;
+                
                 foreach (KeyValuePair<HashSet<(int, int)>, int> stack in availableStacks)
                 {
                     //place either the remainingAmount, or the stack's remaining capacity. Whichever is smallest
@@ -802,6 +806,15 @@ namespace dtsInventory
                         return;
 
                 }
+
+                //Logically, this part of the code shouldnt ever be reached:
+                //We've confirmed that we have enough space in the preexisting stacks.
+                //Reaching here means we've failed to add enough items DESPITE having enough space.
+                //The previous looping mechanism should be revisited. Make sure we're counting our actions properly.
+                Debug.LogWarning($"Counting anomoly during command [Add {amount} {itemData.name}]. " +
+                    $"Failed to find a home for {remainingAmount} {itemData.name}(s), despite having enough space within preexisting stacks." +
+                    $"\nDiscarding the remaining {remainingAmount} items. Please double check the code's counting");
+                return;
             }
 
 
@@ -859,14 +872,50 @@ namespace dtsInventory
             //NOW! AFTER ALL THAT WORK!
             //
             //WE FILL THE INVENTORY
-            
+
+
             //top off all the preexisting stacks
-            //...
+            foreach (KeyValuePair<HashSet<(int,int)>,int> entry in availableStacks)
+            {
+                IncreaseStack(entry.Key.First(), entry.Value);
+                remainingAmount -= entry.Value;
+            }
+
 
             //now for each reserved stack, create the item and add it to the inventory
-            //...
+            foreach (KeyValuePair<HashSet<(int,int)>,ItemPlacementData> entry in reservedStacks)
+            {
+                //create the new Item
+                InvItem newItem = ItemCreatorHelper.CreateItem(itemData, _cellSize.x, _cellSize.y).GetComponent<InvItem>();
 
-            /*
+                //rotate the item to the saved rotation
+                switch (entry.Value.necessaryRotation)
+                {
+                    case ItemRotation.None:
+                        break;
+                    case ItemRotation.Once:
+                        newItem.RotateItem(RotationDirection.Clockwise);
+                        break;
+                    case ItemRotation.Twice:
+                        newItem.RotateItem(RotationDirection.Clockwise);
+                        newItem.RotateItem(RotationDirection.Clockwise);
+                        break;
+                    case ItemRotation.Thrice:
+                        newItem.RotateItem(RotationDirection.CounterClockwise);
+                        break;
+                }
+
+                int placementAmount = Mathf.Min(remainingAmount, itemData.StackLimit());
+
+                //create a new stack using the newly-created, rotated item.
+                //Stack size should be the smallest of either the stackLimit OR the remaining amount to place
+                CreateStack(entry.Value.gridPlacementPosition, newItem, placementAmount);
+                remainingAmount -= placementAmount;
+            }
+
+            //We're Done!
+
+            /* Old, incomplete solution
             int itemsAdded = 0;
             bool inventoryFull = false;
             bool stackIncrementPerformed = false;
@@ -1021,14 +1070,16 @@ namespace dtsInventory
             {
                 for (int w = 0; w < width; w++)
                 {
-
+                    //Debug.Log($"Starting Iteration ({w},{h})");
                     //skip cells that're either directly occupied or are explicitly excluded
                     if (IsCellOccupied((w, h)) || excludedPositions.Contains((w,h)))
                     {
+                        /*Log Skipped Iterations
                         if (IsCellOccupied((w, h)))
                             Debug.Log($"Tracing 'FindSpaceForStack':\n Cell iteration: ({w},{h})\nStatus: SKIPPED [CELL OCCUPIED]");
                         else 
                             Debug.Log($"Tracing 'FindSpaceForStack':\n Cell iteration: ({w},{h})\nStatus: SKIPPED [CELL MARKED AS EXCLUDED]");
+                        */
                         continue;
                     }
 
@@ -1054,8 +1105,16 @@ namespace dtsInventory
                                 break;
                         }
 
+                        /*
+                        Debug.Log($"Checking Rotation: {necessaryRotation.ToString()}\n" +
+                            $"Rotated SpacialDef: {StringifyPositions(itemData.RotatedSpacialDef(necessaryRotation))}\n" +
+                            $"Rotated ItemHandle: ({itemData.RotatedItemHandle(necessaryRotation).Item1},{itemData.RotatedItemHandle(necessaryRotation).Item2})");
+                        */
+
                         //calculate the items expected ROTATED spacialData [without going through the trouble of actually creating an item]
                         calculatedPositions = ConvertSpacialDefIntoGridIndexes((w, h), itemData.RotatedSpacialDef(necessaryRotation), itemData.RotatedItemHandle(necessaryRotation));
+
+                        //Debug.Log($"Is area within grid: {IsAreaWithinGrid(calculatedPositions)}\n Positions: {StringifyPositions(calculatedPositions)}");
 
                         //first, make sure the space is cleared and valid
                         if (CountUniqueStacksInArea(calculatedPositions) == 0 && IsAreaWithinGrid(calculatedPositions))
@@ -1077,7 +1136,7 @@ namespace dtsInventory
                             {
                                 gridPosition = (w, h);
 
-                                Debug.Log($"Tracing 'FindSpaceForStack':\n Cell iteration: ({w},{h})\nStatus: success! Returning '{calculatedPositions.Count()}' calculatedPositions.\n DesiredRotation: {necessaryRotation}");
+                                //Debug.Log($"Tracing 'FindSpaceForStack':\n Cell iteration: ({w},{h})\nStatus: success! Returning '{calculatedPositions.Count()}' calculatedPositions.\n DesiredRotation: {necessaryRotation}");
                                 return calculatedPositions;
                             }
 
@@ -1087,7 +1146,7 @@ namespace dtsInventory
                         rotationCount++;
                     }
 
-                    Debug.Log($"Tracing 'FindSpaceForStack':\n Cell iteration: ({w},{h})\nStatus: NO SPACE FOUND");
+                    //Debug.Log($"Tracing 'FindSpaceForStack':\n Cell iteration: ({w},{h})\nStatus: NO SPACE FOUND");
 
                     //none found. Reset the rotationCount and move on to the next cell
                     rotationCount = 0;
@@ -1095,7 +1154,7 @@ namespace dtsInventory
             }
 
             //None were found.
-            Debug.Log($"Tracing 'FindSpaceForStack':\n No Positions Found. Returning an empty collection...");
+            //Debug.Log($"Tracing 'FindSpaceForStack':\n No Positions Found. Returning an empty collection...");
             return new();
         }
 
