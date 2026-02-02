@@ -98,21 +98,7 @@ namespace dtsInventory
         private void Update()
         {
             VisualizeHover();
-            BindPointerParentToMousePosition();
-
-            /*
-            if (_inputMode == InputMode.Pointer)
-            {
-                RespondToPointerClicks();
-                BindPointerParentToMousePosition();
-            }
-            else
-            {
-                RespondToNonPointerCommands();
-                BindPointerParentToSpecificPosition(_lastCellVisited);
-            }*/
-            
-            
+            BindPointerCotainerToMousePosition();
         }
 
 
@@ -573,7 +559,7 @@ namespace dtsInventory
         }
 
 
-        private void BindPointerParentToMousePosition()
+        private void BindPointerCotainerToMousePosition()
         {
             if (_pointerContainer != null)
             {
@@ -859,10 +845,6 @@ namespace dtsInventory
         {
             if (_heldItem != null)
                 _heldItem.RotateItem(RotationDirection.CounterClockwise);
-        }
-        public void UpdateInputMode(InputMode newMode)
-        {
-            _inputMode = newMode;
         }
         public void TriggerPointerInputs(bool lClick, bool rClick, bool mClick)
         {

@@ -10,17 +10,28 @@ namespace dtsInventory
     public class ItemData : ScriptableObject
     {
         [Header("Item Definition")]
+        [Tooltip("The in-game name of this item")]
         [SerializeField] private string _name;
+        [Tooltip("The unique key to used to reference any instance of this item")]
         [SerializeField] private string _itemCode;
+        [Tooltip("This item's size and shape, defined by a collection of cells")]
         [SerializeField] private List<Vector2Int> _spacialDefinition = new();
+        [Tooltip("Which cell is considered the pivot point of this item's graphic")]
         [SerializeField] private Vector2Int _itemHandle;
+        [Tooltip("The in-game description text of this item")]
         [SerializeField] private string _desc = "";
         [SerializeField] private Sprite _sprite;
+        [Tooltip("The maximum amount of [this] item that can same grid position")]
         [SerializeField] private int _stackLimit = 1;
         [Header("Possible UI Options")]
+        [Tooltip("Should this item show the 'use' context within the inventory")]
         [SerializeField] private bool _isUsable;
+        [Tooltip("Should this item show the 'discard' context within the inventory")]
         [SerializeField] private bool _isDiscardable;
+        [Tooltip("Should this item show the 'organize' context within the inventory. Controls whether or not the item can be manipulated")]
         [SerializeField] private bool _isOrganizable;
+
+
 
 
 
@@ -35,6 +46,8 @@ namespace dtsInventory
             }
 
             return newIndexes;
+
+            
 
         }
 

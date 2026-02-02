@@ -7991,6 +7991,8 @@ MonoBehaviour:
   _uiCam: {fileID: 0}
   _hoverGraphicPrefab: {fileID: 4799210656380651735, guid: 272b52e2eaec0904790445676de3199c,
     type: 3}
+  _gridMovementAudio: {fileID: 0}
+  _gridSelectionAudio: {fileID: 0}
   _heldItem: {fileID: 0}
   _heldItemStackCount: 0
   _hoveredCell: {fileID: 0}
@@ -9775,6 +9777,22 @@ PrefabInstance:
         type: 3}
       propertyPath: m_AnchoredPosition.x
       value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 4906056226602732301, guid: 7b4dc6ee5c5a21d4b90bc95013aca4e2,
+        type: 3}
+      propertyPath: _paramItemData
+      value: 
+      objectReference: {fileID: 11400000, guid: 6d528f0074d821842bed9fcf5cb51491,
+        type: 2}
+    - target: {fileID: 4906056226602732301, guid: 7b4dc6ee5c5a21d4b90bc95013aca4e2,
+        type: 3}
+      propertyPath: _containerSize.x
+      value: 4
+      objectReference: {fileID: 0}
+    - target: {fileID: 4906056226602732301, guid: 7b4dc6ee5c5a21d4b90bc95013aca4e2,
+        type: 3}
+      propertyPath: _containerSize.y
+      value: 4
       objectReference: {fileID: 0}
     - target: {fileID: 6644173696735663851, guid: 7b4dc6ee5c5a21d4b90bc95013aca4e2,
         type: 3}

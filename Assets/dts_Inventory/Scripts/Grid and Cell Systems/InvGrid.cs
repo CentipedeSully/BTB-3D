@@ -1,5 +1,8 @@
+using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
+using System.Runtime.CompilerServices;
 using Unity.VisualScripting;
 using UnityEditor.Experimental.GraphView;
 using UnityEngine;
@@ -22,6 +25,19 @@ namespace dtsInventory
         [SerializeField] private RectTransform _overlayContainer;
 
         [SerializeField] GridLayoutGroup _layoutGroup;
+
+        [Header("Debug")]
+        [SerializeField] private bool _isDebugActive = false;
+        [SerializeField] private ItemData _paramItemData;
+        [SerializeField] private int _paramItemCount = 0;
+        [SerializeField] private List<Vector2Int> _paramExcludePositionsList = new List<Vector2Int>();
+        [SerializeField] private bool _cmdCheckIfSpaceExists = false;
+        [SerializeField] private List<ItemQuery> _paramQueryList;
+        [SerializeField] private bool _cmdMulticheckIfSpaceExists = false;
+
+
+
+
         private RectTransform _rectTransform;
         private CellInteract[,] _cellObjects;
         //private Dictionary<InventoryItem, List<(int, int)>> _containedItems = new(); //used for quick referencing any item in the grid
@@ -41,7 +57,10 @@ namespace dtsInventory
         private Dictionary<HashSet<(int, int)>, InvItem> _stackSpriteObjects = new();
         private Dictionary<HashSet<(int, int)>, Text> _stackTexts = new();
 
-        private struct ItemPlacementData
+        /// <summary>
+        /// Holds a placement position and a 'rotation' value
+        /// </summary>
+        public struct ItemPlacementData
         {
             public (int, int) gridPlacementPosition;
             public ItemRotation necessaryRotation;
@@ -53,6 +72,39 @@ namespace dtsInventory
             }
         }
 
+        public struct ItemQueryResponse
+        {
+            public ItemData itemData;
+            public (int,int) placementPosition;
+            public ItemRotation placementRotation;
+            public HashSet<(int, int)> reservedPositions;
+            public int availableCapacity;
+
+            public ItemQueryResponse(ItemData data, (int,int) targetPosition, int capacity,HashSet<(int,int)> fullStackPosition, ItemRotation necessaryRotation)
+            {
+                itemData = data;
+                placementPosition = targetPosition;
+                placementRotation = necessaryRotation;
+                availableCapacity = capacity;
+
+                reservedPositions = new();
+                foreach ((int,int) position in fullStackPosition)
+                    reservedPositions.Add(position);
+            }
+        }
+
+        [Serializable]
+        public struct ItemQuery
+        {
+            public ItemData itemData;
+            public int placementAmount;
+
+            public ItemQuery(ItemData queryItem,int queryAmount)
+            {
+                itemData = queryItem;
+                placementAmount = queryAmount;
+            }
+        }
 
         //monobehaviours
         private void Awake()
@@ -78,6 +130,12 @@ namespace dtsInventory
         private void Start()
         {
             InitializeGrid();
+        }
+
+        private void Update()
+        {
+            if (_isDebugActive)
+                ListenForDebugCommands();
         }
 
 
@@ -355,6 +413,7 @@ namespace dtsInventory
         }
         */
 
+        
 
 
         //externals
@@ -683,9 +742,26 @@ namespace dtsInventory
         }
 
 
-
+        /// <summary>
+        /// Removes the requested amount of whatever that exists at the specified position. If not enough existsm then the command is ignored.
+        /// </summary>
+        /// <param name="position"></param>
+        /// <param name="amount"></param>
         public void RemoveItem((int, int) position, int amount)
         {
+            //ignore if no stack exists at the position
+            if (GetStackArea(position).Count == 0)
+                return;
+
+            //Log invalid command if not enough items exist within the stack at the specified position
+            if (_stackCapacities[GetStackArea(position)] < amount)
+            {
+
+                //if we got down here, then we didn't find the full amount of items to fulfill the request. Raise a yellow alert. The User probably didn't check the item count beforehand.
+                Debug.LogWarning($"Failed to find {amount} items at position [({position.Item1},{position.Item2})]. Found {amount} items.");
+                return;
+            }
+
             DecreaseStack(position, amount);
         }
 
@@ -785,6 +861,7 @@ namespace dtsInventory
             }
 
             int remainingAmount = amount;
+            int placementAmount;
 
             //if we found enough vacancies among unfinished stacks, then add the requested amount and return
             if (totalSpacesFound >= amount)
@@ -793,13 +870,13 @@ namespace dtsInventory
                 foreach (KeyValuePair<HashSet<(int, int)>, int> stack in availableStacks)
                 {
                     //place either the remainingAmount, or the stack's remaining capacity. Whichever is smallest
-                    int placement = Mathf.Min(remainingAmount, stack.Value);
+                    placementAmount = Mathf.Min(remainingAmount, stack.Value);
 
                     //place either the remaining items, or the stacks remaining capacity
-                    IncreaseStack(stack.Key.First(), placement);
+                    IncreaseStack(stack.Key.First(), placementAmount);
 
                     //update the remainder. 
-                    remainingAmount -= placement;
+                    remainingAmount -= placementAmount;
 
                     //we've Added the requested items into preexisting stacks
                     if (remainingAmount == 0)
@@ -828,7 +905,7 @@ namespace dtsInventory
             //save exactly how each stack should be organized 
             Dictionary<HashSet<(int,int)>,ItemPlacementData> reservedStacks = new();
 
-            int autoBreakCount = 1000;// if the while runs 1000 times, cut it off.
+            int autoBreakCount = _containerSize.x * _containerSize.y;// if the while runs over the amount of cells that exist, cut it off.
             int iteractionCount = 0;
 
             //keep finding space for more stacks if we haven't found enough spots [with and autoBrake for added security]
@@ -905,7 +982,7 @@ namespace dtsInventory
                         break;
                 }
 
-                int placementAmount = Mathf.Min(remainingAmount, itemData.StackLimit());
+                placementAmount = Mathf.Min(remainingAmount, itemData.StackLimit());
 
                 //create a new stack using the newly-created, rotated item.
                 //Stack size should be the smallest of either the stackLimit OR the remaining amount to place
@@ -915,135 +992,19 @@ namespace dtsInventory
 
             //We're Done!
 
-            /* Old, incomplete solution
-            int itemsAdded = 0;
-            bool inventoryFull = false;
-            bool stackIncrementPerformed = false;
-            int totalIterations = 0; //just in case a failure occurs while attempting to creating a stack, break the while to prevent program 'ascension'
-            while (itemsAdded < amount && !inventoryFull && totalIterations < amount)
-            {
-                totalIterations++;
-                stackIncrementPerformed = false;
-                //Try to increase a compatible stack that isnt full yet
-                foreach (KeyValuePair<HashSet<(int, int)>, ItemData> entry in _stackItemDatas)
-                {
-                    //if the item is similar
-                    if (itemData == entry.Value)
-                    {
-                        //if the stack isn't full yet
-                        if (_stackCapacity[entry.Key] < itemData.StackLimit())
-                        {
-                            //increment the amount of items in this stack
-                            IncreaseStack(entry.Key.First<(int, int)>(), 1);
-                            stackIncrementPerformed = true;
-                            break;
-                        }
-                    }
-                }
-
-                if (stackIncrementPerformed)
-                {
-                    itemsAdded++;
-                    continue;
-                }
-
-                //no open stacks were found. Now try to create a new stack.
-                InvItem newItem = ItemCreatorHelper.CreateItem(itemData, _cellSize.x, _cellSize.y).GetComponent<InvItem>();
-
-                (int, int) openPosition = (-1, -1);
-                ItemRotation necessaryRotation = ItemRotation.None;
-                HashSet<(int, int)> openArea = FindSpaceForItem(newItem, out openPosition, out necessaryRotation);
-                //Debug.Log($"FoundPositions: {openArea.ToCommaSeparatedString()}");
-
-                if (openArea.Count == 0)
-                {
-                    inventoryFull = true;
-                    Debug.LogWarning($"No open position was found for item. Inventory must be full, or the item may be too big.\nLast Index checked: {openPosition}");
-                    return;
-                }
-
-                while (newItem.Rotation() != necessaryRotation)
-                    newItem.RotateItem(RotationDirection.Clockwise);
-
-                CreateStack(openPosition, newItem, 1);
-                itemsAdded++;
-            }
-            */
 
         }
 
-        
-
-        public HashSet<(int, int)> FindSpaceForItem(InvItem item, out (int, int) gridPosition, out ItemRotation necessaryRotation)
-        {
-            //Default the out parameters to invalid states
-            gridPosition = (-1, -1);
-            necessaryRotation = ItemRotation.None;
-
-            if (item == null)
-                return new();
-            if (item.GetSpacialDefinition() == null)
-                return new();
-            if (item.GetSpacialDefinition().Count < 1)
-                return new();
-
-            ItemRotation originalRotation = item.Rotation();
-            HashSet<(int, int)> calculatedPositions = new();
-            int width = _containerSize.x;
-            int height = _containerSize.y;
-            int rotationCount = 0;
-
-            for (int h = 0; h < height; h++)
-            {
-                for (int w = 0; w < width; w++)
-                {
-
-                    //save time and skip cells that are directly occupied
-                    if (IsCellOccupied((w, h)))
-                    {
-                        //Debug.Log($"Tracing 'FindSpaceForItem':\n Cell iteration: ({w},{h})\nStatus: SKIPPED [CELL OCCUPIED]");
-                        continue;
-                    }
-
-
-                    //check if the item fits with its origin (itemHandle) centered on this cell
-                    //check all rotations
-                    while (rotationCount < 4)
-                    {
-                        calculatedPositions = ConvertSpacialDefIntoGridIndexes((w, h), item.GetSpacialDefinition(), item.ItemHandle());
-
-
-                        if (CountUniqueStacksInArea(calculatedPositions) == 0 && IsAreaWithinGrid(calculatedPositions))
-                        {
-
-                            necessaryRotation = item.Rotation();
-                            gridPosition = (w, h);
-
-                            //revert the item's rotation. This function isn't meant to be changing anything beyond the out arguments.
-                            while (item.Rotation() != originalRotation) //only 4 exist in a cycle
-                                item.RotateItem(RotationDirection.Clockwise);
-
-                            //Debug.Log($"Tracing 'FindSpaceForItem':\n Cell iteration: ({w},{h})\nStatus: success! Returning '{calculatedPositions.Count()}' calculatedPositions.\n DesiredRotation: {necessaryRotation}");
-                            return calculatedPositions;
-                        }
-
-
-                        item.RotateItem(RotationDirection.Clockwise);
-                        rotationCount++;
-                    }
-
-                    //Debug.Log($"Tracing 'FindSpaceForItem':\n Cell iteration: ({w},{h})\nStatus: NO SPACE FOUND");
-
-                    //none found. Reset the rotationCount and move on to the next cell
-                    rotationCount = 0;
-                }
-            }
-
-            //None were found.
-            //Debug.Log($"Tracing 'FindSpaceForItem':\n No Positions Found. Returning an empty collection...");
-            return new();
-        }
-        public HashSet<(int,int)> FindSpaceForStack(ItemData itemData, out (int, int) gridPosition, out ItemRotation necessaryRotation, HashSet<(int,int)> excludedPositions = default)
+        /// <summary>
+        /// Searches the grid for an empty position, defined by the passed item's spacial definition. 
+        /// DOES NOT ATTEMPT TO AUTOFILL OTHER PREEXISTING COMPATIBLE STACKS. 
+        /// </summary>
+        /// <param name="itemData"></param>
+        /// <param name="gridPosition"></param>
+        /// <param name="necessaryRotation"></param>
+        /// <param name="excludedPositions"></param>
+        /// <returns></returns>
+        public HashSet<(int,int)> FindSpaceForStack(ItemData itemData, out (int, int) gridPosition, out ItemRotation necessaryRotation, HashSet<(int,int)> excludedPositions)
         {
             gridPosition = (-1, -1);
             necessaryRotation = ItemRotation.None;
@@ -1051,6 +1012,8 @@ namespace dtsInventory
             //this parameter is optional. But make sure its not null
             if (excludedPositions == null)
                 excludedPositions = new();
+
+            //Debug.Log($"Excluded Positions received: {StringifyPositions(excludedPositions)}");
 
             if (itemData == null)
             {
@@ -1105,7 +1068,7 @@ namespace dtsInventory
                                 break;
                         }
 
-                        /*
+                        /* Log the rotated spaces being checked
                         Debug.Log($"Checking Rotation: {necessaryRotation.ToString()}\n" +
                             $"Rotated SpacialDef: {StringifyPositions(itemData.RotatedSpacialDef(necessaryRotation))}\n" +
                             $"Rotated ItemHandle: ({itemData.RotatedItemHandle(necessaryRotation).Item1},{itemData.RotatedItemHandle(necessaryRotation).Item2})");
@@ -1114,7 +1077,9 @@ namespace dtsInventory
                         //calculate the items expected ROTATED spacialData [without going through the trouble of actually creating an item]
                         calculatedPositions = ConvertSpacialDefIntoGridIndexes((w, h), itemData.RotatedSpacialDef(necessaryRotation), itemData.RotatedItemHandle(necessaryRotation));
 
-                        //Debug.Log($"Is area within grid: {IsAreaWithinGrid(calculatedPositions)}\n Positions: {StringifyPositions(calculatedPositions)}");
+                        /* Log Area Check results
+                        Debug.Log($"Is area within grid: {IsAreaWithinGrid(calculatedPositions)}\n Positions: {StringifyPositions(calculatedPositions)}");
+                        */
 
                         //first, make sure the space is cleared and valid
                         if (CountUniqueStacksInArea(calculatedPositions) == 0 && IsAreaWithinGrid(calculatedPositions))
@@ -1136,7 +1101,10 @@ namespace dtsInventory
                             {
                                 gridPosition = (w, h);
 
-                                //Debug.Log($"Tracing 'FindSpaceForStack':\n Cell iteration: ({w},{h})\nStatus: success! Returning '{calculatedPositions.Count()}' calculatedPositions.\n DesiredRotation: {necessaryRotation}");
+                                /* Log the current iteration's success
+                                Debug.Log($"Tracing 'FindSpaceForStack':\n Cell iteration: ({w},{h})\nStatus: success! Returning '{calculatedPositions.Count()}' calculatedPositions.\n DesiredRotation: {necessaryRotation}");
+                                */
+
                                 return calculatedPositions;
                             }
 
@@ -1146,6 +1114,7 @@ namespace dtsInventory
                         rotationCount++;
                     }
 
+                    //Log no space found for none of the current iterations rotations
                     //Debug.Log($"Tracing 'FindSpaceForStack':\n Cell iteration: ({w},{h})\nStatus: NO SPACE FOUND");
 
                     //none found. Reset the rotationCount and move on to the next cell
@@ -1153,11 +1122,528 @@ namespace dtsInventory
                 }
             }
 
-            //None were found.
+            //None were found. Log total failure
             //Debug.Log($"Tracing 'FindSpaceForStack':\n No Positions Found. Returning an empty collection...");
             return new();
         }
 
+        /// <summary>
+        /// Checks the grid if space exists for an amount of items. checks preexisting stacks first, then empty positions.
+        /// </summary>
+        /// <param name="itemQuery"></param>
+        /// <returns></returns>
+        public bool DoesSpaceExist(ItemData itemData, int amount, HashSet<(int,int)> excludedPositions)
+        {
+            if (itemData == null)
+            {
+                Debug.LogWarning("Requested if space exists for a null itemData. Returning false.");
+                
+                return false;
+            }
+
+            if (excludedPositions == null)
+                excludedPositions = new HashSet<(int,int)>();
+
+            //Debug.Log($"Excluded Positions received: {StringifyPositions(excludedPositions)}");
+
+            //create the utilities that'll track all checked spaces
+            int totalSpacesFound = 0;
+
+
+            Dictionary<HashSet<(int, int)>, int> availableStacks = new(); // Key:[Value] -> StackPositions:[RemainingValue]
+
+            //first, find preexisting stacks that aren't yet full
+            foreach (KeyValuePair<HashSet<(int, int)>, ItemData> stack in _stackItemDatas)
+            {
+                bool isStackOffLimits = false;
+                //ensure the none of the stack's positions are marked as 'excluded' from the space check
+                foreach ((int,int) position in stack.Key)
+                {
+                    if (excludedPositions.Contains(position))
+                    {
+                        isStackOffLimits = true;
+                        break;
+                    }
+                }
+
+                //skip this current stack if any position was flagged as 'excluded'
+                if (isStackOffLimits)
+                    continue;
+
+                //look for each stack that BOTH 1) matches our itemCode AND 2) isn't yet full
+                if (stack.Value.ItemCode() == itemData.ItemCode() && _stackCapacities[stack.Key] < itemData.StackLimit())
+                {
+                    int foundSpace = itemData.StackLimit() - _stackCapacities[stack.Key];
+
+                    //just track this stack's remaining capacity
+                    availableStacks[stack.Key] = foundSpace;
+
+                    totalSpacesFound += foundSpace;
+
+                    //break if we don't need to keep searching for space
+                    if (totalSpacesFound >= amount)
+                        break;
+                }
+            }
+
+            //if we found enough vacancies among unfinished stacks, then return true
+            if (totalSpacesFound >= amount)
+                return true;
+
+
+
+            //otherwise, we need to find more space.
+            int remainingAmount = amount;
+
+            //get ready to save the individual positions of potential stacks [and excluded positions] ]to build the reservation list
+            HashSet<(int, int)> reservedPositions = new();
+
+            //don't forget to add the excluded positions to our list of reserved positions, here
+            foreach ((int,int) position in excludedPositions)
+                reservedPositions.Add(position);
+
+
+            int autoBreakCount = _containerSize.x * _containerSize.y; ;// if the while runs over all the cells, cut it off.
+            int iteractionCount = 0;
+
+            //keep finding space for more stacks if we haven't found enough spots [with and autoBrake for added security]
+            while (totalSpacesFound < amount && iteractionCount < autoBreakCount)
+            {
+
+                //check for the next available space.
+                HashSet<(int, int)> openAreaForNewStack = FindSpaceForStack(itemData, out (int, int) gridPlacementPosition, out ItemRotation necessaryRotation, reservedPositions);
+
+                //if no positions were found, then we've run out of space [but still require more].
+                //not enough space exists for the stated amount of items
+                if (openAreaForNewStack.Count == 0)
+                    return false;
+
+                //otherwise, we've found a suitable position for a stack.
+                //reserve the found positions.
+                foreach ((int, int) position in openAreaForNewStack)
+                    reservedPositions.Add(position);
+
+                //update our amount of spaces found by the item's max stack limit
+                totalSpacesFound += itemData.StackLimit();
+
+                //track how many iterations are passing
+                iteractionCount++;
+
+            }
+
+            if (totalSpacesFound >= amount)
+                return true;
+
+            if (iteractionCount >= autoBreakCount)
+            {
+                Debug.LogWarning($"Cancelled the command to add {amount} {itemData.name}(s) due to not finding enough space within a reasonable amount of iterations [{autoBreakCount}]. Ignoring request.");
+                return false;
+            }
+
+            Debug.LogWarning("Reached the end of the spaceFind utility. We shouldn't have reached this point in the code. " +
+                "This means we somehow didn't find enough, but also failed to detect that we ran out of space.");
+            return false;
+        }
+
+        /// <summary>
+        /// Checks if space exists for an amount of items and returns an ordered list of the necessary placements needed to fulfill the placements. 
+        /// Reads and Updates an 'unregistered stack changes' parameter to ensure reiterative space reading-- allowing for a persistent tracking of
+        /// used & reserved space, as long as the 'unregistered stack changes' utility is reapplied to future function calls.
+        /// </summary>
+        /// <param name="itemData"></param>
+        /// <param name="amount"></param>
+        /// <param name="excludedPositions"></param>
+        /// <param name="unregisteredStackChanges">
+        /// A collection that keeps what stacks/positions have been previously counted [along with each stack's updated occupancy]. 
+        /// This argument will be modified/written to, and acts as a supplement to help remember what has been counted in the past
+        /// </param>
+        /// <param name="unregisteredStackTypes">
+        /// A sister collection to the 'unregistered stack changes' argument. Holds the type of each unregistered stack, in case new ones are created
+        /// </param>
+        /// <returns></returns>
+        public List<ItemQueryResponse> FindSpaceForItems(
+            ItemData itemData, 
+            int amount, 
+            HashSet<(int, int)> excludedPositions, 
+            Dictionary<HashSet<(int,int)>,int> unregisteredStackChanges, 
+            Dictionary<HashSet<(int, int)>, ItemData> unregisteredStackTypes)
+        {
+
+            if (excludedPositions == null)
+                excludedPositions = new HashSet<(int, int)>();
+
+            if (unregisteredStackChanges == null)
+                unregisteredStackChanges = new();
+
+            if (unregisteredStackTypes == null)
+                unregisteredStackTypes = new();
+
+            if (itemData == null)
+            {
+                Debug.LogWarning("Requested if space exists for a null itemData. Returning false.");
+
+                return null;
+            }
+
+            List<ItemQueryResponse> queryResponse = new();
+
+            //create the utilities that'll track all checked spaces
+            int totalSpacesFound = 0;
+
+            //create a new variable to track our counting updates
+            //without directly changing the unregisteredStacks data too early
+            Dictionary<HashSet<(int, int)>, int> tempStackUpdates = new();
+            Dictionary<HashSet<(int, int)>, ItemData> tempStackTypes = new();
+
+
+            //first, find preexisting stacks that aren't yet full
+            foreach (KeyValuePair<HashSet<(int, int)>, ItemData> stack in _stackItemDatas)
+            {
+                bool isStackOffLimits = false;
+                //ensure the none of the stack's positions are marked as 'excluded' from the space check
+                foreach ((int, int) position in stack.Key)
+                {
+                    if (excludedPositions.Contains(position))
+                    {
+                        isStackOffLimits = true;
+                        break;
+                    }
+                }
+
+                //skip this current stack if any position was flagged as 'excluded'
+                if (isStackOffLimits)
+                    continue;
+
+                //look for each stack that matches our itemCode
+                if (stack.Value.ItemCode() == itemData.ItemCode())
+                {
+                    //check if this stack has any unregistered updates
+                    if (unregisteredStackChanges.ContainsKey(stack.Key))
+                    {
+                        //skip this stack if the UPDATES say it's full
+                        if (unregisteredStackChanges[stack.Key] == itemData.StackLimit())
+                            continue;
+
+                        //else count how many spaces are available here, based on the provided unregistered updates.
+                        int foundSpace = itemData.StackLimit() - unregisteredStackChanges[stack.Key];
+                        totalSpacesFound += foundSpace;
+
+                        //create a new queryResponse for this available position
+                        //first create a new copy of our current stack's positions
+                        HashSet<(int, int)> savedQueryStack = new();
+                        HashSet<(int, int)> savedUpdatedStack = new();
+                        foreach ((int, int) position in stack.Key)
+                        {
+                            savedQueryStack.Add(position);
+                            savedUpdatedStack.Add(position);
+                        }
+
+                        //build this stack's query response
+                        int spaceNeededToFulfilQuery = Mathf.Min(foundSpace, Mathf.Abs(amount - totalSpacesFound));
+                        ItemQueryResponse response = new ItemQueryResponse(itemData, (-1, -1), spaceNeededToFulfilQuery, savedQueryStack, ItemRotation.None);
+
+                        //add this individual response to the response list
+                        queryResponse.Add(response);
+
+                        //now track what we've counted & filled
+                        tempStackUpdates.Add(savedUpdatedStack, unregisteredStackChanges[stack.Key] + spaceNeededToFulfilQuery);
+                        tempStackTypes.Add(savedUpdatedStack, itemData);
+
+                        //break if we don't need to keep searching for space
+                        if (totalSpacesFound >= amount)
+                            break;
+                    }
+
+                    //otherwise, this stack hasn't been tracked. Check if we have any space available.
+                    else if (_stackCapacities[stack.Key] < itemData.StackLimit())
+                    {
+                        int foundSpace = itemData.StackLimit() - _stackCapacities[stack.Key];
+                        totalSpacesFound += foundSpace;
+
+
+                        //create a new queryResponse for this available position
+                        //first create a new copy of our current stack's positions
+                        HashSet<(int, int)> savedStack = new();
+                        HashSet<(int, int)> savedUpdatedStack = new();
+                        foreach ((int, int) position in stack.Key)
+                        {
+                            savedStack.Add(position);
+                            savedUpdatedStack.Add(position);
+                        }
+
+                        //build this stack's query response
+                        int spaceNeededToFulfilQuery = Mathf.Min(foundSpace, Mathf.Abs(amount - totalSpacesFound));
+                        ItemQueryResponse response = new ItemQueryResponse(itemData, (-1, -1), spaceNeededToFulfilQuery, savedStack, ItemRotation.None);
+
+                        //add this individual response to the response list
+                        queryResponse.Add(response);
+
+                        //now track what we've counted & filled
+                        tempStackUpdates.Add(savedUpdatedStack, _stackCapacities[stack.Key] + spaceNeededToFulfilQuery);
+                        tempStackTypes.Add(savedUpdatedStack, itemData);
+
+                        //break if we don't need to keep searching for space
+                        if (totalSpacesFound >= amount)
+                            break;
+                    }
+                }
+            }
+
+            //next, find preexisting, UNREGISTERED stacks that aren't yet full [assuming we haven't met our quota]
+            foreach (KeyValuePair<HashSet<(int,int)>,ItemData> stack in unregisteredStackTypes)
+            {
+                //check if we've met our quota yet. Break if we have. No need to continue in this case
+                if (totalSpacesFound >= amount)
+                    break;
+
+                bool isStackOffLimits = false;
+                //ensure the none of the stack's positions are marked as 'excluded' from the space check
+                foreach ((int, int) position in stack.Key)
+                {
+                    if (excludedPositions.Contains(position))
+                    {
+                        isStackOffLimits = true;
+                        break;
+                    }
+                }
+
+                //skip this current stack if any position was flagged as 'excluded'
+                if (isStackOffLimits)
+                    continue;
+
+                //look for each unregistered stack that matches our itemCode [assuming it has any capacity left]
+                if (stack.Value.ItemCode() == itemData.ItemCode() && unregisteredStackChanges[stack.Key] < itemData.StackLimit())
+                {
+
+                    //count how many spaces are available here, based on the provided unregistered updates.
+                    int foundSpace = itemData.StackLimit() - unregisteredStackChanges[stack.Key];
+                    totalSpacesFound += foundSpace;
+
+                    //create a new queryResponse for this available position
+                    //first create a new copy of our current stack's positions
+                    HashSet<(int, int)> savedQueryStack = new();
+                    HashSet<(int, int)> savedUpdatedStack = new();
+                    foreach ((int, int) position in stack.Key)
+                    {
+                        savedQueryStack.Add(position);
+                        savedUpdatedStack.Add(position);
+                    }
+
+                    //build this stack's query response
+                    int spaceNeededToFulfilQuery = Mathf.Min(foundSpace, Mathf.Abs(amount - totalSpacesFound));
+                    ItemQueryResponse response = new ItemQueryResponse(itemData, (-1, -1), spaceNeededToFulfilQuery, savedQueryStack, ItemRotation.None);
+
+                    //add this individual response to the response list
+                    queryResponse.Add(response);
+
+                    //now track what we've counted & filled
+                    tempStackUpdates.Add(savedUpdatedStack, unregisteredStackChanges[stack.Key] + spaceNeededToFulfilQuery);
+                    tempStackTypes.Add(savedUpdatedStack, itemData);
+
+                    //break if we don't need to keep searching for space
+                    if (totalSpacesFound >= amount)
+                        break;
+
+                }
+            }
+
+
+            //if we found enough vacancies among unfinished stacks, then return our collected queryResponses
+            if (totalSpacesFound >= amount)
+            {
+                //apply our updated counts to the unregistered stack updates
+                foreach (KeyValuePair<HashSet<(int,int)>,int> stack in tempStackUpdates)
+                {
+                    //update any preexisting stacks
+                    if (unregisteredStackChanges.ContainsKey(stack.Key))
+                        unregisteredStackChanges[stack.Key] = stack.Value;
+
+                    else 
+                        unregisteredStackChanges.Add(stack.Key, stack.Value);
+                }
+
+                //no new stacks were created, so there's no need to update the tempStackTypes utility
+                //just return the queryResonse list
+                return queryResponse;
+            }
+
+
+
+            //otherwise, we need to find more space.
+            int remainingAmount = amount - totalSpacesFound;
+
+            //get ready to save the individual positions of potential stacks [and excluded positions] ]to build the reservation list
+            HashSet<(int, int)> reservedPositions = new();
+
+            //don't forget to add the excluded positions to our list of reserved positions, here
+            foreach ((int, int) position in excludedPositions)
+                reservedPositions.Add(position);
+
+            Debug.Log($"Unregistered stack changes size before the reservations list is built: {unregisteredStackChanges.Count}");
+
+            //also be sure to add every position within our unregistered stack updates to the list of reserved positions
+            foreach (KeyValuePair<HashSet<(int,int)>, int> stack in unregisteredStackChanges)
+            {
+                foreach((int, int) position in stack.Key)
+                    reservedPositions.Add(position); //Doing this will allow our algorithm to also ignore any previously claimed positions
+            }
+
+            Debug.Log($"Reserved Positions pre stack allocation: {StringifyPositions(reservedPositions)}");
+
+            int autoBreakCount = _containerSize.x * _containerSize.y; ;// if the while runs over all the cells, cut it off.
+            int iteractionCount = 0;
+
+            //keep finding space for more stacks if we haven't found enough spots [with and autoBrake for added security]
+            while (remainingAmount > 0 && iteractionCount < autoBreakCount)
+            {
+                
+                //check for the next available space.
+                HashSet<(int, int)> openAreaForNewStack = FindSpaceForStack(itemData, out (int, int) foundPlacementPosition, out ItemRotation neededRotation, reservedPositions);
+
+                //if no positions were found, then we've run out of space [but still require more].
+                //not enough space exists for the stated amount of items
+                if (openAreaForNewStack.Count == 0)
+                {
+                    Debug.Log("Failed to find space");
+                    return null;
+                }
+
+                //otherwise, we've found a suitable position for a stack.
+                //reserve the found positions. also save them
+                HashSet<(int, int)> savedQueryStack = new();
+                HashSet<(int, int)> savedUpdatedStack = new();
+                foreach ((int, int) position in openAreaForNewStack)
+                {
+                    reservedPositions.Add(position);
+                    savedQueryStack.Add(position);
+                    savedUpdatedStack.Add(position);
+                }
+
+                //update our amount of spaces found by the item's max stack limit
+                totalSpacesFound += itemData.StackLimit();
+                int placementAmount =  Mathf.Min(remainingAmount, itemData.StackLimit());
+                remainingAmount -= placementAmount;
+
+                //add the built response to the list of responses
+                queryResponse.Add(new ItemQueryResponse(itemData, foundPlacementPosition, placementAmount, savedQueryStack, neededRotation));
+
+                //now track what we've counted & filled
+                tempStackUpdates.Add(savedUpdatedStack, placementAmount);
+                tempStackTypes.Add(savedUpdatedStack, itemData);
+
+                //track how many iterations are passing
+                iteractionCount++;
+
+            }
+
+            if (remainingAmount == 0)
+            {
+                //apply our updated counts to the unregistered stack updates
+                foreach (KeyValuePair<HashSet<(int, int)>, int> stack in tempStackUpdates)
+                {
+                    //update any preexisting stacks
+                    if (unregisteredStackChanges.ContainsKey(stack.Key))
+                        unregisteredStackChanges[stack.Key] = stack.Value;
+
+                    else
+                        unregisteredStackChanges.Add(stack.Key, stack.Value);
+                }
+
+                //also apply our updates to unregistered stackTypes collection
+                foreach (KeyValuePair<HashSet<(int,int)>,ItemData> stack in tempStackTypes)
+                {
+                    //add all of the new stacks what were 'created' and counted
+                    if (!unregisteredStackTypes.ContainsKey(stack.Key))
+                        unregisteredStackTypes.Add(stack.Key,stack.Value);
+                }
+
+                return queryResponse;
+            }
+                
+
+            if (iteractionCount >= autoBreakCount)
+            {
+                Debug.LogWarning($"Cancelled the command to find space for {amount} {itemData.name}(s) due to not finding enough space within a reasonable amount of iterations [{autoBreakCount}]. Ignoring request.");
+                return null;
+            }
+
+            Debug.LogWarning("Reached the end of the spaceFind utility. We shouldn't have reached this point in the code. " +
+                "This means we somehow didn't find enough, but also failed to detect that we ran out of space.");
+            return null;
+        }
+
+
+        /// <summary>
+        /// Iterates through the provided query list and returns whether or not all queries can fit within the grid.
+        /// Placement results many differ, depending on the placement order. It's recommended to query (& place) the largest items first.
+        /// </summary>
+        /// <param name="queryList"></param>
+        /// <returns></returns>
+        public bool DoesSpaceExist(List<ItemQuery> queryList)
+        {
+            if (queryList == null)
+            {
+                Debug.LogWarning($"Passed a null queryList while attempting to find space for a list of items. Returning false");
+                return false;
+            }
+
+            if (queryList.Count == 0)
+            {
+                Debug.LogWarning($"Passed an empty queryList while attempting to find space for a list of items. Returning false");
+                return false;
+            }
+
+            Dictionary<HashSet<(int, int)>, int> stackCounts = new();
+            Dictionary<HashSet<(int, int)>, ItemData> stackTypes = new();
+
+            List<ItemQueryResponse> totalQueryResponse = new List<ItemQueryResponse>();
+            List<ItemQueryResponse> tempQueryResponse = new();
+            string debugString;
+            int iterationCount = 1;
+            HashSet<(int, int)> excludedPositions = new();
+
+            foreach (ItemQuery query in queryList)
+            {
+                //Debug.Log($"Tracked stacks size: {stackCounts.Count}");
+
+                excludedPositions.Clear();
+                foreach (KeyValuePair<HashSet<(int,int)>, int> stack in stackCounts)
+                {
+                    foreach ((int, int) position in stack.Key)
+                        excludedPositions.Add(position);
+                }
+
+                tempQueryResponse = FindSpaceForItems(query.itemData, query.placementAmount, excludedPositions,stackCounts, stackTypes);
+                if (tempQueryResponse == default)
+                    return false;
+
+                debugString = $"iteration: {iterationCount}\nStackUpdates:\n";
+                foreach (KeyValuePair<HashSet<(int,int)>,int> stack in stackCounts)
+                {
+                    debugString += $"> Placement: {StringifyPositions(stack.Key)}\n" +
+                        $"> Remaining Capacity: {stack.Value}\n" +
+                        $"------------------------\n";
+                }
+                Debug.Log(debugString);
+
+                foreach (ItemQueryResponse response in tempQueryResponse)
+                    totalQueryResponse.Add(response);
+                iterationCount++;
+            }
+
+            /*
+            string responseString = "Query Responses:\n";
+            foreach (ItemQueryResponse response in totalQueryResponse)
+            {
+                responseString += $"----------------------\n" +
+                    $"Item: {response.itemData.name}\n" +
+                    $"Open Placement: {StringifyPositions(response.reservedPositions)}\n" +
+                    $"Amount To Place Here: {response.availableCapacity}\n";
+            }
+            Debug.Log(responseString);
+            */
+            return true;
+        }
 
         private void PositionUiTextOntoStack(RectTransform uiText, HashSet<(int, int)> stackPositions)
         {
@@ -1215,12 +1701,35 @@ namespace dtsInventory
         }
         public RectTransform GetOverlayRectTransform() { return _overlayContainer; }
 
+
+        //Debug
         public string StringifyPositions(HashSet<(int,int)> positions)
         {
             string log = "";
             foreach (var position in positions)
-                log += position.ToString();
+                log += position.ToString() + " ";
             return log;
+        }
+
+        private void ListenForDebugCommands()
+        {
+            if (_cmdCheckIfSpaceExists)
+            {
+                _cmdCheckIfSpaceExists = false;
+
+                //reformat the param into the proper datatype
+                HashSet<(int,int)> excludeList = new HashSet<(int,int)> ();
+                foreach (Vector2Int position in _paramExcludePositionsList)
+                    excludeList.Add((position.x, position.y));
+
+                //Debug.Log($"Reformatted paramExcludePositionsList into hashset with {excludeList.Count} positions");
+                Debug.Log($"DoesSpaceExist for {_paramItemCount} item[{_paramItemData.name}]: {DoesSpaceExist(_paramItemData,_paramItemCount,excludeList)}");
+            }
+            if (_cmdMulticheckIfSpaceExists)
+            {
+                _cmdMulticheckIfSpaceExists = false;
+                Debug.Log($"Does Space Exist for List of queries: {DoesSpaceExist(_paramQueryList)}");
+            }
         }
     }
 }
