@@ -7,11 +7,74 @@ using Unity.VisualScripting;
 using UnityEditor.Experimental.GraphView;
 using UnityEngine;
 using UnityEngine.UI;
+using UnityEngine.UIElements;
 using static UnityEditor.Progress;
 
 
 namespace dtsInventory
 {
+    public static class StackKeyGenerator
+    {
+        public static string ToKey(HashSet<(int,int)> set)
+        {
+            if (set == null)
+                return "";
+
+            if (set.Count == 0)
+                return "";
+
+            List<(int, int)> list = set.ToList().OrderBy((t) => t.Item1).ThenBy((t)=>t.Item2).ToList();
+
+            
+            string key = "";
+
+            for (int i =0; i < list.Count(); i++)
+                key += $"{list[i].Item1},{list[i].Item2} "; //space is the delimiter
+
+            return key;
+
+        }
+
+        public static HashSet<(int,int)> ToHash(string key)
+        {
+            if (key == "")
+                return new();
+
+            string[] array = key.Trim().Split(' ');
+
+            if (array.Length == 0)
+            {
+                Debug.LogWarning($"Attempted to GenerateHash from an unsupported key [{key}]. " +
+                    $"Only attempt to Generate Hashes from keys that this utility creates.");
+                return new();
+            }
+
+            HashSet<(int, int)> set = new();
+
+            try
+            {
+                
+                //remove the element at the end
+                foreach (string s in array)
+                {
+                    string[] items = s.Split(',');
+                    set.Add( (int.Parse(items[0]), int.Parse(items[1])) );
+                }
+
+                return set;
+            }
+            catch (Exception)
+            {
+                Debug.LogWarning($"Attempted to GenerateHash from an unsupported key [{key}]. " +
+                    $"Only attempt to Generate Hashes from keys that this utility creates.");
+                return new();
+            }
+            
+
+
+        }
+    }
+
     public class InvGrid : MonoBehaviour
     {
         [SerializeField] private Vector2Int _containerSize;
@@ -34,6 +97,10 @@ namespace dtsInventory
         [SerializeField] private bool _cmdCheckIfSpaceExists = false;
         [SerializeField] private List<ItemQuery> _paramQueryList;
         [SerializeField] private bool _cmdMulticheckIfSpaceExists = false;
+        [SerializeField] private List<Vector2Int> _paramSet;
+        [SerializeField] private bool _cmdTestKeyGeneration = false;
+        [SerializeField] private string _paramPreGeneratedKey;
+        [SerializeField] private bool _cmdTestHashGeneration = false;
 
 
 
@@ -1392,29 +1459,40 @@ namespace dtsInventory
             //next, find preexisting, UNREGISTERED stacks that aren't yet full [assuming we haven't met our quota]
             foreach (KeyValuePair<HashSet<(int,int)>,ItemData> stack in unregisteredStackTypes)
             {
+                
                 //check if we've met our quota yet. Break if we have. No need to continue in this case
                 if (totalSpacesFound >= amount)
+                {
+                    Debug.Log("Breakout reached due to query'd capacity found");
                     break;
+                }
 
                 bool isStackOffLimits = false;
+                (int,int) detectedExclusion = (-1,-1);
                 //ensure the none of the stack's positions are marked as 'excluded' from the space check
                 foreach ((int, int) position in stack.Key)
                 {
                     if (excludedPositions.Contains(position))
                     {
                         isStackOffLimits = true;
+                        detectedExclusion = position;
                         break;
                     }
                 }
 
                 //skip this current stack if any position was flagged as 'excluded'
                 if (isStackOffLimits)
+                {
+                    Debug.Log($"Ignoring unregistered stack [{StringifyPositions(stack.Key)}] due to position {detectedExclusion} being marked as excluded.");
                     continue;
+                }
 
+
+                Debug.Log("Checkpoint");
                 //look for each unregistered stack that matches our itemCode [assuming it has any capacity left]
                 if (stack.Value.ItemCode() == itemData.ItemCode() && unregisteredStackChanges[stack.Key] < itemData.StackLimit())
                 {
-
+                    Debug.Log($"current capacity of found suitable unregistered stack [{StringifyPositions(stack.Key)}]: {unregisteredStackChanges[stack.Key]}");
                     //count how many spaces are available here, based on the provided unregistered updates.
                     int foundSpace = itemData.StackLimit() - unregisteredStackChanges[stack.Key];
                     totalSpacesFound += foundSpace;
@@ -1445,6 +1523,7 @@ namespace dtsInventory
                         break;
 
                 }
+                else { Debug.Log($"Unregistered stack [{StringifyPositions(stack.Key)}] current capacity is maxed [capacity:{unregisteredStackChanges[stack.Key]}]"); }
             }
 
 
@@ -1479,7 +1558,7 @@ namespace dtsInventory
             foreach ((int, int) position in excludedPositions)
                 reservedPositions.Add(position);
 
-            Debug.Log($"Unregistered stack changes size before the reservations list is built: {unregisteredStackChanges.Count}");
+            //Debug.Log($"Unregistered stack changes size before the reservations list is built: {unregisteredStackChanges.Count}");
 
             //also be sure to add every position within our unregistered stack updates to the list of reserved positions
             foreach (KeyValuePair<HashSet<(int,int)>, int> stack in unregisteredStackChanges)
@@ -1488,7 +1567,7 @@ namespace dtsInventory
                     reservedPositions.Add(position); //Doing this will allow our algorithm to also ignore any previously claimed positions
             }
 
-            Debug.Log($"Reserved Positions pre stack allocation: {StringifyPositions(reservedPositions)}");
+            //Debug.Log($"Reserved Positions pre stack allocation: {StringifyPositions(reservedPositions)}");
 
             int autoBreakCount = _containerSize.x * _containerSize.y; ;// if the while runs over all the cells, cut it off.
             int iteractionCount = 0;
@@ -1600,28 +1679,21 @@ namespace dtsInventory
             List<ItemQueryResponse> tempQueryResponse = new();
             string debugString;
             int iterationCount = 1;
-            HashSet<(int, int)> excludedPositions = new();
 
             foreach (ItemQuery query in queryList)
             {
                 //Debug.Log($"Tracked stacks size: {stackCounts.Count}");
 
-                excludedPositions.Clear();
-                foreach (KeyValuePair<HashSet<(int,int)>, int> stack in stackCounts)
-                {
-                    foreach ((int, int) position in stack.Key)
-                        excludedPositions.Add(position);
-                }
 
-                tempQueryResponse = FindSpaceForItems(query.itemData, query.placementAmount, excludedPositions,stackCounts, stackTypes);
+                tempQueryResponse = FindSpaceForItems(query.itemData, query.placementAmount, null,stackCounts, stackTypes);
                 if (tempQueryResponse == default)
                     return false;
 
-                debugString = $"iteration: {iterationCount}\nStackUpdates:\n";
+                debugString = $"iteration: {iterationCount}\nStackUpdates [{stackCounts.Count} stacks]:\n";
                 foreach (KeyValuePair<HashSet<(int,int)>,int> stack in stackCounts)
                 {
                     debugString += $"> Placement: {StringifyPositions(stack.Key)}\n" +
-                        $"> Remaining Capacity: {stack.Value}\n" +
+                        $"> Occupied Capacity: {stack.Value}\n" +
                         $"------------------------\n";
                 }
                 Debug.Log(debugString);
@@ -1701,7 +1773,6 @@ namespace dtsInventory
         }
         public RectTransform GetOverlayRectTransform() { return _overlayContainer; }
 
-
         //Debug
         public string StringifyPositions(HashSet<(int,int)> positions)
         {
@@ -1729,6 +1800,26 @@ namespace dtsInventory
             {
                 _cmdMulticheckIfSpaceExists = false;
                 Debug.Log($"Does Space Exist for List of queries: {DoesSpaceExist(_paramQueryList)}");
+            }
+
+            if (_cmdTestKeyGeneration)
+            {
+                _cmdTestKeyGeneration = false;
+
+                //convert the list into a hashset
+                HashSet<(int, int)> set = new();
+                foreach (Vector2Int position in _paramSet)
+                    set.Add((position.x, position.y));
+                
+                _paramPreGeneratedKey = StackKeyGenerator.ToKey(set);
+            }
+
+            if (_cmdTestHashGeneration)
+            {
+                _cmdTestHashGeneration = false;
+
+                HashSet<(int, int)> set = StackKeyGenerator.ToHash(_paramPreGeneratedKey);
+                Debug.Log($"Generated Hash: {StringifyPositions(set)}");
             }
         }
     }
