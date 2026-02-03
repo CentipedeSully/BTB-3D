@@ -1668,19 +1668,21 @@ namespace dtsInventory
         /// Placement results many differ, depending on the placement order. It's recommended to query (& place) the largest items first.
         /// </summary>
         /// <param name="queryList"></param>
-        /// <returns></returns>
-        public bool DoesSpaceExist(List<ItemQuery> queryList)
+        /// <returns>An ordered list of the necessary placement positions, rotations, placement amounts, 
+        /// and full stack areas, along with the expected itemData. 
+        /// Placement positions results that reflect (-1,-1) implies the existence of a compatible stack.</returns>
+        public List<ItemQueryResponse> FindSpaceForItems(List<ItemQuery> queryList)
         {
             if (queryList == null)
             {
                 Debug.LogWarning($"Passed a null queryList while attempting to find space for a list of items. Returning false");
-                return false;
+                return null;
             }
 
             if (queryList.Count == 0)
             {
                 Debug.LogWarning($"Passed an empty queryList while attempting to find space for a list of items. Returning false");
-                return false;
+                return null;
             }
 
             Dictionary<HashSet<(int, int)>, int> stackCounts = new Dictionary<HashSet<(int, int)>, int>(HashSet<(int, int)>.CreateSetComparer());
@@ -1696,14 +1698,15 @@ namespace dtsInventory
                 //Debug.Log($"Tracked stacks size: {stackCounts.Count}");
 
 
-                tempQueryResponse = FindSpaceForItems(query.itemData, query.placementAmount, null,stackCounts, stackTypes);
+                tempQueryResponse = FindSpaceForItems(query.itemData, query.placementAmount, null, stackCounts, stackTypes);
                 if (tempQueryResponse == default)
-                    return false;
+                    return null;
 
                 debugString = $"iteration: {iterationCount}\nStackUpdates [{stackCounts.Count} stacks]:\n";
-                foreach (KeyValuePair<HashSet<(int,int)>,int> stack in stackCounts)
+                foreach (KeyValuePair<HashSet<(int, int)>, int> stack in stackCounts)
                 {
-                    debugString += $"> Placement: {StringifyPositions(stack.Key)}\n" +
+                    debugString += $"> Item: {stackTypes[stack.Key].name}(s)\n" +
+                        $"> Placement: {StringifyPositions(stack.Key)}\n" +
                         $"> Occupied Capacity: {stack.Value}\n" +
                         $"------------------------\n";
                 }
@@ -1725,7 +1728,22 @@ namespace dtsInventory
             }
             Debug.Log(responseString);
             */
-            return true;
+            return totalQueryResponse;
+        }
+
+
+
+        /// <summary>
+        /// Iterates through the provided query list and returns whether or not all queries can fit within the grid.
+        /// Placement results many differ, depending on the placement order. It's recommended to query (& place) the largest items first.
+        /// </summary>
+        /// <param name="queryList"></param>
+        /// <returns>true if all items fit</returns>
+        public bool DoesSpaceExist(List<ItemQuery> queryList)
+        {
+            if (FindSpaceForItems(queryList) != null)
+                return true;
+            else return false;
         }
 
         private void PositionUiTextOntoStack(RectTransform uiText, HashSet<(int, int)> stackPositions)
