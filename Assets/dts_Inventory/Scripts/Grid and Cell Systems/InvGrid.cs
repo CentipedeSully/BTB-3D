@@ -104,7 +104,6 @@ namespace dtsInventory
 
 
 
-
         private RectTransform _rectTransform;
         private CellInteract[,] _cellObjects;
         //private Dictionary<InventoryItem, List<(int, int)>> _containedItems = new(); //used for quick referencing any item in the grid
@@ -113,16 +112,16 @@ namespace dtsInventory
         /// <summary>
         /// The current size of each stack. The keys are the stack's occupied gridPositions.
         /// </summary>
-        private Dictionary<HashSet<(int, int)>, int> _stackCapacities = new();
+        private Dictionary<HashSet<(int, int)>, int> _stackCapacities = new Dictionary<HashSet<(int, int)>, int>(HashSet<(int, int)>.CreateSetComparer());
         /// <summary>
         /// The itemData values that belong to each stack. The keys are the stack's occupied gridPositions.
         /// </summary>
-        private Dictionary<HashSet<(int, int)>, ItemData> _stackItemDatas = new();
+        private Dictionary<HashSet<(int, int)>, ItemData> _stackItemDatas = new Dictionary<HashSet<(int, int)>, ItemData>(HashSet<(int, int)>.CreateSetComparer());
         /// <summary>
         /// The item graphic that visually defines the stack in the inventory window. The keys are the stack's occupied gridPositions.
         /// </summary>
-        private Dictionary<HashSet<(int, int)>, InvItem> _stackSpriteObjects = new();
-        private Dictionary<HashSet<(int, int)>, Text> _stackTexts = new();
+        private Dictionary<HashSet<(int, int)>, InvItem> _stackSpriteObjects = new Dictionary<HashSet<(int, int)>, InvItem>(HashSet<(int, int)>.CreateSetComparer());
+        private Dictionary<HashSet<(int, int)>, Text> _stackTexts = new Dictionary<HashSet<(int, int)>, Text>(HashSet<(int, int)>.CreateSetComparer());
 
         /// <summary>
         /// Holds a placement position and a 'rotation' value
@@ -841,7 +840,7 @@ namespace dtsInventory
         {
             int remainder = amount;
             int found = 0;
-            Dictionary<HashSet<(int, int)>, int> _foundAmounts = new();
+            Dictionary<HashSet<(int, int)>, int> _foundAmounts = new Dictionary<HashSet<(int, int)>, int>(HashSet<(int, int)>.CreateSetComparer());
 
             //check each itemStack's itemData for a matching itemCode
             foreach (KeyValuePair<HashSet<(int, int)>, ItemData> entry in _stackItemDatas)
@@ -906,7 +905,7 @@ namespace dtsInventory
             int totalSpacesFound = 0;
 
             
-            Dictionary<HashSet<(int, int)>, int> availableStacks = new(); // Key:Value -> StackPositions:RemainingValue
+            Dictionary<HashSet<(int, int)>, int> availableStacks = new Dictionary<HashSet<(int, int)>, int>(HashSet<(int, int)>.CreateSetComparer());
 
             //first, find preexisting stacks that aren't yet full
             foreach (KeyValuePair<HashSet<(int,int)>,ItemData> stack in _stackItemDatas)
@@ -1217,7 +1216,7 @@ namespace dtsInventory
             int totalSpacesFound = 0;
 
 
-            Dictionary<HashSet<(int, int)>, int> availableStacks = new(); // Key:[Value] -> StackPositions:[RemainingValue]
+            Dictionary<HashSet<(int, int)>, int> availableStacks = new Dictionary<HashSet<(int, int)>, int>(HashSet<(int, int)>.CreateSetComparer());
 
             //first, find preexisting stacks that aren't yet full
             foreach (KeyValuePair<HashSet<(int, int)>, ItemData> stack in _stackItemDatas)
@@ -1355,12 +1354,12 @@ namespace dtsInventory
             List<ItemQueryResponse> queryResponse = new();
 
             //create the utilities that'll track all checked spaces
-            int totalSpacesFound = 0;
+            int remainingSpace = amount;
 
             //create a new variable to track our counting updates
             //without directly changing the unregisteredStacks data too early
-            Dictionary<HashSet<(int, int)>, int> tempStackUpdates = new();
-            Dictionary<HashSet<(int, int)>, ItemData> tempStackTypes = new();
+            Dictionary<HashSet<(int, int)>, int> tempStackUpdates = new Dictionary<HashSet<(int, int)>, int>(HashSet<(int, int)>.CreateSetComparer());
+            Dictionary<HashSet<(int, int)>, ItemData> tempStackTypes = new Dictionary<HashSet<(int, int)>, ItemData>(HashSet<(int, int)>.CreateSetComparer());
 
 
             //first, find preexisting stacks that aren't yet full
@@ -1391,9 +1390,11 @@ namespace dtsInventory
                         if (unregisteredStackChanges[stack.Key] == itemData.StackLimit())
                             continue;
 
-                        //else count how many spaces are available here, based on the provided unregistered updates.
+                        //calculate how much space we've found here
                         int foundSpace = itemData.StackLimit() - unregisteredStackChanges[stack.Key];
-                        totalSpacesFound += foundSpace;
+
+                        //calculate how much space we'll take from this stack [either everything we've found, or just what we need]
+                        int spaceToComsume = Mathf.Min(remainingSpace, foundSpace);
 
                         //create a new queryResponse for this available position
                         //first create a new copy of our current stack's positions
@@ -1405,27 +1406,31 @@ namespace dtsInventory
                             savedUpdatedStack.Add(position);
                         }
 
-                        //build this stack's query response
-                        int spaceNeededToFulfilQuery = Mathf.Min(foundSpace, Mathf.Abs(amount - totalSpacesFound));
-                        ItemQueryResponse response = new ItemQueryResponse(itemData, (-1, -1), spaceNeededToFulfilQuery, savedQueryStack, ItemRotation.None);
+                        ItemQueryResponse response = new ItemQueryResponse(itemData, (-1, -1), spaceToComsume, savedQueryStack, ItemRotation.None);
 
                         //add this individual response to the response list
                         queryResponse.Add(response);
 
                         //now track what we've counted & filled
-                        tempStackUpdates.Add(savedUpdatedStack, unregisteredStackChanges[stack.Key] + spaceNeededToFulfilQuery);
+                        tempStackUpdates.Add(savedUpdatedStack, unregisteredStackChanges[stack.Key] + spaceToComsume);
                         tempStackTypes.Add(savedUpdatedStack, itemData);
 
+                        //reduce our remaining space by whatever we've found [unless our remaining space needed is less]
+                        remainingSpace -= spaceToComsume;
+
                         //break if we don't need to keep searching for space
-                        if (totalSpacesFound >= amount)
+                        if (remainingSpace == 0)
                             break;
                     }
 
                     //otherwise, this stack hasn't been tracked. Check if we have any space available.
                     else if (_stackCapacities[stack.Key] < itemData.StackLimit())
                     {
+                        //calculate how much space we've found here
                         int foundSpace = itemData.StackLimit() - _stackCapacities[stack.Key];
-                        totalSpacesFound += foundSpace;
+
+                        //calculate how much space we'll take from this stack [either everything we've found, or just what we need]
+                        int spaceToComsume = Mathf.Min(remainingSpace, foundSpace);
 
 
                         //create a new queryResponse for this available position
@@ -1439,18 +1444,20 @@ namespace dtsInventory
                         }
 
                         //build this stack's query response
-                        int spaceNeededToFulfilQuery = Mathf.Min(foundSpace, Mathf.Abs(amount - totalSpacesFound));
-                        ItemQueryResponse response = new ItemQueryResponse(itemData, (-1, -1), spaceNeededToFulfilQuery, savedStack, ItemRotation.None);
+                        ItemQueryResponse response = new ItemQueryResponse(itemData, (-1, -1), spaceToComsume, savedStack, ItemRotation.None);
 
                         //add this individual response to the response list
                         queryResponse.Add(response);
 
-                        //now track what we've counted & filled
-                        tempStackUpdates.Add(savedUpdatedStack, _stackCapacities[stack.Key] + spaceNeededToFulfilQuery);
+                        //now track the sum of the following: 1) what we've counted before and 2) what we've just taken
+                        tempStackUpdates.Add(savedUpdatedStack, _stackCapacities[stack.Key] + spaceToComsume);
                         tempStackTypes.Add(savedUpdatedStack, itemData);
 
+                        //reduce our remaining space by whatever we've found [unless our remaining space needed is less]
+                        remainingSpace -= spaceToComsume;
+
                         //break if we don't need to keep searching for space
-                        if (totalSpacesFound >= amount)
+                        if (remainingSpace == 0)
                             break;
                     }
                 }
@@ -1461,7 +1468,7 @@ namespace dtsInventory
             {
                 
                 //check if we've met our quota yet. Break if we have. No need to continue in this case
-                if (totalSpacesFound >= amount)
+                if (remainingSpace == 0)
                 {
                     Debug.Log("Breakout reached due to query'd capacity found");
                     break;
@@ -1487,15 +1494,22 @@ namespace dtsInventory
                     continue;
                 }
 
-
-                Debug.Log("Checkpoint");
+                
                 //look for each unregistered stack that matches our itemCode [assuming it has any capacity left]
-                if (stack.Value.ItemCode() == itemData.ItemCode() && unregisteredStackChanges[stack.Key] < itemData.StackLimit())
+                if (stack.Value.ItemCode() == itemData.ItemCode())
                 {
+                    if (unregisteredStackChanges[stack.Key] == itemData.StackLimit())
+                    {
+                        Debug.Log($"Unregistered stack [{StringifyPositions(stack.Key)}] current capacity is maxed [capacity:{unregisteredStackChanges[stack.Key]}]");
+                        continue;
+                    }
+
                     Debug.Log($"current capacity of found suitable unregistered stack [{StringifyPositions(stack.Key)}]: {unregisteredStackChanges[stack.Key]}");
-                    //count how many spaces are available here, based on the provided unregistered updates.
+                    //calculate how much space we've found here
                     int foundSpace = itemData.StackLimit() - unregisteredStackChanges[stack.Key];
-                    totalSpacesFound += foundSpace;
+
+                    //calculate how much space we'll take from this stack [either everything we've found, or just what we need]
+                    int spaceToComsume = Mathf.Min(remainingSpace, foundSpace);
 
                     //create a new queryResponse for this available position
                     //first create a new copy of our current stack's positions
@@ -1508,27 +1522,28 @@ namespace dtsInventory
                     }
 
                     //build this stack's query response
-                    int spaceNeededToFulfilQuery = Mathf.Min(foundSpace, Mathf.Abs(amount - totalSpacesFound));
-                    ItemQueryResponse response = new ItemQueryResponse(itemData, (-1, -1), spaceNeededToFulfilQuery, savedQueryStack, ItemRotation.None);
+                    ItemQueryResponse response = new ItemQueryResponse(itemData, (-1, -1), spaceToComsume, savedQueryStack, ItemRotation.None);
 
                     //add this individual response to the response list
                     queryResponse.Add(response);
 
                     //now track what we've counted & filled
-                    tempStackUpdates.Add(savedUpdatedStack, unregisteredStackChanges[stack.Key] + spaceNeededToFulfilQuery);
+                    tempStackUpdates.Add(savedUpdatedStack, unregisteredStackChanges[stack.Key] + spaceToComsume);
                     tempStackTypes.Add(savedUpdatedStack, itemData);
 
+                    //reduce our remaining space by whatever we've found [unless our remaining space needed is less]
+                    remainingSpace -= spaceToComsume;
+
                     //break if we don't need to keep searching for space
-                    if (totalSpacesFound >= amount)
+                    if (remainingSpace == 0)
                         break;
 
                 }
-                else { Debug.Log($"Unregistered stack [{StringifyPositions(stack.Key)}] current capacity is maxed [capacity:{unregisteredStackChanges[stack.Key]}]"); }
             }
 
 
-            //if we found enough vacancies among unfinished stacks, then return our collected queryResponses
-            if (totalSpacesFound >= amount)
+            //if we've found space for all query'd items, then return our collected queryResponses
+            if (remainingSpace == 0)
             {
                 //apply our updated counts to the unregistered stack updates
                 foreach (KeyValuePair<HashSet<(int,int)>,int> stack in tempStackUpdates)
@@ -1546,10 +1561,6 @@ namespace dtsInventory
                 return queryResponse;
             }
 
-
-
-            //otherwise, we need to find more space.
-            int remainingAmount = amount - totalSpacesFound;
 
             //get ready to save the individual positions of potential stacks [and excluded positions] ]to build the reservation list
             HashSet<(int, int)> reservedPositions = new();
@@ -1573,7 +1584,7 @@ namespace dtsInventory
             int iteractionCount = 0;
 
             //keep finding space for more stacks if we haven't found enough spots [with and autoBrake for added security]
-            while (remainingAmount > 0 && iteractionCount < autoBreakCount)
+            while (remainingSpace > 0 && iteractionCount < autoBreakCount)
             {
                 
                 //check for the next available space.
@@ -1587,6 +1598,9 @@ namespace dtsInventory
                     return null;
                 }
 
+                //track either the remaining space we need, or the full stack's occupancy. Whatever's smaller
+                int foundSpace = Mathf.Min(remainingSpace, itemData.StackLimit());
+
                 //otherwise, we've found a suitable position for a stack.
                 //reserve the found positions. also save them
                 HashSet<(int, int)> savedQueryStack = new();
@@ -1598,16 +1612,13 @@ namespace dtsInventory
                     savedUpdatedStack.Add(position);
                 }
 
-                //update our amount of spaces found by the item's max stack limit
-                totalSpacesFound += itemData.StackLimit();
-                int placementAmount =  Mathf.Min(remainingAmount, itemData.StackLimit());
-                remainingAmount -= placementAmount;
+                remainingSpace -= foundSpace;
 
                 //add the built response to the list of responses
-                queryResponse.Add(new ItemQueryResponse(itemData, foundPlacementPosition, placementAmount, savedQueryStack, neededRotation));
+                queryResponse.Add(new ItemQueryResponse(itemData, foundPlacementPosition, foundSpace, savedQueryStack, neededRotation));
 
                 //now track what we've counted & filled
-                tempStackUpdates.Add(savedUpdatedStack, placementAmount);
+                tempStackUpdates.Add(savedUpdatedStack, foundSpace);
                 tempStackTypes.Add(savedUpdatedStack, itemData);
 
                 //track how many iterations are passing
@@ -1615,7 +1626,7 @@ namespace dtsInventory
 
             }
 
-            if (remainingAmount == 0)
+            if (remainingSpace == 0)
             {
                 //apply our updated counts to the unregistered stack updates
                 foreach (KeyValuePair<HashSet<(int, int)>, int> stack in tempStackUpdates)
@@ -1672,8 +1683,8 @@ namespace dtsInventory
                 return false;
             }
 
-            Dictionary<HashSet<(int, int)>, int> stackCounts = new();
-            Dictionary<HashSet<(int, int)>, ItemData> stackTypes = new();
+            Dictionary<HashSet<(int, int)>, int> stackCounts = new Dictionary<HashSet<(int, int)>, int>(HashSet<(int, int)>.CreateSetComparer());
+            Dictionary<HashSet<(int, int)>, ItemData> stackTypes = new Dictionary<HashSet<(int, int)>, ItemData>(HashSet<(int, int)>.CreateSetComparer());
 
             List<ItemQueryResponse> totalQueryResponse = new List<ItemQueryResponse>();
             List<ItemQueryResponse> tempQueryResponse = new();
