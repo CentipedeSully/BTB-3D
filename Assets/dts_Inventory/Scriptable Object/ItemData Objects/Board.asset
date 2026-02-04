@@ -23,6 +23,8 @@ MonoBehaviour:
   _desc: A rigid board. A popular fabrication material.
   _sprite: {fileID: -529813741, guid: 5aba311a53bea8e46bf9c998cced869e, type: 3}
   _stackLimit: 8
+  _onPickUpAudio: {fileID: 8300000, guid: c230389cdba1a4d47bda71c4d0e2b6f9, type: 3}
+  _onDropAudio: {fileID: 8300000, guid: 7abccce1359ba0d4a8421bcc212783c5, type: 3}
   _isUsable: 0
   _isDiscardable: 1
   _isOrganizable: 1

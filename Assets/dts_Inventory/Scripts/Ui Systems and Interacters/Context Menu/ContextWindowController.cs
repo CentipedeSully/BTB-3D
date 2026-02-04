@@ -148,6 +148,7 @@ namespace dtsInventory
         {
             HideOptionsWindow();
         }
+        public bool IsWindowOpen() { return _isWindowOpen; }
     }
 
     public static class ContextWindowHelper
@@ -158,6 +159,7 @@ namespace dtsInventory
         public static void ShowContextWindow(HashSet<ContextOption> optionsToShow) { _controller.ShowOptionsWindow(optionsToShow); }
         public static void HideContextWindow() { _controller.HideOptionsWindow(); }
         public static ContextWindowController GetContextWindowController() { return _controller; }
+        public static bool IsContextWindowShowing() { return _controller.IsWindowOpen(); }
 
 
     }

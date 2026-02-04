@@ -23,6 +23,13 @@ namespace dtsInventory
         [SerializeField] private Sprite _sprite;
         [Tooltip("The maximum amount of [this] item that can same grid position")]
         [SerializeField] private int _stackLimit = 1;
+
+        [Header("Audio Cues")]
+        [Tooltip("What sound will play when the item is held on the pointer/grid cell")]
+        [SerializeField] private AudioClip _onPickUpAudio;
+        [Tooltip("What sound will play when the item is placed into another cell")]
+        [SerializeField] private AudioClip _onDropAudio;
+
         [Header("Possible UI Options")]
         [Tooltip("Should this item show the 'use' context within the inventory")]
         [SerializeField] private bool _isUsable;
@@ -148,6 +155,9 @@ namespace dtsInventory
 
             return handleHash.First();
         }
+
+        public AudioClip OnPickupAudioClip() { return _onPickUpAudio; }
+        public AudioClip OnDropAudioClip() { return _onDropAudio; }
     }
 }
 

@@ -1,0 +1,14 @@
+Credits ============================================
+Myself: Centisully/CentipedeSully (William Lee Sullivan-Smith)
+
+Code & Programming
+> Myself 
+
+Default Ui Graphics
+> Myself
+
+Ui Text
+> "Free Pixel Font - Thaleah" from the Asset Store by Tiny Worlds
+
+Default Ui Audio
+> "Free Ui Click Sound Pack" from the Asset Store by SwishSwoosh
