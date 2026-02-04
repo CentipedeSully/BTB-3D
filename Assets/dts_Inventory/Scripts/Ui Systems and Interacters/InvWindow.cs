@@ -17,8 +17,6 @@ namespace dtsInventory
         [SerializeField] private Text _itemName;
         [SerializeField] private InvGrid _itemGrid;
 
-
-
         private RectTransform _rectTransform;
         private Canvas _canvas;
 
@@ -59,5 +57,16 @@ namespace dtsInventory
         }
         public void SetItemDescription(string newDescription) { _itemDescription.text = newDescription; }
         public void SetItemName(string itemName) { _itemName.text = itemName; }
+        public bool IsWindowOpen() { return gameObject.activeSelf; }
+        public void CloseWindow()
+        {
+            if (gameObject.activeSelf)
+                gameObject.SetActive(false);
+        }
+        public void OpenWindow()
+        {
+            if (!gameObject.activeSelf)
+                gameObject.SetActive(true);
+        }
     }
 }

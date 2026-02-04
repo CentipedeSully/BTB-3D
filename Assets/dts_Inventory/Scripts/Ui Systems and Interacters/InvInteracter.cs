@@ -61,7 +61,8 @@ namespace dtsInventory
         private HashSet<(int, int)> _hoveredIndexes = new();
         private HashSet<(int, int)> _lastFramesHoveredIndexes = new();
 
-        private (int, int) _lastCellVisited = (-1, -1);
+        (int, int) _lastKnownHoveredIndex;
+        InvGrid _lastKnownGrid;
 
         private bool _lClick = false;
         private bool _rClick = false;
@@ -78,8 +79,6 @@ namespace dtsInventory
         private bool _altCmd2;
         private bool _altCmd3;
 
-        private bool _rotateLeft;
-        private bool _rotateRight;
         private Vector2 _mousePosition;
 
 
@@ -91,6 +90,9 @@ namespace dtsInventory
             ScreenPositionerHelper.SetUiCamera(_uiCam);
             InvManagerHelper.SetInventoryController(this);
             _pointerRectTransform = _pointerContainer.GetComponent<RectTransform>();
+
+            _lastKnownGrid = _homeInventoryGrid;
+            _lastKnownHoveredIndex = (0, 0);
         }
 
         private void OnEnable()
@@ -111,55 +113,6 @@ namespace dtsInventory
 
 
         //internals
-        private void RespondToPointerClicks()
-        {
-
-            if (_invGrid != null)
-            {
-                //right click?
-                // -> Pick up half the stack
-                // -> Or drop a single item from the held stack
-                if (_rClick)
-                {
-                    //pick up half the stack if we're not holding anything
-                    if (_heldItem == null && _invGrid.IsCellOccupied(_hoveredCellIndex))
-                        PickupHalfOfHoveredStack();
-
-                    //drop a single item if we're holding a stack, and there's a valid drop position underneath
-                    else if (_heldItem != null)
-                        DropSingleItemOntoHoveredPosition();
-                }
-
-                //leftClick
-                // -> Pickup full stack
-                // -> Place the held stack
-                else if (_lClick)
-                {
-                    //if we're not holding an item, pickup the full stack of items
-                    if (_heldItem == null)
-                        PickupStackOnHoveredPosition();
-
-                    //else,place the full held itemStack on the grid
-                    else
-                        DropStackOnHoveredPosition();
-                }
-
-                //middleClick
-                // -> show context menue
-                else if (_mClick)
-                {
-                    //only show if we're hovering over an item while not holding anything
-                    if (_invGrid.IsCellOccupied(_hoveredCellIndex) && _heldItem == null)
-                        ShowContextMenuOnHoveredItem();
-
-                }
-            }
-        }
-        private void RespondToDirectionalCommands()
-        {
-            
-        }
-
 
         //visual updating/rendering utilities
         private void VisualizeHover()
@@ -172,16 +125,108 @@ namespace dtsInventory
             //reset the present frame's hover data
             _hoveredIndexes.Clear();
 
-            //if we're not hovering over anything, stop here
-            if (_hoveredCell == null)
+            //if the pointer is the input mode, the update the visuals based on the pointer's data
+            if (_inputMode == InputMode.Pointer)
             {
-                _itemInCell = null;
-                ClearHoverTiles();
+                //if we're not hovering over anything, stop here
+                if (_hoveredCell == null)
+                {
+                    _itemInCell = null;
+                    ClearHoverTiles();
+                }
+
+                else
+                {
+                    _itemInCell = _invGrid.GetItemGraphicOnCell(_hoverIndex.x, _hoverIndex.y);
+                    InvItem hoveredItem = _invGrid.GetItemGraphicOnCell(_hoverIndex.x, _hoverIndex.y);
+
+
+                    //highlight the previewed position of the held item
+                    if (_heldItem != null)
+                    {
+                        //Get the new potential placement positions
+                        HashSet<(int, int)> placementPositions = _invGrid.ConvertSpacialDefIntoGridIndexes(_hoveredCellIndex, _heldItem.GetSpacialDefinition(), _heldItem.ItemHandle());
+
+                        if (_invGrid.IsAreaWithinGrid(placementPositions))
+                        {
+                            //Looks like our placement is valid here.
+                            //Make our hoveredIndexes equal to our expected placement position
+                            foreach ((int, int) index in placementPositions)
+                                _hoveredIndexes.Add(index);
+
+                            //Don't change anything if the hover data didn't change
+                            if (!DidHoverDataChange())
+                                return;
+
+                            //clear and rerender the updated hover tiles
+                            ClearHoverTiles();
+                            RenderHoverTiles();
+                            RenderItemInfo(_heldItem.ItemData().Name(), _heldItem.ItemData().Desc());
+                        }
+
+                        //just clear the hover tiles, if any exist
+                        else
+                            ClearHoverTiles();
+                    }
+
+                    //highlight the hovered item if no item is held
+                    else if (hoveredItem != null)
+                    {
+                        //Get the item's occupancy as the new frame's hovered data
+                        string indexesString = "";
+                        foreach ((int, int) index in _invGrid.GetStackOccupancy(_hoveredCellIndex))
+                        {
+                            _hoveredIndexes.Add(index);
+                            indexesString += index.ToString() + "\n";
+                        }
+                        //Debug.Log("Cell Indexes:\n"+indexesString);
+
+
+                        //Don't change anything if the hover data didn't change
+                        if (!DidHoverDataChange())
+                            return;
+
+                        //clear and rerender the updated hover tiles
+                        ClearHoverTiles();
+                        RenderHoverTiles();
+                        RenderItemInfo(hoveredItem.ItemData().Name(), hoveredItem.ItemData().Desc());
+                    }
+
+                    //highlight the cell position
+                    else if (_heldItem == null && hoveredItem == null)
+                    {
+                        _hoveredIndexes.Add(_hoveredCellIndex);
+
+                        //clear and rerender the updated hover tiles
+                        ClearHoverTiles();
+                        RenderHoverTiles();
+
+                    }
+
+                }
             }
 
-
-            else
+            //otherwise, the directionalInput should always be hovering over a gridspace
+            else if (_inputMode == InputMode.Directional)
             {
+                //if an inventory grid doesnt exist atm, then attempt to default to the last know grid's origin
+                if (_invGrid == null)
+                {
+                    //we don't have a history of the last hovered grid
+                    //(it typically defaults to the home grid, so that doesnt exist either)
+                    //So stop trying to update the visuals
+                    if (_lastKnownGrid == null)
+                        return;
+
+                    //our last know grid isn't set up properly. stop trying to update the visuals
+                    if (_lastKnownGrid.ContainerSize().x <= 0 || _lastKnownGrid.ContainerSize().y <= 0)
+                        return;
+
+                    SetActiveItemGrid(_lastKnownGrid);
+                    SetHoveredCell(_lastKnownGrid.GetCellObject((0,0)));
+                }
+
+                //now proceed with visualizing the hover data
                 _itemInCell = _invGrid.GetItemGraphicOnCell(_hoverIndex.x, _hoverIndex.y);
                 InvItem hoveredItem = _invGrid.GetItemGraphicOnCell(_hoverIndex.x, _hoverIndex.y);
 
@@ -247,7 +292,6 @@ namespace dtsInventory
                     RenderHoverTiles();
 
                 }
-
             }
         }
         private void ClearHoverTiles()
@@ -346,11 +390,18 @@ namespace dtsInventory
                 }
             }
         }
-        private void BindHeldItemToPointer()
+        private void BindPointerContainerToCellPosition(InvGrid grid)
         {
-            BindHeldItemToPointer(_invGrid);
+            if (_pointerContainer != null && grid != null)
+            {
+                grid.OverlayObjectOntoGridVisually(_lastKnownHoveredIndex,_pointerContainer.GetComponent<RectTransform>());
+            }
         }
-        private void BindHeldItemToPointer(InvGrid specificGrid)
+        private void BindHeldItemToPointerContainer()
+        {
+            BindHeldItemToPointerContainer(_invGrid);
+        }
+        private void BindHeldItemToPointerContainer(InvGrid specificGrid)
         {
             if (_heldItem != null)
             {
@@ -368,6 +419,27 @@ namespace dtsInventory
             }
 
         }
+        private void SetPointerToHomeGrid()
+        {
+            if (_homeInventoryGrid == null)
+                return;
+
+            //only continue if our home grid window is actually opened
+            if (_homeInventoryGrid.GetParentWindow().IsWindowOpen())
+            {
+                //ignore this call if no width OR HEIGHT dimension exists
+                if (_homeInventoryGrid.ContainerSize().x <= 0 || _homeInventoryGrid.ContainerSize().y <= 0)
+                    return;
+
+                //reset the hover utils back to home origin
+                SetActiveItemGrid(_homeInventoryGrid);
+                SetHoveredCell(_homeInventoryGrid.GetCellObject((0, 0)));
+
+                //bind the pointer container to this cell position
+                BindPointerContainerToCellPosition(_lastKnownGrid);
+            }
+        }
+
 
 
         //inventory manipulation actions
@@ -392,7 +464,7 @@ namespace dtsInventory
                     _invGrid.DeleteStack(_hoveredCellIndex);
 
                     //update the 'holding item' feedback utils
-                    BindHeldItemToPointer();
+                    BindHeldItemToPointerContainer();
                     UpdateHeldStackText();
                     PlayItemPickupAudio();
                     return;
@@ -416,7 +488,7 @@ namespace dtsInventory
                     _invGrid.DecreaseStack(_hoveredCellIndex, _heldItemStackCount);
 
                     //update the 'holding item' feedback utils
-                    BindHeldItemToPointer();
+                    BindHeldItemToPointerContainer();
                     UpdateHeldStackText();
                     PlayItemPickupAudio();
                     return;
@@ -538,7 +610,7 @@ namespace dtsInventory
                 _invGrid.DeleteStack(_hoveredCellIndex);
 
                 //update the "held item" feedback utils
-                BindHeldItemToPointer();
+                BindHeldItemToPointerContainer();
                 UpdateHeldStackText();
 
                 PlayItemPickupAudio();
@@ -633,7 +705,7 @@ namespace dtsInventory
                                     _heldItem = newGraphic;
                                     _heldItemStackCount = stackSize;
 
-                                    BindHeldItemToPointer(_invGrid);
+                                    BindHeldItemToPointerContainer(_invGrid);
                                     UpdateHeldStackText();
 
                                     return;
@@ -759,7 +831,7 @@ namespace dtsInventory
             //remove the item from the invGrid
             _contextualInvGrid.DeleteStack(_contextualItemPosition);
 
-            BindHeldItemToPointer(_contextualInvGrid);
+            BindHeldItemToPointerContainer(_contextualInvGrid);
             UpdateHeldStackText();
 
             PlayItemPickupAudio();
@@ -876,6 +948,9 @@ namespace dtsInventory
         public void SetActiveItemGrid(InvGrid newGrid)
         {
             _invGrid = newGrid;
+
+            //used if the pointer isn't on the grid, but we get directional input
+            _lastKnownGrid = newGrid;
         }
         public void LeaveGrid(InvGrid specificGrid)
         {
@@ -886,10 +961,15 @@ namespace dtsInventory
         }
         public void SetHoveredCell(CellInteract cell)
         {
+            //update hover utilities
             _hoveredCell = cell;
             _hoveredCellIndex = cell.Index();
             _hoverIndex.x = _hoveredCellIndex.Item1;
             _hoverIndex.y = _hoveredCellIndex.Item2;
+
+            //used if the pointer isn't on the grid, but we get directional input
+            _lastKnownHoveredIndex = _hoveredCellIndex;
+
 
             PlayMovementAudio();
         }
@@ -922,78 +1002,185 @@ namespace dtsInventory
                 PlayRotateAudio();
             }
         }
-        public void TriggerPointerCommands(bool lClick, bool rClick, bool mClick)
-        {
-            _lClick = lClick;
-            _rClick = rClick;
-            _mClick = mClick;
-            RespondToPointerClicks();
-        }
         public void RespondToLeftClick()
         {
+            //only respond if we're hovering over a grid
+            if (_invGrid != null)
+            {
+                //if we're not holding an item, pickup the full stack of items
+                if (_heldItem == null)
+                    PickupStackOnHoveredPosition();
 
+                //else,place the full held itemStack on the grid
+                else
+                    DropStackOnHoveredPosition();
+            }
         }
         public void RespondToRightClick()
         {
+            if (_invGrid != null)
+            {
+                //pick up half the stack if we're not holding anything
+                if (_heldItem == null && _invGrid.IsCellOccupied(_hoveredCellIndex))
+                    PickupHalfOfHoveredStack();
 
+                //drop a single item if we're holding a stack, and there's a valid drop position underneath
+                else if (_heldItem != null)
+                    DropSingleItemOntoHoveredPosition();
+            }
         }
-
         public void RespondToMiddleClick()
         {
-
-        }
-        public void TriggerDirectionalCommands(float horizontal, float vertical)
-        {
-            if (horizontal < 0)
+            if (_invGrid != null)
             {
-                _leftMovementCmd = true;
-                _rightMovementCmd = false;
-            }   
-            else if (horizontal > 0)
-            {
-                _leftMovementCmd = false;
-                _rightMovementCmd = true;
+                //only show if we're hovering over an item while not holding anything
+                if (_invGrid.IsCellOccupied(_hoveredCellIndex) && _heldItem == null)
+                    ShowContextMenuOnHoveredItem();
             }
-            else
-            {
-                _leftMovementCmd = false;
-                _rightMovementCmd = false;
-            }
-
-            if (vertical < 0)
-            {
-                _upMovementCmd = false;
-                _downMovementCmd = true;
-            }
-            else if (vertical > 0)
-            {
-                _upMovementCmd = true;
-                _downMovementCmd = false;
-            }
-            else
-            {
-                _upMovementCmd = false;
-                _downMovementCmd = false;
-
-            }
-
-            RespondToDirectionalCommands();
         }
         public void RespondToLeftDirectionalCommand()
         {
+            if (_lastKnownGrid != null)
+            {
+                //Only respond if the last know grid's window is opened
+                if (_lastKnownGrid.GetParentWindow().IsWindowOpen())
+                {
+                    //ignore this call if no width dimension exists
+                    if (_lastKnownGrid.ContainerSize().x <= 0)
+                        return;
 
+
+                    //check if we can go left on the grid,
+                    //from our last known hover position
+                    if (_lastKnownHoveredIndex.Item1 > 0)
+                    {
+                        //go to the next left x position
+                        SetHoveredCell(_lastKnownGrid.GetCellObject((_lastKnownHoveredIndex.Item1 - 1, _lastKnownHoveredIndex.Item2)));
+                    }
+
+                    //wrap around to the other side of the grid 
+                    else
+                    {
+                        //go to the opposite end of the grid
+                        SetHoveredCell(_lastKnownGrid.GetCellObject((_lastKnownGrid.ContainerSize().x -1, _lastKnownHoveredIndex.Item2)));
+                    }
+
+                    //bind the pointer container to this cell position
+                    BindPointerContainerToCellPosition(_lastKnownGrid);
+                }
+
+                //else, check if our home grid is opened, and if so then reset our lastHovered util to that
+                else if (_homeInventoryGrid != null)
+                    SetPointerToHomeGrid();
+            }
         }
         public void RespondToRightDirectionalCommand()
         {
+            if (_lastKnownGrid != null)
+            {
+                //Only respond if the last know grid's window is opened
+                if (_lastKnownGrid.GetParentWindow().IsWindowOpen())
+                {
+                    //ignore this call if no width dimension exists
+                    if (_lastKnownGrid.ContainerSize().x <= 0)
+                        return;
 
+
+                    //check if we can go right on the grid,
+                    //from our last known hover position
+                    if (_lastKnownHoveredIndex.Item1 < _lastKnownGrid.ContainerSize().x -1)
+                    {
+                        //go to the next right x position
+                        SetHoveredCell(_lastKnownGrid.GetCellObject((_lastKnownHoveredIndex.Item1 + 1, _lastKnownHoveredIndex.Item2)));
+                    }
+
+                    //wrap around to the other side of the grid 
+                    else
+                    {
+                        //go to the opposite end of the grid
+                        SetHoveredCell(_lastKnownGrid.GetCellObject((0, _lastKnownHoveredIndex.Item2)));
+                    }
+
+                    //bind the pointer container to this cell position
+                    BindPointerContainerToCellPosition(_lastKnownGrid);
+                }
+
+                //else, check if our home grid is opened, and if so then reset our lastHovered util to that
+                else if (_homeInventoryGrid != null)
+                    SetPointerToHomeGrid();
+            }
         }
         public void RespondToUpDirectionalCommand()
         {
+            if (_lastKnownGrid != null)
+            {
+                //Only respond if the last know grid's window is opened
+                if (_lastKnownGrid.GetParentWindow().IsWindowOpen())
+                {
+                    //ignore this call if no height dimension exists
+                    if (_lastKnownGrid.ContainerSize().y <= 0)
+                        return;
 
+
+                    //check if we can go up on the grid,
+                    //from our last known hover position
+                    if (_lastKnownHoveredIndex.Item2 < _lastKnownGrid.ContainerSize().y -1)
+                    {
+                        //go to the next upper y position
+                        SetHoveredCell(_lastKnownGrid.GetCellObject((_lastKnownHoveredIndex.Item1, _lastKnownHoveredIndex.Item2 + 1)));
+                    }
+
+                    //wrap around to the other side of the grid 
+                    else
+                    {
+                        //go to the opposite end of the grid
+                        SetHoveredCell(_lastKnownGrid.GetCellObject((_lastKnownHoveredIndex.Item1, 0)));
+                    }
+
+                    //bind the pointer container to this cell position
+                    BindPointerContainerToCellPosition(_lastKnownGrid);
+                }
+
+                //else, check if our home grid is opened, and if so then reset our lastHovered util to that
+                else if (_homeInventoryGrid != null)
+                    SetPointerToHomeGrid();
+            }
         }
         public void RespondToDownDirectionalCommand()
         {
+            if (_lastKnownGrid != null)
+            {
+                //Only respond if the last know grid's window is opened
+                if (_lastKnownGrid.GetParentWindow().IsWindowOpen())
+                {
+                    //ignore this call if no height dimension exists
+                    if (_lastKnownGrid.ContainerSize().y <= 0)
+                        return;
 
+
+                    //check if we can go down on the grid,
+                    //from our last known hover position
+                    if (_lastKnownHoveredIndex.Item2 > 0)
+                    {
+                        //go to the next upper y position
+                        SetHoveredCell(_lastKnownGrid.GetCellObject((_lastKnownHoveredIndex.Item1, _lastKnownHoveredIndex.Item2 -1)));
+                    }
+
+                    //wrap around to the other side of the grid 
+                    else
+                    {
+                        //go to the opposite end of the grid
+                        SetHoveredCell(_lastKnownGrid.GetCellObject((_lastKnownHoveredIndex.Item1, _lastKnownGrid.ContainerSize().y -1)));
+                    }
+
+                    //bind the pointer container to this cell position
+                    BindPointerContainerToCellPosition(_lastKnownGrid);
+                }
+
+                //else, check if our home grid is opened, and if so then reset our lastHovered util to that
+                else if (_homeInventoryGrid != null)
+                    SetPointerToHomeGrid();
+            }
         }
         public void SetAlternateInputs(bool alternate1, bool alternate2, bool alternate3)
         {
@@ -1022,10 +1209,8 @@ namespace dtsInventory
             if (_homeInventoryGrid != null)
             {
                 //only open the window if it's closed
-                if (!_homeInventoryGrid.GetParentWindow().gameObject.activeSelf)
-                {
-                    _homeInventoryGrid.GetParentWindow().gameObject.SetActive(true);
-                }
+                if (!_homeInventoryGrid.GetParentWindow().IsWindowOpen())
+                    _homeInventoryGrid.GetParentWindow().OpenWindow();
             }
             
         }
@@ -1034,16 +1219,14 @@ namespace dtsInventory
             if (_homeInventoryGrid != null)
             {
                 //only close the window if its open
-                if (_homeInventoryGrid.GetParentWindow().gameObject.activeSelf)
-                {
-                    _homeInventoryGrid.GetParentWindow().gameObject.SetActive(false);
-                }
+                if (_homeInventoryGrid.GetParentWindow().IsWindowOpen())
+                    _homeInventoryGrid.GetParentWindow().CloseWindow();
             }
             
         }
         public void ToggleInventoryWindow()
         {
-            if (_homeInventoryGrid.GetParentWindow().gameObject.activeSelf)
+            if (_homeInventoryGrid.GetParentWindow().IsWindowOpen())
                 CloseInventoryWindow();
 
             else 
@@ -1068,8 +1251,39 @@ namespace dtsInventory
         }
         public void RespondToConfirm()
         {
-            //fire confirm event on the current selected ui element
-            //...
+            //only respond if we're hovering over a grid
+            if (_invGrid != null)
+            {
+                //if no alternate buttons are held down, then show the context menu
+                if (!_altCmd && !_altCmd2 && !_altCmd3)
+                {
+                    if (_heldItem == null)
+                        ShowContextMenuOnHoveredItem(); //only shows if not hovering over something
+                    else
+                        DropStackOnHoveredPosition();
+                }
+
+                //if [default:left-shift] is held down...
+                else if (_altCmd)
+                {
+                    //if we're not holding an item, pickup the full stack of items, bypassing the context menu
+                    if (_heldItem == null)
+                        PickupStackOnHoveredPosition();
+
+                    //else,place a single stack on this position
+                    else
+                        DropSingleItemOntoHoveredPosition();
+                }
+
+                //if [default:left-ctrl] is held down...
+                else if (_altCmd2)
+                {
+                    if (_heldItem == null)
+                        PickupHalfOfHoveredStack();
+                }
+
+                
+            }
         }
 
 
