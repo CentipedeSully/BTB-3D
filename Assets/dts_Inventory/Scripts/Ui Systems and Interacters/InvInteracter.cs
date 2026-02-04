@@ -19,7 +19,7 @@ namespace dtsInventory
         [SerializeField] private Text _heldStackText;
         [SerializeField] private RectTransform _heldStackContainer;
         [SerializeField] private GameObject _pointerContainer;
-        private RectTransform _defaultPointerContainerParentRT;
+        private RectTransform _defaultParentOfPointerContainer;
         [SerializeField] private Canvas _uiCanvas;
         [SerializeField] private Camera _uiCam;
         [SerializeField] private GameObject _hoverGraphicPrefab;
@@ -92,7 +92,8 @@ namespace dtsInventory
             ScreenPositionerHelper.SetUiCamera(_uiCam);
             InvManagerHelper.SetInventoryController(this);
             _pointerRectTransform = _pointerContainer.GetComponent<RectTransform>();
-            _defaultPointerContainerParentRT = _pointerContainer.GetComponentInParent<RectTransform>();
+            _defaultParentOfPointerContainer = _pointerContainer.transform.parent.GetComponent<RectTransform>();
+            //Debug.Log($"detected parent of pointer container: {_defaultParentOfPointerContainer.name}");
             _lastKnownGrid = _homeInventoryGrid;
             _lastKnownHoveredIndex = (0, 0);
         }
@@ -388,12 +389,13 @@ namespace dtsInventory
             //ensure the text is visible over the item graphic
             _heldStackContainer.GetComponent<RectTransform>().SetAsLastSibling();
         }
-        private void BindPointerCotainerToMousePosition()
+        private void BindPointerContainerToMousePosition()
         {
             if (_pointerContainer != null)
             {
-                if (_pointerRectTransform.parent != _defaultPointerContainerParentRT)
-                    _pointerRectTransform.SetParent(_defaultPointerContainerParentRT,false);
+                
+                if (_pointerRectTransform.parent != _defaultParentOfPointerContainer)
+                    _pointerRectTransform.SetParent(_defaultParentOfPointerContainer,false);
 
                 if (RectTransformUtility.ScreenPointToLocalPointInRectangle(
                     _uiCanvas.GetComponent<RectTransform>(),
@@ -401,7 +403,6 @@ namespace dtsInventory
                     _uiCam,
                     out _localPoint))
                 {
-                    _pointerRectTransform.localPosition = _localPoint;
                     _pointerRectTransform.anchoredPosition = _localPoint;
                 }
             }
@@ -1229,20 +1230,19 @@ namespace dtsInventory
             _mousePosition = position;
 
             //bind possible held object to position
-            BindPointerCotainerToMousePosition();
+            BindPointerContainerToMousePosition();
         }
         public void SetInputMode(InputMode newMode)
         {
             if (_inputMode != newMode)
             {
                 _inputMode = newMode;
-                Debug.Log($"InputMode changed to [{_inputMode.ToString()}]");
+                //Debug.Log($"InputMode changed to [{_inputMode.ToString()}]");
 
                 if (_inputMode == InputMode.Pointer)
                 {
                     ClearHoveredCell();
                     ClearHoverTiles();
-                    Debug.Log($"Cleared Hovered Cell. New value: {_hoveredCell}");
                 }
             }
         }
