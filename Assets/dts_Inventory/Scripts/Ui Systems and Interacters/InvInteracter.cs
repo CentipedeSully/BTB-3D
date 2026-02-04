@@ -19,9 +19,11 @@ namespace dtsInventory
         [SerializeField] private Text _heldStackText;
         [SerializeField] private RectTransform _heldStackContainer;
         [SerializeField] private GameObject _pointerContainer;
+        private RectTransform _defaultPointerContainerParentRT;
         [SerializeField] private Canvas _uiCanvas;
         [SerializeField] private Camera _uiCam;
         [SerializeField] private GameObject _hoverGraphicPrefab;
+        [SerializeField] private GameObject _directionalPointerHoverPrefab;
         [SerializeField] private InvGrid _homeInventoryGrid;
         private InvGrid _invGrid;
 
@@ -90,7 +92,7 @@ namespace dtsInventory
             ScreenPositionerHelper.SetUiCamera(_uiCam);
             InvManagerHelper.SetInventoryController(this);
             _pointerRectTransform = _pointerContainer.GetComponent<RectTransform>();
-
+            _defaultPointerContainerParentRT = _pointerContainer.GetComponentInParent<RectTransform>();
             _lastKnownGrid = _homeInventoryGrid;
             _lastKnownHoveredIndex = (0, 0);
         }
@@ -331,8 +333,18 @@ namespace dtsInventory
         }
         private void RenderHoverTiles()
         {
+            if (_invGrid == null)
+                return;
+
+            else if (_hoveredIndexes == null)
+                return;
+            else if (_hoveredIndexes.Count == 0)
+                return;
+
             foreach ((int, int) index in _hoveredIndexes)
             {
+                if (_invGrid.IsCellOnGrid(index) == false)
+                    return;
 
                 //create a new hover tile if we're out of tiles
                 if (_unusedHoverTileGraphics.Count == 0)
@@ -380,12 +392,16 @@ namespace dtsInventory
         {
             if (_pointerContainer != null)
             {
+                if (_pointerRectTransform.parent != _defaultPointerContainerParentRT)
+                    _pointerRectTransform.SetParent(_defaultPointerContainerParentRT,false);
+
                 if (RectTransformUtility.ScreenPointToLocalPointInRectangle(
                     _uiCanvas.GetComponent<RectTransform>(),
                     _mousePosition,
                     _uiCam,
                     out _localPoint))
                 {
+                    _pointerRectTransform.localPosition = _localPoint;
                     _pointerRectTransform.anchoredPosition = _localPoint;
                 }
             }
@@ -976,12 +992,14 @@ namespace dtsInventory
         public void ClearHoveredCell(CellInteract cell)
         {
             if (_hoveredCell == cell)
-            {
-                _hoveredCell = null;
-                _hoveredCellIndex = (-1, -1);
-                _hoverIndex.x = _hoveredCellIndex.Item1;
-                _hoverIndex.y = _hoveredCellIndex.Item2;
-            }
+                ClearHoveredCell();
+        }
+        private void ClearHoveredCell()
+        {
+            _hoveredCell = null;
+            _hoveredCellIndex = (-1, -1);
+            _hoverIndex.x = _hoveredCellIndex.Item1;
+            _hoverIndex.y = _hoveredCellIndex.Item2;
         }
 
 
@@ -1067,11 +1085,16 @@ namespace dtsInventory
 
                     //bind the pointer container to this cell position
                     BindPointerContainerToCellPosition(_lastKnownGrid);
+                    
                 }
 
                 //else, check if our home grid is opened, and if so then reset our lastHovered util to that
                 else if (_homeInventoryGrid != null)
+                {
                     SetPointerToHomeGrid();
+                    //bind the pointer container to this cell position
+                    BindPointerContainerToCellPosition(_lastKnownGrid);
+                }
             }
         }
         public void RespondToRightDirectionalCommand()
@@ -1107,7 +1130,11 @@ namespace dtsInventory
 
                 //else, check if our home grid is opened, and if so then reset our lastHovered util to that
                 else if (_homeInventoryGrid != null)
+                {
                     SetPointerToHomeGrid();
+                    //bind the pointer container to this cell position
+                    BindPointerContainerToCellPosition(_lastKnownGrid);
+                }
             }
         }
         public void RespondToUpDirectionalCommand()
@@ -1143,7 +1170,11 @@ namespace dtsInventory
 
                 //else, check if our home grid is opened, and if so then reset our lastHovered util to that
                 else if (_homeInventoryGrid != null)
+                {
                     SetPointerToHomeGrid();
+                    //bind the pointer container to this cell position
+                    BindPointerContainerToCellPosition(_lastKnownGrid);
+                }
             }
         }
         public void RespondToDownDirectionalCommand()
@@ -1179,7 +1210,11 @@ namespace dtsInventory
 
                 //else, check if our home grid is opened, and if so then reset our lastHovered util to that
                 else if (_homeInventoryGrid != null)
+                {
                     SetPointerToHomeGrid();
+                    //bind the pointer container to this cell position
+                    BindPointerContainerToCellPosition(_lastKnownGrid);
+                }
             }
         }
         public void SetAlternateInputs(bool alternate1, bool alternate2, bool alternate3)
@@ -1202,6 +1237,13 @@ namespace dtsInventory
             {
                 _inputMode = newMode;
                 Debug.Log($"InputMode changed to [{_inputMode.ToString()}]");
+
+                if (_inputMode == InputMode.Pointer)
+                {
+                    ClearHoveredCell();
+                    ClearHoverTiles();
+                    Debug.Log($"Cleared Hovered Cell. New value: {_hoveredCell}");
+                }
             }
         }
         public void OpenInventoryWindow()

@@ -160,8 +160,8 @@ namespace dtsInventory
                     _invInteracter.SetMousePosition(_pointerPosition);
                 }
 
-                //respond to pointer inputs. Only one at a time per frame
-                if (!_isCoolingDownPointer && _pointerActivityDetected)
+                //respond to pointer inputs (not movement). Only one at a time per frame
+                if (!_isCoolingDownPointer && _lClick || _rClick || _mClick)
                 {
                     _isCoolingDownPointer = true;
                     Invoke(nameof(EndPointerCooldown), _pointerClickDelay);

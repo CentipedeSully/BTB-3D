@@ -487,8 +487,9 @@ namespace dtsInventory
 
 
             //parent the object to the grid's overlay container
-            uiObjectRectTransform.SetParent(_overlayContainer,false);
-            uiObjectRectTransform.localPosition = parentCellPosition;
+            uiObjectRectTransform.SetParent(_overlayContainer,true);
+            uiObjectRectTransform.localPosition = new Vector2(CellSize().x * position.Item1, CellSize().y * position.Item2);
+            
 
             //should we resize the graphic?
             //nah

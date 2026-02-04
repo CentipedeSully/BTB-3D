@@ -415,7 +415,7 @@ RectTransform:
   m_AnchorMin: {x: 0.5, y: 0.5}
   m_AnchorMax: {x: 0.5, y: 0.5}
   m_AnchoredPosition: {x: 0, y: 0}
-  m_SizeDelta: {x: 100, y: 100}
+  m_SizeDelta: {x: 0, y: 100}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!1 &3593024699872622903
 GameObject:
@@ -541,7 +541,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: ea8bfba6020a8c84c926bc77a068317a, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  _containerSize: {x: 8, y: 8}
+  _containerSize: {x: 4, y: 4}
   _cellSize: {x: 32, y: 32}
   _cellPrefab: {fileID: 6861701934836006283, guid: 78456cab2fac5794c915cf5f29d811a6,
     type: 3}
@@ -553,6 +553,28 @@ MonoBehaviour:
   _unusedStackTextsContainer: {fileID: 3601171784914887834}
   _overlayContainer: {fileID: 968167851095468416}
   _layoutGroup: {fileID: 0}
+  _isDebugActive: 1
+  _paramItemData: {fileID: 11400000, guid: 6d528f0074d821842bed9fcf5cb51491, type: 2}
+  _paramItemCount: 8
+  _paramExcludePositionsList: []
+  _cmdCheckIfSpaceExists: 0
+  _paramQueryList:
+  - itemData: {fileID: 11400000, guid: 6d528f0074d821842bed9fcf5cb51491, type: 2}
+    placementAmount: 24
+  - itemData: {fileID: 11400000, guid: 9ed031f30ac9eaf43916d9c3810d1d6e, type: 2}
+    placementAmount: 2
+  - itemData: {fileID: 11400000, guid: 1028ce9d784040742bb0db69ab3e14c2, type: 2}
+    placementAmount: 10
+  _cmdMulticheckIfSpaceExists: 0
+  _paramSet:
+  - {x: 0, y: 0}
+  - {x: 1, y: 1}
+  - {x: 29, y: 0}
+  - {x: 2, y: 3}
+  - {x: 3, y: 18}
+  _cmdTestKeyGeneration: 0
+  _paramPreGeneratedKey: 
+  _cmdTestHashGeneration: 0
 --- !u!114 &8336833390520568659
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -828,7 +850,7 @@ MonoBehaviour:
     m_PersistentCalls:
       m_Calls:
       - m_Target: {fileID: 5813932100073521210}
-        m_TargetAssemblyTypeName: InvWindow, Assembly-CSharp
+        m_TargetAssemblyTypeName: dtsInventory.InvWindow, Assembly-CSharp
         m_MethodName: CloseWindow
         m_Mode: 1
         m_Arguments:
