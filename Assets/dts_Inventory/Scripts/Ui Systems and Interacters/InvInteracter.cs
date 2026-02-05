@@ -2,6 +2,7 @@ using mapPointer;
 using System.Collections.Generic;
 using System.Reflection;
 using UnityEngine;
+using UnityEngine.EventSystems;
 using UnityEngine.UI;
 
 namespace dtsInventory
@@ -1222,7 +1223,15 @@ namespace dtsInventory
         public void RespondToUpDirectionalCommand()
         {
             if (ContextWindowHelper.IsContextWindowShowing())
+            {
+                if (!ContextWindowHelper.IsAnyMenuOptionCurrentlyFocused())
+                {
+                    ContextWindowHelper.FocusOnMenu();
+                    return;
+                }
                 return;
+            }
+
             if (_lastKnownGrid != null)
             {
                 //Only respond if the last know grid's window is opened

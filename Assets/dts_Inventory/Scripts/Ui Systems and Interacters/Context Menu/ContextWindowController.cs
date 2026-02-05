@@ -1,6 +1,8 @@
 using System.Collections.Generic;
+using TMPro;
 using UnityEngine;
 using UnityEngine.EventSystems;
+using UnityEngine.Experimental.GlobalIllumination;
 using UnityEngine.UI;
 
 
@@ -26,6 +28,8 @@ namespace dtsInventory
         private RectTransform _rectTransform;
         private bool _isWindowOpen = false;
         private InvWindow _boundWindow;
+
+        private List<Button> _currentButtons = new();
 
 
         public delegate void ContextWindowEvent(ContextOption selectedOption);
@@ -71,7 +75,7 @@ namespace dtsInventory
 
 
         //Externals
-        public void ShowOptionsWindow(Vector3 drawPosition, InvWindow boundWindow,HashSet<ContextOption> availableOptions)
+        public void ShowOptionsWindow(Vector3 drawPosition, InvWindow boundWindow, HashSet<ContextOption> availableOptions)
         {
             if (availableOptions == null)
                 return;
@@ -100,6 +104,7 @@ namespace dtsInventory
                     {
                         child.gameObject.SetActive(true);
                         optionCount++;
+                        _currentButtons.Add(child.GetComponent<Button>());
                     }
                     else
                     {
@@ -136,8 +141,8 @@ namespace dtsInventory
                 _isWindowOpen = false;
                 _boundWindow.UndarkenGrid();
                 _boundWindow = null;
+                _currentButtons.Clear();
                 gameObject.SetActive(false);
-                
             }
 
         }
@@ -157,6 +162,22 @@ namespace dtsInventory
         {
             _rectTransform.anchoredPosition += offset;
         }
+        public bool IsAnyMenuOptionCurrentlyFocused()
+        {
+            
+            foreach(Button button in _currentButtons)
+            {
+                if (EventSystem.current.currentSelectedGameObject == button.gameObject)
+                    return true;
+            }
+
+            return false;
+        }
+        public void FocusOnFirstMenuOption()
+        {
+            if (_currentButtons.Count > 0)
+                EventSystem.current.SetSelectedGameObject(_currentButtons[0].gameObject);
+        }
     }
 
     public static class ContextWindowHelper
@@ -170,6 +191,8 @@ namespace dtsInventory
         public static bool IsContextWindowShowing() { return _controller.IsWindowOpen(); }
         public static bool CurrentlyBoundWindow() { return _controller.CurrentBoundWindow(); }
         public static void MoveWindow(Vector2 offset) { _controller.OffsetWindow(offset); }
+        public static bool IsAnyMenuOptionCurrentlyFocused() { return _controller.IsAnyMenuOptionCurrentlyFocused(); }
+        public static void FocusOnMenu() { _controller.FocusOnFirstMenuOption(); }
 
 
     }
