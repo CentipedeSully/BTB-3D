@@ -14,7 +14,7 @@ namespace dtsInventory
         DiscardItem
     }
 
-    public class ContextWindowController : MonoBehaviour, IPointerExitHandler
+    public class ContextWindowController : MonoBehaviour
     {
         //Declarations
         [SerializeField] private GameObject _optionElementPrefab;
@@ -25,6 +25,7 @@ namespace dtsInventory
         private float _optionHeight;
         private RectTransform _rectTransform;
         private bool _isWindowOpen = false;
+        private InvWindow _boundWindow;
 
 
         public delegate void ContextWindowEvent(ContextOption selectedOption);
@@ -70,7 +71,7 @@ namespace dtsInventory
 
 
         //Externals
-        public void ShowOptionsWindow(HashSet<ContextOption> availableOptions)
+        public void ShowOptionsWindow(Vector3 drawPosition, InvWindow boundWindow,HashSet<ContextOption> availableOptions)
         {
             if (availableOptions == null)
                 return;
@@ -78,7 +79,11 @@ namespace dtsInventory
                 return;
 
             //reposition the window onto the pointer
-            GetComponent<RectTransform>().localPosition = _pointerContainerTransform.localPosition;
+            GetComponent<RectTransform>().localPosition = drawPosition;
+
+            //set what this context window is bound to
+            _boundWindow = boundWindow;
+            _boundWindow.DarkenGrid();
 
 
             int optionCount = 0;
@@ -128,8 +133,11 @@ namespace dtsInventory
 
             if (_isWindowOpen)
             {
-                gameObject.SetActive(false);
                 _isWindowOpen = false;
+                _boundWindow.UndarkenGrid();
+                _boundWindow = null;
+                gameObject.SetActive(false);
+                
             }
 
         }
@@ -142,13 +150,13 @@ namespace dtsInventory
             }
 
         }
+        public InvWindow CurrentBoundWindow() { return _boundWindow; }
 
-
-        public void OnPointerExit(PointerEventData eventData)
-        {
-            HideOptionsWindow();
-        }
         public bool IsWindowOpen() { return _isWindowOpen; }
+        public void OffsetWindow(Vector2 offset)
+        {
+            _rectTransform.anchoredPosition += offset;
+        }
     }
 
     public static class ContextWindowHelper
@@ -156,10 +164,12 @@ namespace dtsInventory
         public static ContextWindowController _controller;
 
         public static void SetContextWindowController(ContextWindowController controller) { _controller = controller; }
-        public static void ShowContextWindow(HashSet<ContextOption> optionsToShow) { _controller.ShowOptionsWindow(optionsToShow); }
+        public static void ShowContextWindow(Vector3 drawPosition,InvWindow boundWindow, HashSet<ContextOption> optionsToShow) { _controller.ShowOptionsWindow(drawPosition,boundWindow,optionsToShow); }
         public static void HideContextWindow() { _controller.HideOptionsWindow(); }
         public static ContextWindowController GetContextWindowController() { return _controller; }
         public static bool IsContextWindowShowing() { return _controller.IsWindowOpen(); }
+        public static bool CurrentlyBoundWindow() { return _controller.CurrentBoundWindow(); }
+        public static void MoveWindow(Vector2 offset) { _controller.OffsetWindow(offset); }
 
 
     }

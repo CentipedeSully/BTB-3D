@@ -7,12 +7,12 @@ using Unity.VisualScripting;
 using UnityEditor.Experimental.GraphView;
 using UnityEngine;
 using UnityEngine.UI;
-using UnityEngine.UIElements;
 using static UnityEditor.Progress;
 
 
 namespace dtsInventory
 {
+    /* StackKey Generator, [obsolete] 
     public static class StackKeyGenerator
     {
         public static string ToKey(HashSet<(int,int)> set)
@@ -73,12 +73,24 @@ namespace dtsInventory
 
 
         }
-    }
+    }*/
 
     public class InvGrid : MonoBehaviour
     {
+        [Header("Settings")]
         [SerializeField] private Vector2Int _containerSize;
         [SerializeField] private Vector2 _cellSize;
+        [SerializeField] private float _darkenDuration;
+        [Range(0,1)][SerializeField] private float _maxDarkness;
+        private float _currentDarkenTime;
+        private bool _isDarkenInProgress = false;
+        private float _startingDarknessValue;
+        private float _targetDarknessValue;
+        private Image _darkenEffectImage;
+        private float _originalAlpha;
+        private float _alpha;
+
+        [Header("References")]
         [SerializeField] private GameObject _cellPrefab;
         [SerializeField] private RectTransform _spritesContainer;
         [SerializeField] private InvWindow _parentWindow;
@@ -86,6 +98,7 @@ namespace dtsInventory
         [SerializeField] private RectTransform _activeStackTextsContainer;
         [SerializeField] private RectTransform _unusedStackTextsContainer;
         [SerializeField] private RectTransform _overlayContainer;
+        [SerializeField] private RectTransform _gridDarkener;
 
         [SerializeField] GridLayoutGroup _layoutGroup;
 
@@ -97,10 +110,14 @@ namespace dtsInventory
         [SerializeField] private bool _cmdCheckIfSpaceExists = false;
         [SerializeField] private List<ItemQuery> _paramQueryList;
         [SerializeField] private bool _cmdMulticheckIfSpaceExists = false;
+        [SerializeField] private bool _cmdDarkenGrid = false;
+        [SerializeField] private bool _cmdUndarkenGrid = false;
+        /* Tests for the StackKey Generator [obsolete]  
         [SerializeField] private List<Vector2Int> _paramSet;
         [SerializeField] private bool _cmdTestKeyGeneration = false;
         [SerializeField] private string _paramPreGeneratedKey;
         [SerializeField] private bool _cmdTestHashGeneration = false;
+        */
 
 
 
@@ -190,6 +207,9 @@ namespace dtsInventory
             _spritesContainer.sizeDelta = dynamicSize;
             _activeStackTextsContainer.sizeDelta = dynamicSize;
             _overlayContainer.sizeDelta = dynamicSize;
+            _gridDarkener.sizeDelta = dynamicSize;
+            _darkenEffectImage = _gridDarkener.GetComponent<Image>();
+            _originalAlpha = _darkenEffectImage.color.a;
 
         }
 
@@ -200,6 +220,8 @@ namespace dtsInventory
 
         private void Update()
         {
+            if (_isDarkenInProgress)
+                UpdateDarkeningEffects();
             if (_isDebugActive)
                 ListenForDebugCommands();
         }
@@ -230,6 +252,86 @@ namespace dtsInventory
 
             item.GetComponent<RectTransform>().SetParent(unusedItemsContainer, false);
         }
+        private void UpdateDarkeningEffects()
+        {
+            if (_darkenEffectImage.color.a == _targetDarknessValue)
+            {
+                _isDarkenInProgress = false;
+                _currentDarkenTime = 0;
+            }
+            else
+            {
+                _currentDarkenTime += Time.deltaTime;
+                _alpha = Mathf.Lerp(_startingDarknessValue, _targetDarknessValue, _currentDarkenTime / _darkenDuration);
+                _darkenEffectImage.color = new Color(_darkenEffectImage.color.r, _darkenEffectImage.color.g, _darkenEffectImage.color.b, _alpha);
+            }
+        }
+        public void DarkenGrid()
+        {
+            //ignore command if the grid is already dark
+            if (_darkenEffectImage.color.a == _maxDarkness)
+                return;
+
+            //ignore command if we're already darkening the grid
+            if (_isDarkenInProgress && _targetDarknessValue == _maxDarkness)
+                return;
+
+            //if we're currently UNDOING a previous darkening effect, then reverse direction
+            if (_isDarkenInProgress && _targetDarknessValue == _originalAlpha)
+            {
+                //reverse our progression point
+                _currentDarkenTime = _darkenDuration - _currentDarkenTime;
+
+                //ensure our start and end points are reversed
+                _startingDarknessValue = _originalAlpha;
+                _targetDarknessValue = _maxDarkness;
+            }
+
+            //if we're starting
+            else if (!_isDarkenInProgress)
+            {
+                _startingDarknessValue = _originalAlpha;
+                _targetDarknessValue = _maxDarkness;
+                _isDarkenInProgress = true;
+            }
+        }
+        public void UndarkenGrid()
+        {
+            //ignore command if the grid is not dark
+            if (_darkenEffectImage.color.a == _originalAlpha)
+                return;
+
+            //ignore command if we're already UNdarkening the grid
+            if (_isDarkenInProgress && _targetDarknessValue == _originalAlpha)
+                return;
+
+            //if we're currently darkening, then reverse direction
+            if (_isDarkenInProgress && _targetDarknessValue == _maxDarkness)
+            {
+                //reverse our progression point
+                _currentDarkenTime = _darkenDuration - _currentDarkenTime;
+
+                //ensure our start and end points are reversed
+                _startingDarknessValue = _maxDarkness;
+                _targetDarknessValue = _originalAlpha;
+            }
+
+            //if we're starting
+            else if (!_isDarkenInProgress)
+            {
+                _startingDarknessValue = _maxDarkness;
+                _targetDarknessValue = _originalAlpha;
+                _isDarkenInProgress = true;
+                _currentDarkenTime = 0;
+            }
+        }
+        public void ForceImmediateUndarken()
+        {
+            _isDarkenInProgress = false;
+            _darkenEffectImage.color = new Color(_darkenEffectImage.color.r, _darkenEffectImage.color.g, _darkenEffectImage.color.b, _originalAlpha);
+            _currentDarkenTime = 0;
+        }
+
 
         /// <summary>
         /// Returns all positions that correspond to single stack of items.
@@ -1846,7 +1948,18 @@ namespace dtsInventory
                 _cmdMulticheckIfSpaceExists = false;
                 Debug.Log($"Does Space Exist for List of queries: {DoesSpaceExist(_paramQueryList)}");
             }
+            if (_cmdDarkenGrid)
+            {
+                _cmdDarkenGrid = false;
+                DarkenGrid();
+            }
+            if (_cmdUndarkenGrid)
+            {
+                _cmdUndarkenGrid = false;
+                UndarkenGrid();
+            }
 
+            /* Tests for the StackKey Generator [obsolete]  
             if (_cmdTestKeyGeneration)
             {
                 _cmdTestKeyGeneration = false;
@@ -1866,6 +1979,7 @@ namespace dtsInventory
                 HashSet<(int, int)> set = StackKeyGenerator.ToHash(_paramPreGeneratedKey);
                 Debug.Log($"Generated Hash: {StringifyPositions(set)}");
             }
+            */
         }
     }
 }

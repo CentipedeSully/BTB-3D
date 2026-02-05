@@ -21,7 +21,6 @@ namespace dtsInventory
         [SerializeField] private GameObject _pointerContainer;
         private RectTransform _defaultParentOfPointerContainer;
         [SerializeField] private Canvas _uiCanvas;
-        [SerializeField] private Camera _uiCam;
         [SerializeField] private GameObject _hoverGraphicPrefab;
         [SerializeField] private GameObject _directionalPointerHoverPrefab;
         [SerializeField] private InvGrid _homeInventoryGrid;
@@ -67,17 +66,6 @@ namespace dtsInventory
         (int, int) _lastKnownHoveredIndex;
         InvGrid _lastKnownGrid;
 
-        private bool _lClick = false;
-        private bool _rClick = false;
-        private bool _mClick = false;
-
-        private bool _rightMovementCmd;
-        private bool _leftMovementCmd;
-        private bool _upMovementCmd;
-        private bool _downMovementCmd;
-
-        private bool _comfirmCmd;
-        private bool _backCmd;
         private bool _altCmd;
         private bool _altCmd2;
         private bool _altCmd3;
@@ -90,7 +78,6 @@ namespace dtsInventory
         {
             _contextWindowController.gameObject.SetActive(true);
 
-            ScreenPositionerHelper.SetUiCamera(_uiCam);
             InvManagerHelper.SetInventoryController(this);
             _pointerRectTransform = _pointerContainer.GetComponent<RectTransform>();
             _defaultParentOfPointerContainer = _pointerContainer.transform.parent.GetComponent<RectTransform>();
@@ -134,6 +121,11 @@ namespace dtsInventory
         //visual updating/rendering utilities
         private void VisualizeHover()
         {
+
+            //only visualize hover effects when the context window isn't open
+            if (ContextWindowHelper.IsContextWindowShowing())
+                return;
+
             //save the previous frame's hoverData 
             _lastFramesHoveredIndexes.Clear();
             foreach ((int, int) index in _hoveredIndexes)
@@ -145,8 +137,6 @@ namespace dtsInventory
             //if the pointer is the input mode, the update the visuals based on the pointer's data
             if (_inputMode == InputMode.Pointer)
             {
-                
-
                 //if we're not hovering over anything, stop here
                 if (_hoveredCell == null)
                 {
@@ -456,7 +446,7 @@ namespace dtsInventory
                 if (RectTransformUtility.ScreenPointToLocalPointInRectangle(
                     _uiCanvas.GetComponent<RectTransform>(),
                     _mousePosition,
-                    _uiCam,
+                    null,
                     out _localPoint))
                 {
                     _pointerRectTransform.anchoredPosition = _localPoint;
@@ -808,8 +798,11 @@ namespace dtsInventory
                 _contextualItemPosition = _hoveredCellIndex;
                 _contextualInvGrid = _invGrid;
 
+                //calculate the window's position (should be wherever our pointer container is)
+                Vector3 pointerPositionRelativeToCanvas = _uiCanvas.transform.InverseTransformPoint(_pointerRectTransform.position);
+                
                 //open the context window
-                ContextWindowHelper.ShowContextWindow(_invGrid.GetStackItemData(_hoveredCellIndex).ContextualOptions());
+                ContextWindowHelper.ShowContextWindow(pointerPositionRelativeToCanvas, _invGrid.GetParentWindow() ,_invGrid.GetStackItemData(_hoveredCellIndex).ContextualOptions());
 
                 PlaySelectionAudio();
 
@@ -1043,7 +1036,9 @@ namespace dtsInventory
             //used if the pointer isn't on the grid, but we get directional input
             _lastKnownHoveredIndex = _hoveredCellIndex;
 
-
+            //only visualize hover effects when the context window isn't open
+            if (ContextWindowHelper.IsContextWindowShowing())
+                return;
             PlayMovementAudio();
         }
         public void ClearHoveredCell(CellInteract cell)
@@ -1062,6 +1057,9 @@ namespace dtsInventory
 
         public void RotateHeldItemClockwise()
         {
+            if (ContextWindowHelper.IsContextWindowShowing())
+                return;
+
             if (_heldItem != null)
             {
                 _heldItem.RotateItem(RotationDirection.Clockwise);
@@ -1071,7 +1069,10 @@ namespace dtsInventory
         }
         public void RotateHeldItemCounterClockwise()
         {
-            if (_heldItem != null)
+            if (ContextWindowHelper.IsContextWindowShowing())
+                return;
+
+            if (_heldItem != null )
             {
                 _heldItem.RotateItem(RotationDirection.CounterClockwise);
                 PlayRotateAudio();
@@ -1079,6 +1080,17 @@ namespace dtsInventory
         }
         public void RespondToLeftClick()
         {
+            if (ContextWindowHelper.IsContextWindowShowing())
+            {
+                RectTransform contextRectTransform = _contextWindowController.GetComponent<RectTransform>();
+
+                //close the window if the click wasn't inside the menu
+                if (!RectTransformUtility.RectangleContainsScreenPoint(contextRectTransform,_mousePosition))
+                    ContextWindowHelper.HideContextWindow();
+
+                return;
+            }
+
             //only respond if we're hovering over a grid
             if (_invGrid != null)
             {
@@ -1093,6 +1105,13 @@ namespace dtsInventory
         }
         public void RespondToRightClick()
         {
+            //close the context menu of ANY rightClick is made
+            if (ContextWindowHelper.IsContextWindowShowing())
+            {
+                ContextWindowHelper.HideContextWindow();
+                return;
+            }
+
             if (_invGrid != null)
             {
                 //pick up half the stack if we're not holding anything
@@ -1106,6 +1125,10 @@ namespace dtsInventory
         }
         public void RespondToMiddleClick()
         {
+
+            if (ContextWindowHelper.IsContextWindowShowing())
+                return;
+
             if (_invGrid != null)
             {
                 //only show if we're hovering over an item while not holding anything
@@ -1115,6 +1138,9 @@ namespace dtsInventory
         }
         public void RespondToLeftDirectionalCommand()
         {
+            if (ContextWindowHelper.IsContextWindowShowing())
+                return;
+
             if (_lastKnownGrid != null)
             {
                 //Only respond if the last know grid's window is opened
@@ -1154,6 +1180,9 @@ namespace dtsInventory
         }
         public void RespondToRightDirectionalCommand()
         {
+            if (ContextWindowHelper.IsContextWindowShowing())
+                return;
+
             if (_lastKnownGrid != null)
             {
                 //Only respond if the last know grid's window is opened
@@ -1192,6 +1221,8 @@ namespace dtsInventory
         }
         public void RespondToUpDirectionalCommand()
         {
+            if (ContextWindowHelper.IsContextWindowShowing())
+                return;
             if (_lastKnownGrid != null)
             {
                 //Only respond if the last know grid's window is opened
@@ -1230,6 +1261,8 @@ namespace dtsInventory
         }
         public void RespondToDownDirectionalCommand()
         {
+            if (ContextWindowHelper.IsContextWindowShowing())
+                return;
             if (_lastKnownGrid != null)
             {
                 //Only respond if the last know grid's window is opened
@@ -1295,6 +1328,7 @@ namespace dtsInventory
                 }
                 else if (_inputMode == InputMode.Directional)
                 {
+                    
                     if (_invGrid == null)
                         SetPointerToHomeGrid();
                 }
@@ -1347,9 +1381,16 @@ namespace dtsInventory
         }
         public void RespondToConfirm()
         {
+            if (ContextWindowHelper.IsContextWindowShowing())
+                return;
+
             //only respond if we're hovering over a grid
             if (_invGrid != null)
             {
+                //dont talk to closed windows!
+                if (!_invGrid.GetParentWindow().IsWindowOpen())
+                    return;
+
                 //if no alternate buttons are held down, then show the context menu
                 if (!_altCmd && !_altCmd2 && !_altCmd3)
                 {

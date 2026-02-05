@@ -1,3 +1,4 @@
+using Unity.VisualScripting;
 using UnityEngine;
 using UnityEngine.EventSystems;
 using UnityEngine.UI;
@@ -54,6 +55,14 @@ namespace dtsInventory
         public void OnDrag(PointerEventData eventData)
         {
             _rectTransform.anchoredPosition += eventData.delta / _canvas.scaleFactor;
+
+            if (ContextWindowHelper.IsContextWindowShowing())
+            {
+                //if the context window is bound to this window,
+                //then move the context window this this window
+                if (ContextWindowHelper.CurrentlyBoundWindow() == this)
+                    ContextWindowHelper.MoveWindow(eventData.delta);
+            }
         }
         public void SetItemDescription(string newDescription) { _itemDescription.text = newDescription; }
         public void SetItemName(string itemName) { _itemName.text = itemName; }
@@ -61,12 +70,28 @@ namespace dtsInventory
         public void CloseWindow()
         {
             if (gameObject.activeSelf)
+            {
+                //close the context window if its bound to this window
+                if (ContextWindowHelper.IsContextWindowShowing())
+                {
+                    if (ContextWindowHelper.CurrentlyBoundWindow() == this)
+                    {
+                        ContextWindowHelper.HideContextWindow();
+                        _itemGrid.ForceImmediateUndarken();
+                    }
+                }
+
                 gameObject.SetActive(false);
+            }
+                
         }
         public void OpenWindow()
         {
             if (!gameObject.activeSelf)
                 gameObject.SetActive(true);
         }
+
+        public void DarkenGrid() { _itemGrid.DarkenGrid(); }
+        public void UndarkenGrid() { _itemGrid.UndarkenGrid(); }
     }
 }
