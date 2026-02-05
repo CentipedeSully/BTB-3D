@@ -479,7 +479,7 @@ namespace dtsInventory
         }
         */
 
-        public void OverlayObjectOntoGridVisually((int,int) position, RectTransform uiObjectRectTransform)
+        public void OverlayObjectOntoGridVisually((int,int) position, RectTransform uiObjectRectTransform, bool fitToCellSize = true)
         {
             //reparent the uiObject onto the grid visually
             //Get the position of the hovered cell, local to the grid
@@ -487,12 +487,13 @@ namespace dtsInventory
 
 
             //parent the object to the grid's overlay container
-            uiObjectRectTransform.SetParent(_overlayContainer,true);
-            uiObjectRectTransform.localPosition = new Vector2(CellSize().x * position.Item1, CellSize().y * position.Item2);
-            
+            uiObjectRectTransform.SetParent(_overlayContainer,false);
+            uiObjectRectTransform.localPosition=parentCellPosition;
 
-            //should we resize the graphic?
-            //nah
+            //ensure the graphic fits the cell's size
+            if (fitToCellSize)
+                uiObjectRectTransform.sizeDelta = new Vector2(CellSize().x, CellSize().y);
+
 
         }
 
