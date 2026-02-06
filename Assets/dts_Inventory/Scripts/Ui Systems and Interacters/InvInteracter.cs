@@ -1,4 +1,5 @@
 using mapPointer;
+using System.Collections;
 using System.Collections.Generic;
 using System.Reflection;
 using UnityEngine;
@@ -72,6 +73,10 @@ namespace dtsInventory
         private bool _altCmd3;
 
         private Vector2 _mousePosition;
+        private bool _isInteractionsLocked = false;
+        private bool _ignoreConfirmUntilDelayExpires = false;
+        private IEnumerator _resetIgnoreConfirmFlagCoroutine;
+        private float _ignoreDelay = .05f;
 
 
         //Monobehaviours
@@ -103,11 +108,24 @@ namespace dtsInventory
         private void OnEnable()
         {
             _contextWindowController.OnOptionSelected += ListenForValidContextualOption;
+
         }
 
         private void OnDisable()
         {
             _contextWindowController.OnOptionSelected -= ListenForValidContextualOption;
+
+            //reset any currently-firing coruoutines/ time-based utilities
+            if (_ignoreConfirmUntilDelayExpires)
+            {
+                _ignoreConfirmUntilDelayExpires = false;
+                if (_resetIgnoreConfirmFlagCoroutine != null)
+                {
+                    StopCoroutine(_resetIgnoreConfirmFlagCoroutine);
+                    _resetIgnoreConfirmFlagCoroutine = null;
+                }
+
+            }
         }
 
 
@@ -664,6 +682,7 @@ namespace dtsInventory
             //if we're not holding an item, pickup the full stack of items
             if (_heldItem == null)
             {
+                Debug.Log("Pickup stack Called");
                 //save the item reference
                 _heldItem = _invGrid.GetItemGraphicOnCell(_hoveredCellIndex);
 
@@ -687,7 +706,7 @@ namespace dtsInventory
             if (_heldItem != null)
             {
                 HashSet<(int, int)> placementArea = _invGrid.ConvertSpacialDefIntoGridIndexes(_hoveredCellIndex, _heldItem.GetSpacialDefinition(), _heldItem.ItemHandle());
-
+                Debug.Log($"Drop Stack Called. Placement area: {_invGrid.StringifyPositions(placementArea)}");
                 //make sure the entire item area is within the grid
                 if (_invGrid.IsAreaWithinGrid(placementArea))
                 {
@@ -806,7 +825,6 @@ namespace dtsInventory
                 ContextWindowHelper.ShowContextWindow(pointerPositionRelativeToCanvas, _invGrid.GetParentWindow() ,_invGrid.GetStackItemData(_hoveredCellIndex).ContextualOptions());
 
                 PlaySelectionAudio();
-
                 return;
             }
         }
@@ -858,14 +876,23 @@ namespace dtsInventory
                 {
                     case ContextOption.OrganizeItem:
                         RespondToOrganize();
+                        SetInteractionLock(false);
+
+                        //Do this in case the input button [for UiButton events]
+                        //is the same input as what's bound to the confirm response
+                        IgnoreOtherConfirmCommandsUntilEndOfFrame();
                         return;
 
                     case ContextOption.UseItem:
                         RespondToUse();
+                        SetInteractionLock(false);
+                        IgnoreOtherConfirmCommandsUntilEndOfFrame();
                         return;
 
                     case ContextOption.DiscardItem:
                         RespondToDiscard();
+                        SetInteractionLock(false);
+                        IgnoreOtherConfirmCommandsUntilEndOfFrame();
                         return;
 
                     default:
@@ -884,10 +911,13 @@ namespace dtsInventory
             //exit if the contextual data expired somehow
             if (!IsContextualDataValid())
             {
+                Debug.Log("Organize Response INVALID");
                 _contextualInvGrid = null;
                 _contextualItemPosition = (-1, -1);
                 return;
             }
+
+            Debug.Log($"Organize Response Valid on position {_contextualItemPosition} [hovered Cell: {_hoveredCell}]. Organize Clicked.");
 
             //save the item reference
             _heldItem = _contextualInvGrid.GetItemGraphicOnCell(_contextualItemPosition);
@@ -905,6 +935,7 @@ namespace dtsInventory
 
             //reset the selected position
             _contextualItemPosition = (-1, -1);
+
         }
         private void RespondToDiscard()
         {
@@ -1058,7 +1089,7 @@ namespace dtsInventory
 
         public void RotateHeldItemClockwise()
         {
-            if (ContextWindowHelper.IsContextWindowShowing())
+            if (_isInteractionsLocked)
                 return;
 
             if (_heldItem != null)
@@ -1070,7 +1101,7 @@ namespace dtsInventory
         }
         public void RotateHeldItemCounterClockwise()
         {
-            if (ContextWindowHelper.IsContextWindowShowing())
+            if (_isInteractionsLocked)
                 return;
 
             if (_heldItem != null )
@@ -1091,6 +1122,9 @@ namespace dtsInventory
 
                 return;
             }
+
+            if (_isInteractionsLocked)
+                return;
 
             //only respond if we're hovering over a grid
             if (_invGrid != null)
@@ -1113,6 +1147,9 @@ namespace dtsInventory
                 return;
             }
 
+            if (_isInteractionsLocked)
+                return;
+
             if (_invGrid != null)
             {
                 //pick up half the stack if we're not holding anything
@@ -1127,7 +1164,7 @@ namespace dtsInventory
         public void RespondToMiddleClick()
         {
 
-            if (ContextWindowHelper.IsContextWindowShowing())
+            if (_isInteractionsLocked)
                 return;
 
             if (_invGrid != null)
@@ -1139,7 +1176,7 @@ namespace dtsInventory
         }
         public void RespondToLeftDirectionalCommand()
         {
-            if (ContextWindowHelper.IsContextWindowShowing())
+            if (_isInteractionsLocked)
                 return;
 
             if (_lastKnownGrid != null)
@@ -1181,7 +1218,7 @@ namespace dtsInventory
         }
         public void RespondToRightDirectionalCommand()
         {
-            if (ContextWindowHelper.IsContextWindowShowing())
+            if (_isInteractionsLocked)
                 return;
 
             if (_lastKnownGrid != null)
@@ -1232,6 +1269,9 @@ namespace dtsInventory
                 return;
             }
 
+            if (_isInteractionsLocked)
+                return;
+
             if (_lastKnownGrid != null)
             {
                 //Only respond if the last know grid's window is opened
@@ -1271,7 +1311,18 @@ namespace dtsInventory
         public void RespondToDownDirectionalCommand()
         {
             if (ContextWindowHelper.IsContextWindowShowing())
+            {
+                if (!ContextWindowHelper.IsAnyMenuOptionCurrentlyFocused())
+                {
+                    ContextWindowHelper.FocusOnMenu();
+                    return;
+                }
                 return;
+            }
+
+            if (_isInteractionsLocked)
+                return;
+
             if (_lastKnownGrid != null)
             {
                 //Only respond if the last know grid's window is opened
@@ -1390,7 +1441,12 @@ namespace dtsInventory
         }
         public void RespondToConfirm()
         {
-            if (ContextWindowHelper.IsContextWindowShowing())
+            Debug.Log("Confirm Pressed");
+
+            if (_isInteractionsLocked)
+                return;
+
+            if (_ignoreConfirmUntilDelayExpires)
                 return;
 
             //only respond if we're hovering over a grid
@@ -1407,6 +1463,7 @@ namespace dtsInventory
                         ShowContextMenuOnHoveredItem(); //only shows if not hovering over something
                     else
                         DropStackOnHoveredPosition();
+
                 }
 
                 //if [default:left-shift] is held down...
@@ -1431,7 +1488,31 @@ namespace dtsInventory
                 
             }
         }
-
+        private void SetInteractionLock(bool newState)
+        {
+            _isInteractionsLocked = newState;
+            if (_isInteractionsLocked)
+                Debug.Log("Interactions Locked");
+            else
+                Debug.Log("UNLOCKED Interactions");
+            
+        }
+        private void IgnoreOtherConfirmCommandsUntilEndOfFrame()
+        {
+            _ignoreConfirmUntilDelayExpires = true;
+            //only trigger the coroutine if one isn't yet active
+            if (_resetIgnoreConfirmFlagCoroutine == null)
+            {
+                _resetIgnoreConfirmFlagCoroutine = ResetIgnoreConfirmFlagAtEndOfFrame();
+                StartCoroutine(_resetIgnoreConfirmFlagCoroutine);
+            }
+        }
+        private IEnumerator ResetIgnoreConfirmFlagAtEndOfFrame()
+        {
+            yield return new WaitForSeconds(_ignoreDelay);
+            _ignoreConfirmUntilDelayExpires = false;
+            _resetIgnoreConfirmFlagCoroutine = null;
+        }
 
         
     }

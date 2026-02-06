@@ -1,3 +1,4 @@
+using System.Collections;
 using System.Collections.Generic;
 using TMPro;
 using UnityEngine;
@@ -28,9 +29,7 @@ namespace dtsInventory
         private RectTransform _rectTransform;
         private bool _isWindowOpen = false;
         private InvWindow _boundWindow;
-
         private List<Button> _currentButtons = new();
-
 
         public delegate void ContextWindowEvent(ContextOption selectedOption);
         public event ContextWindowEvent OnOptionSelected;
@@ -63,12 +62,11 @@ namespace dtsInventory
 
 
         }
-
+        
 
 
 
         //Internals
-
 
 
 
@@ -82,12 +80,7 @@ namespace dtsInventory
             if (availableOptions.Count < 1)
                 return;
 
-            //reposition the window onto the pointer
-            GetComponent<RectTransform>().localPosition = drawPosition;
-
-            //set what this context window is bound to
-            _boundWindow = boundWindow;
-            _boundWindow.DarkenGrid();
+            
 
 
             int optionCount = 0;
@@ -116,6 +109,13 @@ namespace dtsInventory
 
             if (optionCount > 0)
             {
+                //reposition the window onto the pointer
+                GetComponent<RectTransform>().localPosition = drawPosition;
+
+                //set what this context window is bound to
+                _boundWindow = boundWindow;
+                _boundWindow.DarkenGrid();
+
                 _isWindowOpen = true;
 
                 //resize the window to match the number of options
@@ -142,7 +142,9 @@ namespace dtsInventory
                 _boundWindow.UndarkenGrid();
                 _boundWindow = null;
                 _currentButtons.Clear();
+                EventSystem.current.SetSelectedGameObject(null);
                 gameObject.SetActive(false);
+
             }
 
         }
@@ -150,8 +152,8 @@ namespace dtsInventory
         {
             if (_isWindowOpen)
             {
-                HideOptionsWindow();
                 OnOptionSelected.Invoke(selectedOption);
+                HideOptionsWindow();
             }
 
         }
