@@ -37,6 +37,7 @@ namespace dtsInventory
         [SerializeField] private bool _rRotate = false;
         [SerializeField] private bool _confirm = false;
         [SerializeField] private bool _back = false;
+        [SerializeField] private bool _jumpWindow = false;
         [SerializeField] private bool _alternativeInput = false;
         [SerializeField] private bool _alternativeInput2 = false;
         [SerializeField] private bool _alternativeInput3 = false;
@@ -101,6 +102,7 @@ namespace dtsInventory
 
             _confirm = Input.GetKeyDown(KeyCode.Return);
             _back = Input.GetKeyDown(KeyCode.Escape);
+            _jumpWindow = Input.GetKeyDown(KeyCode.Tab);
             _inventoryCommand = Input.GetKeyDown(KeyCode.I);
             _alternativeInput = Input.GetKey(KeyCode.LeftShift);
             _alternativeInput2 = Input.GetKey(KeyCode.LeftControl);
@@ -108,7 +110,7 @@ namespace dtsInventory
 
             //only read directional input to determine if keyboard is active
             //modifier/hotkeys could be used with the pointer, so don't change input mode for those
-            if (_leftCmd || _rightCmd || _upCmd || _downCmd)
+            if (_leftCmd || _rightCmd || _upCmd || _downCmd || _jumpWindow)
                 _directionalActivityDetected = true;
             else _directionalActivityDetected= false;
 
@@ -146,6 +148,9 @@ namespace dtsInventory
 
             if (_confirm)
                 _invInteracter.RespondToConfirm();
+
+            if (_jumpWindow)
+                _invInteracter.RespondToJumpWindowCommand();
 
 
             if (Input.mousePresent)

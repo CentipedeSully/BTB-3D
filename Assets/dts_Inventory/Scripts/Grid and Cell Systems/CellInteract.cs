@@ -29,6 +29,7 @@ namespace dtsInventory
             if (_grid != null)
             {
                 InvManagerHelper.SetHoveredCell(this);
+                InvManagerHelper.BringWindowToFront(_grid.GetParentWindow());
             }
         }
 

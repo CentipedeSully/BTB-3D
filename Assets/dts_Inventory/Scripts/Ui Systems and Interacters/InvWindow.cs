@@ -21,10 +21,17 @@ namespace dtsInventory
         private RectTransform _rectTransform;
         private Canvas _canvas;
 
+        public delegate void InvWindowEvent(InvWindow window);
+        public event InvWindowEvent OnWindowOpened;
+        public event InvWindowEvent OnWindowClosed;
 
 
         //monobehaviours
-
+        private void OnDestroy()
+        {
+            //ensure all destroyed windows are removed and unsubscribed
+            InvManagerHelper.UnTrackInvWindow(this);
+        }
 
 
 
@@ -45,6 +52,9 @@ namespace dtsInventory
             _spritesContainerTransform.localPosition = _actualGridRectTransform.localPosition;
 
             _canvas = CanvasReferenceHelper.GetCanvas();
+
+            InvManagerHelper.TrackNewInvWindow(this);
+            InvManagerHelper.ParentInvWindowToInventoryUisContainer(this);
         }
 
 
@@ -80,15 +90,23 @@ namespace dtsInventory
                         _itemGrid.ForceImmediateUndarken();
                     }
                 }
-
+                Debug.Log($"Firing [{gameObject.name}]'s OnClose Window Event now...");
+                OnWindowClosed?.Invoke(this);
                 gameObject.SetActive(false);
+                
+
             }
                 
         }
         public void OpenWindow()
         {
             if (!gameObject.activeSelf)
+            {
+
                 gameObject.SetActive(true);
+                Debug.Log($"Firing [{gameObject.name}]'s OnOpen Window Event now...");
+                OnWindowOpened?.Invoke(this);
+            }
         }
 
         public void DarkenGrid() { _itemGrid.DarkenGrid(); }

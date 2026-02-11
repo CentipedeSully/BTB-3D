@@ -1,7 +1,10 @@
 using mapPointer;
 using System.Collections;
 using System.Collections.Generic;
+using System.Linq;
 using System.Reflection;
+using UnityEditor.Build;
+using UnityEditor.PackageManager.UI;
 using UnityEngine;
 using UnityEngine.EventSystems;
 using UnityEngine.UI;
@@ -21,11 +24,17 @@ namespace dtsInventory
         [SerializeField] private Text _heldStackText;
         [SerializeField] private RectTransform _heldStackContainer;
         [SerializeField] private GameObject _pointerContainer;
-        private RectTransform _defaultParentOfPointerContainer;
+        
         [SerializeField] private Canvas _uiCanvas;
         [SerializeField] private GameObject _hoverGraphicPrefab;
         [SerializeField] private GameObject _directionalPointerHoverPrefab;
         [SerializeField] private InvGrid _homeInventoryGrid;
+        [Tooltip("Where all Inventory Windows should exist. " +
+            "Any Spawned invWindows will be a child of this transform.")]
+        [SerializeField] private Transform _inventoryWindowsContainer;
+        private HashSet<InvWindow> _knownInvWindows = new();
+        [SerializeField] private List<InvWindow> _openedInvWindows = new();
+        private RectTransform _defaultParentOfPointerContainer;
         private InvGrid _invGrid;
 
         [Header("Audio Settings")]
@@ -45,6 +54,8 @@ namespace dtsInventory
         [SerializeField] CellInteract _hoveredCell;
         [SerializeField] Vector2Int _hoverIndex;
         [SerializeField] InvItem _itemInCell;
+        [SerializeField] private GameObject _currentWindow;
+        
 
 
         private RectTransform _pointerRectTransform;
@@ -105,9 +116,23 @@ namespace dtsInventory
             
         }
 
+
         private void OnEnable()
         {
             _contextWindowController.OnOptionSelected += ListenForValidContextualOption;
+
+            if (_inventoryWindowsContainer == null)
+            {
+                Debug.LogWarning("Please Ensure a parent container is specified for all InventoryWindow Ui. " +
+                    "Window creation/management will encounter unexpected results otherwise.");
+            }
+
+            //Begin tracking preexisting inventories along with their open/closed status
+            ReadUiContainerForPreexistingInventoryWindows();
+
+            //sub to all currently-known windows
+            foreach (InvWindow window in _knownInvWindows)
+                SubscribeToWindow(window);
 
         }
 
@@ -126,7 +151,15 @@ namespace dtsInventory
                 }
 
             }
+
+            //Stop tracking all currently-known windows
+            while (_knownInvWindows.Count > 0)
+            {
+                InvWindow window = _knownInvWindows.First();
+                UntrackInvWindow(window);
+            }
         }
+
 
 
         private void Update()
@@ -136,6 +169,216 @@ namespace dtsInventory
 
 
         //internals
+
+        //window management utilitites
+        private void ReadUiContainerForPreexistingInventoryWindows()
+        {
+            for (int i = 0; i < _inventoryWindowsContainer.childCount; i++)
+            {
+                InvWindow childInvWindow = _inventoryWindowsContainer.GetChild(i).GetComponent<InvWindow>();
+
+                if (childInvWindow == null)
+                    continue;
+
+                TrackInvWindow(childInvWindow);
+            }
+        }
+        public void TrackInvWindow(InvWindow window)
+        {
+            if (window == null)
+                return;
+
+            if (!IsWindowBeingTracked(window))
+            {
+                //add this window to our awareness
+                _knownInvWindows.Add(window);
+
+                //also track whether or not the found window is opened
+                if (window.IsWindowOpen() && !_openedInvWindows.Contains(window))
+                {
+                    _openedInvWindows.Add(window);
+                    
+                }
+                
+                //subscribe to the window's open/close events
+                SubscribeToWindow(window);
+
+            }
+        }
+        public void UntrackInvWindow(InvWindow window)
+        {
+            if (window == null)
+                return;
+
+            if (_knownInvWindows.Contains(window))
+            {
+                //remove this window from our awareness
+                _knownInvWindows.Remove(window);
+
+                //also ensure the window is removed from our 'opened' memory
+                if (_openedInvWindows.Contains(window))
+                    _openedInvWindows.Remove(window);
+
+                //unsub from the window's open/close events
+                UnsubFromWindow(window);
+            }
+        }
+        public bool IsWindowBeingTracked(InvWindow window)
+        {
+            return _knownInvWindows.Contains(window);
+        }
+        public void ParentWindowToContainer(InvWindow window)
+        {
+            if (window == null) return;
+
+            window.transform.SetParent(_inventoryWindowsContainer);
+
+        }
+
+        public void SetWindowToFront(InvWindow invWindowUi)
+        {
+            if (_openedInvWindows.Contains(invWindowUi))
+            {
+                invWindowUi.transform.SetAsLastSibling();
+            }
+                
+        }
+        public void FocusOnWindowForDirectionalInput(InvWindow currentWindow)
+        {
+            if (currentWindow != null)
+            {
+                //double check if the grid got properly initialized
+                if (currentWindow.GetItemGrid().ContainerSize().y < 1 || currentWindow.GetItemGrid().ContainerSize().x < 1)
+                {
+                    Debug.LogWarning($"InvGrid '{currentWindow.GetItemGrid().name}' has an invalid containerSize [{currentWindow.GetItemGrid().ContainerSize().x},{currentWindow.GetItemGrid().ContainerSize().y}]\n" +
+                        $"Ignoring 'FocusOnWindow' command");
+                    return;
+                }
+
+                //set this window's invGrid as the latest active grid
+                SetActiveItemGrid(currentWindow.GetItemGrid());
+
+                //set the hovered cell to the grid's origin
+                SetHoveredCell(currentWindow.GetItemGrid().GetCellObject((0, 0)));
+
+                BindPointerContainerToCellPosition(_invGrid);
+
+                SetWindowToFront(currentWindow);
+
+            }
+
+        }
+        public void FocusOnWindowForPointerInput(InvWindow currentWindow)
+        {
+            if (currentWindow == null)
+                return;
+
+            ClearHoveredCell();
+            SetActiveItemGrid(currentWindow.GetItemGrid());
+            
+            SetWindowToFront(currentWindow);
+        }
+        public void FocusOnNextOpenedWindow()
+        {
+            //ignore command if too few opened windows exist
+            if (_openedInvWindows.Count < 2)
+                return;
+
+            //default if we aren't on a grid
+            if (_invGrid == null)
+            {
+                //default to the first window we're aware of
+                FocusOnWindowForDirectionalInput(_openedInvWindows[0]);
+                return;
+            }
+
+            //also default if our curent grid is closed (if our hover isn't updated for some reason)
+            else if (!_invGrid.GetParentWindow().IsWindowOpen())
+            {
+                //default to the first window we're aware of
+                FocusOnWindowForDirectionalInput(_openedInvWindows[0]);
+                return;
+            }
+
+            //get our current window index
+            int currentWindowIndex = _openedInvWindows.IndexOf(_invGrid.GetParentWindow());
+
+            //wrap to the first window if we're at the end of the list
+            if (currentWindowIndex == _openedInvWindows.Count -1)
+            {
+                FocusOnWindowForDirectionalInput(_openedInvWindows[0]);
+                return;
+            }
+
+            //otherwise just focus on the next window in the list
+            else
+            {
+                FocusOnWindowForDirectionalInput(_openedInvWindows[currentWindowIndex + 1]);
+                return;
+            }
+        }
+        public void FocusOnPreviousOpenedWindow()
+        {
+            //ignore command if too few opened windows exist
+            if (_openedInvWindows.Count < 2)
+                return;
+
+            //default if we aren't on a grid
+            if (_invGrid == null)
+            {
+                //default to the first window we're aware of
+                FocusOnWindowForDirectionalInput(_openedInvWindows[0]);
+                return;
+            }
+
+            //also default if our curent grid is closed (if our hover isn't updated for some reason)
+            else if (!_invGrid.GetParentWindow().IsWindowOpen())
+            {
+                //default to the first window we're aware of
+                FocusOnWindowForDirectionalInput(_openedInvWindows[0]);
+                return;
+            }
+
+            //get our current window index
+            int currentWindowIndex = _openedInvWindows.IndexOf(_invGrid.GetParentWindow());
+
+            //wrap to the last window if we're at the beginning of the list
+            if (currentWindowIndex == 0)
+            {
+                FocusOnWindowForDirectionalInput(_openedInvWindows[_openedInvWindows.Count -1]);
+                return;
+            }
+
+            //otherwise just focus on the next window in the list
+            else
+            {
+                FocusOnWindowForDirectionalInput(_openedInvWindows[currentWindowIndex - 1]);
+                return;
+            }
+        }
+        private void SubscribeToWindow(InvWindow window)
+        {
+            window.OnWindowOpened += UpdateWindowAsOpened;
+            window.OnWindowClosed += UpdateWindowAsClosed;
+            Debug.Log($"subscribed to '{window.name}. Currently subscribed to {_knownInvWindows.Count} windows'");
+        }
+        private void UnsubFromWindow(InvWindow window)
+        {
+            window.OnWindowOpened -= UpdateWindowAsOpened;
+            window.OnWindowClosed -= UpdateWindowAsClosed;
+            Debug.Log($"Unsubbed from '{window.name}'. Currently subscribed to {_knownInvWindows.Count} windows'");
+        }
+        public void UpdateWindowAsOpened(InvWindow window)
+        {
+            if (!_openedInvWindows.Contains(window))
+                _openedInvWindows.Add(window);
+        }
+        public void UpdateWindowAsClosed(InvWindow window)
+        {
+            if (_openedInvWindows.Contains(window))
+                _openedInvWindows.Remove(window);
+        }
+
 
         //visual updating/rendering utilities
         private void VisualizeHover()
@@ -250,8 +493,9 @@ namespace dtsInventory
                     if (_lastKnownGrid.ContainerSize().x <= 0 || _lastKnownGrid.ContainerSize().y <= 0)
                         return;
 
-                    SetActiveItemGrid(_lastKnownGrid);
-                    SetHoveredCell(_lastKnownGrid.GetCellObject((0,0)));
+                    FocusOnWindowForDirectionalInput(_lastKnownGrid.GetParentWindow());
+                    //SetActiveItemGrid(_lastKnownGrid);
+                    //SetHoveredCell(_lastKnownGrid.GetCellObject((0,0)));
                 }
 
                 //in directional mode, always render the directional-hover pointer
@@ -513,12 +757,8 @@ namespace dtsInventory
                 if (_homeInventoryGrid.ContainerSize().x <= 0 || _homeInventoryGrid.ContainerSize().y <= 0)
                     return;
 
-                //reset the hover utils back to home origin
-                SetActiveItemGrid(_homeInventoryGrid);
-                SetHoveredCell(_homeInventoryGrid.GetCellObject((0, 0)));
-
-                //bind the pointer container to this cell position
-                BindPointerContainerToCellPosition(_lastKnownGrid);
+                //Focus on our home (inv)windows
+                FocusOnWindowForDirectionalInput(_homeInventoryGrid.GetParentWindow());
             }
         }
 
@@ -1049,6 +1289,12 @@ namespace dtsInventory
 
             //used if the pointer isn't on the grid, but we get directional input
             _lastKnownGrid = newGrid;
+
+            if (newGrid != null)
+            {
+                _currentWindow = newGrid.GetParentWindow().gameObject;
+            }
+
         }
         public void LeaveGrid(InvGrid specificGrid)
         {
@@ -1087,6 +1333,21 @@ namespace dtsInventory
         }
 
 
+
+        public void RespondToJumpWindowCommand()
+        {
+            if (_isInteractionsLocked)
+                return;
+
+            //jump to the next opened window if [default:left-shift] is held down...
+            if (_altCmd)
+                FocusOnNextOpenedWindow();
+
+            //otherwise, jump to the previous opened window
+            else
+                FocusOnPreviousOpenedWindow();
+
+        }
         public void RotateHeldItemClockwise()
         {
             if (_isInteractionsLocked)
@@ -1385,6 +1646,8 @@ namespace dtsInventory
                     ClearHoveredCell();
                     ClearHoverTiles();
                     ClearDirectionalPointer();
+
+                    ReEnterGridOnPointerLocation();
                 }
                 else if (_inputMode == InputMode.Directional)
                 {
@@ -1394,6 +1657,7 @@ namespace dtsInventory
                 }
             }
         }
+        public InputMode GetInputMode() { return _inputMode; }
         public void OpenInventoryWindow()
         {
             if (_homeInventoryGrid != null)
@@ -1435,7 +1699,7 @@ namespace dtsInventory
             {
                 if (_invGrid.GetParentWindow().gameObject.activeSelf && _heldItem == null)
                 {
-                    _invGrid.GetParentWindow().gameObject.SetActive(false);
+                    _invGrid.GetParentWindow().CloseWindow();
                 }
             }
         }
@@ -1513,8 +1777,40 @@ namespace dtsInventory
             _ignoreConfirmUntilDelayExpires = false;
             _resetIgnoreConfirmFlagCoroutine = null;
         }
+        private void ReEnterGridOnPointerLocation()
+        {
+            Debug.Log($"Attempting to re-enter any window on the pointer's position...");
+            List<RaycastResult> raycastResults = new List<RaycastResult>();
+            PointerEventData eventData = new PointerEventData(EventSystem.current)
+            {
+                position = _mousePosition
+            };
 
-        
+            EventSystem.current.RaycastAll(eventData, raycastResults);
+
+            foreach(RaycastResult result in raycastResults)
+            {
+                Debug.Log($"Parsing detection: {result.gameObject.name}");
+                InvWindow invWindow = result.gameObject.GetComponent<InvWindow>();
+
+                if (invWindow == null)
+                {
+                    Debug.Log($"No invWindow found on this gameObject.");
+                    continue;
+                }
+                else
+                {
+                    Debug.Log($"Success [{invWindow.name}]. Focusing on this window");
+                    FocusOnWindowForPointerInput(invWindow);
+                    VisualizeHover();
+                    return;
+                }
+
+                
+            }
+
+            Debug.Log($"No invWindow found to re-enter");
+        }
     }
 
     public static class InvManagerHelper
@@ -1524,10 +1820,16 @@ namespace dtsInventory
         public static InvInteracter _invController;
         public static void SetInventoryController(InvInteracter invController) { _invController = invController; }
         public static InvInteracter GetInvController() { return _invController; }
-        public static void SetActiveItemGrid(InvGrid newGrid) { _invController.SetActiveItemGrid(newGrid); }
+        public static void SetActiveItemGrid(InvGrid newGrid) 
+        { 
+            _invController.SetActiveItemGrid(newGrid);
+        }
+        public static void BringWindowToFront(InvWindow window) {_invController.SetWindowToFront(window);}
         public static void LeaveGrid(InvGrid gridToLeave) { _invController.LeaveGrid(gridToLeave); }
-        public static void SetHoveredCell(CellInteract cell) { _invController.SetHoveredCell(cell); }
+        public static void SetHoveredCell(CellInteract cell) { _invController.SetHoveredCell(cell);  }
         public static void ClearHoveredCell(CellInteract cell) { _invController.ClearHoveredCell(cell); }
-
+        public static void TrackNewInvWindow(InvWindow window) { if (!_invController.IsWindowBeingTracked(window)) _invController.TrackInvWindow(window); }
+        public static void UnTrackInvWindow(InvWindow window) { _invController.UntrackInvWindow(window); }
+        public static void ParentInvWindowToInventoryUisContainer(InvWindow window) { _invController.ParentWindowToContainer(window); }
     }
 }
