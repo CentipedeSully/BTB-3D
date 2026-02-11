@@ -14,7 +14,9 @@ namespace dtsInventory
         None,
         OrganizeItem,
         UseItem,
-        DiscardItem
+        DiscardItem,
+        TakeItem, //Implies the item will go to a home container (whether its opened or not)
+        TransferItem  //implies the item will be tranferred to any currently-opened Container
     }
 
     public class ContextWindowController : MonoBehaviour
@@ -114,6 +116,8 @@ namespace dtsInventory
 
                 //set what this context window is bound to
                 _boundWindow = boundWindow;
+
+                //provide visual feedback to represent the menu being opened
                 _boundWindow.DarkenGrid();
 
                 _isWindowOpen = true;

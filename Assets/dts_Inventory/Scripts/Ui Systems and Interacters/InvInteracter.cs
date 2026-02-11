@@ -360,13 +360,13 @@ namespace dtsInventory
         {
             window.OnWindowOpened += UpdateWindowAsOpened;
             window.OnWindowClosed += UpdateWindowAsClosed;
-            Debug.Log($"subscribed to '{window.name}. Currently subscribed to {_knownInvWindows.Count} windows'");
+            //Debug.Log($"subscribed to '{window.name}. Currently subscribed to {_knownInvWindows.Count} windows'");
         }
         private void UnsubFromWindow(InvWindow window)
         {
             window.OnWindowOpened -= UpdateWindowAsOpened;
             window.OnWindowClosed -= UpdateWindowAsClosed;
-            Debug.Log($"Unsubbed from '{window.name}'. Currently subscribed to {_knownInvWindows.Count} windows'");
+            //Debug.Log($"Unsubbed from '{window.name}'. Currently subscribed to {_knownInvWindows.Count} windows'");
         }
         public void UpdateWindowAsOpened(InvWindow window)
         {
@@ -1060,9 +1060,15 @@ namespace dtsInventory
 
                 //calculate the window's position (should be wherever our pointer container is)
                 Vector3 pointerPositionRelativeToCanvas = _uiCanvas.transform.InverseTransformPoint(_pointerRectTransform.position);
-                
+
+                //Infer container-based context options
+                HashSet<ContextOption> containerContextOptions =  InferContainerSpecificContextOptions();
+
+                //merge the item-in-question's context options with the container's
+                containerContextOptions.UnionWith(_invGrid.GetStackItemData(_hoveredCellIndex).ContextualOptions());
+
                 //open the context window
-                ContextWindowHelper.ShowContextWindow(pointerPositionRelativeToCanvas, _invGrid.GetParentWindow() ,_invGrid.GetStackItemData(_hoveredCellIndex).ContextualOptions());
+                ContextWindowHelper.ShowContextWindow(pointerPositionRelativeToCanvas, _invGrid.GetParentWindow() ,containerContextOptions);
 
                 PlaySelectionAudio();
                 return;
@@ -1076,7 +1082,47 @@ namespace dtsInventory
                 PlayDeselectionAudio();
             }
         }
+        private HashSet<ContextOption> InferContainerSpecificContextOptions()
+        {
+            
+            HashSet<ContextOption> contextOptions = new HashSet<ContextOption>();
 
+            //is only one container open (the current one) [and it isn't our home container]
+            if (_openedInvWindows.Count == 1 && _invGrid != _homeInventoryGrid)
+            {
+                contextOptions.Add(ContextOption.TakeItem);
+            }
+
+            //otherwise (if many containers are open), Take a closer look at our current situation...
+            else if (_openedInvWindows.Count > 1)
+            {
+                //if only 2 containers are open,
+                //then ONLY show either take OR transfer. NOT BOTH
+                if (_openedInvWindows.Count == 2)
+                {
+                    //Take if we aren't in our home inventory
+                    if (_invGrid != _homeInventoryGrid)
+                        contextOptions.Add(ContextOption.TakeItem);
+
+                    //Transfer if we're in our home inv
+                    else contextOptions.Add(ContextOption.TransferItem);
+                }
+
+                //otherwise, many containers are open indeed
+                //in this case it's ok to show BOTH the Take and Transfer contexts
+                else
+                {
+                    //only show the Take option if we ARE NOT in our home inventory
+                    if (_invGrid != _homeInventoryGrid)
+                        contextOptions.Add(ContextOption.TakeItem);
+
+                    //but always show the transfer option
+                    contextOptions.Add(ContextOption.TransferItem);
+                }
+            }
+
+            return contextOptions;
+        }
 
         //context-menu-related
         private bool IsContextualDataValid()
@@ -1120,6 +1166,7 @@ namespace dtsInventory
 
                         //Do this in case the input button [for UiButton events]
                         //is the same input as what's bound to the confirm response
+                        //This fixes "Double-Reading" the Specified input
                         IgnoreOtherConfirmCommandsUntilEndOfFrame();
                         return;
 
@@ -1779,7 +1826,7 @@ namespace dtsInventory
         }
         private void ReEnterGridOnPointerLocation()
         {
-            Debug.Log($"Attempting to re-enter any window on the pointer's position...");
+            //Debug.Log($"Attempting to re-enter any window on the pointer's position...");
             List<RaycastResult> raycastResults = new List<RaycastResult>();
             PointerEventData eventData = new PointerEventData(EventSystem.current)
             {
@@ -1790,17 +1837,17 @@ namespace dtsInventory
 
             foreach(RaycastResult result in raycastResults)
             {
-                Debug.Log($"Parsing detection: {result.gameObject.name}");
+                //Debug.Log($"Parsing detection: {result.gameObject.name}");
                 InvWindow invWindow = result.gameObject.GetComponent<InvWindow>();
 
                 if (invWindow == null)
                 {
-                    Debug.Log($"No invWindow found on this gameObject.");
+                    //Debug.Log($"No invWindow found on this gameObject.");
                     continue;
                 }
                 else
                 {
-                    Debug.Log($"Success [{invWindow.name}]. Focusing on this window");
+                    //Debug.Log($"Success [{invWindow.name}]. Focusing on this window");
                     FocusOnWindowForPointerInput(invWindow);
                     VisualizeHover();
                     return;
@@ -1809,7 +1856,23 @@ namespace dtsInventory
                 
             }
 
-            Debug.Log($"No invWindow found to re-enter");
+            //Debug.Log($"No invWindow found to re-enter");
+        }
+        public bool DoOpenedContainersExist() { return _openedInvWindows.Count > 0; }
+        public List<InvWindow> GetOpenedContainers()
+        {
+            if (!DoOpenedContainersExist())
+                return new();
+
+            List<InvWindow> returnList = new();
+
+            for (int i= 0; i < _openedInvWindows.Count; i++)
+            {
+                returnList.Add(_openedInvWindows[i]);
+            }
+
+            return returnList;
+
         }
     }
 
@@ -1831,5 +1894,10 @@ namespace dtsInventory
         public static void TrackNewInvWindow(InvWindow window) { if (!_invController.IsWindowBeingTracked(window)) _invController.TrackInvWindow(window); }
         public static void UnTrackInvWindow(InvWindow window) { _invController.UntrackInvWindow(window); }
         public static void ParentInvWindowToInventoryUisContainer(InvWindow window) { _invController.ParentWindowToContainer(window); }
+
+        public static bool DoOpenedContainersExist() { return _invController.DoOpenedContainersExist(); }
+        public static List<InvWindow> GetOpenedContainers() { return _invController.GetOpenedContainers(); }
+
+
     }
 }

@@ -18,6 +18,9 @@ namespace dtsInventory
         [SerializeField] private Text _itemName;
         [SerializeField] private InvGrid _itemGrid;
 
+        [Header("Customization")]
+        [SerializeField] string _containerName;
+
         private RectTransform _rectTransform;
         private Canvas _canvas;
 
@@ -90,7 +93,7 @@ namespace dtsInventory
                         _itemGrid.ForceImmediateUndarken();
                     }
                 }
-                Debug.Log($"Firing [{gameObject.name}]'s OnClose Window Event now...");
+                //Debug.Log($"Firing [{gameObject.name}]'s OnClose Window Event now...");
                 OnWindowClosed?.Invoke(this);
                 gameObject.SetActive(false);
                 
@@ -104,10 +107,19 @@ namespace dtsInventory
             {
 
                 gameObject.SetActive(true);
-                Debug.Log($"Firing [{gameObject.name}]'s OnOpen Window Event now...");
+                //Debug.Log($"Firing [{gameObject.name}]'s OnOpen Window Event now...");
                 OnWindowOpened?.Invoke(this);
             }
         }
+        public string ContainerName() { return _containerName; }
+        public void RenameContainer(string newName)
+        {
+            if (newName == "")
+                return;
+            
+            _containerName = newName;
+        }
+
 
         public void DarkenGrid() { _itemGrid.DarkenGrid(); }
         public void UndarkenGrid() { _itemGrid.UndarkenGrid(); }
