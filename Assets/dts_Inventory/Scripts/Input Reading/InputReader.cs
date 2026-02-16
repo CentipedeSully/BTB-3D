@@ -22,6 +22,7 @@ namespace dtsInventory
         [SerializeField] private bool _lClick = false;
         [SerializeField] private bool _rClick = false;
         [SerializeField] private bool _mClick = false;
+        [SerializeField] private Vector2 _scrollDelta = Vector2.zero;
         [SerializeField] private Vector3 _pointerPosition = Vector3.negativeInfinity;
         [SerializeField] private Vector3 _LastPointerPosition = Vector3.negativeInfinity;
 
@@ -77,9 +78,10 @@ namespace dtsInventory
                 _lClick = Input.GetMouseButtonDown((int)MouseBtn.Left);
                 _rClick = Input.GetMouseButtonDown((int)MouseBtn.Right);
                 _mClick = Input.GetMouseButtonDown((int)MouseBtn.Middle);
+                _scrollDelta = Input.mouseScrollDelta;
 
                 //update our pointer activity status
-                if (_LastPointerPosition != _pointerPosition || _lClick || _rClick || _mClick)
+                if (_LastPointerPosition != _pointerPosition || _lClick || _rClick || _mClick || _scrollDelta != Vector2.zero)
                     _pointerActivityDetected = true;
                 else
                     _pointerActivityDetected = false;
@@ -164,6 +166,9 @@ namespace dtsInventory
                     //Update the InvInteracter's mouse Position
                     _invInteracter.SetMousePosition(_pointerPosition);
                 }
+
+                if (_scrollDelta.y != 0)
+                    _invInteracter.SetScrollInput(_scrollDelta);
 
                 //respond to pointer inputs (not movement). Only one at a time per frame
                 if (!_isCoolingDownPointer && _lClick || _rClick || _mClick)

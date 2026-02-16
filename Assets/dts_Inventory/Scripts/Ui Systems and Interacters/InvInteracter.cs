@@ -26,6 +26,7 @@ namespace dtsInventory
         [SerializeField] private GameObject _pointerContainer;
         
         [SerializeField] private Canvas _uiCanvas;
+        [SerializeField] private GraphicRaycaster _graphicRaycaster;
         [SerializeField] private GameObject _hoverGraphicPrefab;
         [SerializeField] private GameObject _directionalPointerHoverPrefab;
         [SerializeField] private InvGrid _homeInventoryGrid;
@@ -36,6 +37,9 @@ namespace dtsInventory
         [SerializeField] private List<InvWindow> _openedInvWindows = new();
         private RectTransform _defaultParentOfPointerContainer;
         private InvGrid _invGrid;
+
+        [Header("Input Settings")]
+        [SerializeField] private float _scrollMultiplier = 1;
 
         [Header("Audio Settings")]
         [SerializeField] private AudioSource _audioSource;
@@ -84,6 +88,7 @@ namespace dtsInventory
         private bool _altCmd3;
 
         private Vector2 _mousePosition;
+        private float _scrollDelta;
         private bool _isInteractionsLocked = false;
         private bool _ignoreConfirmUntilDelayExpires = false;
         private IEnumerator _resetIgnoreConfirmFlagCoroutine;
@@ -132,6 +137,8 @@ namespace dtsInventory
             //sub to all currently-known windows
             foreach (InvWindow window in _knownInvWindows)
                 SubscribeToWindow(window);
+
+            ContextWindowHelper.SetPointerMode(true);
 
         }
 
@@ -1445,22 +1452,22 @@ namespace dtsInventory
         }
         public void RespondToLeftClick()
         {
+            //close the numerical selector if a click was detected outside of it (and the click wasn't in the confirm btn)
+            if (ContextWindowHelper.IsNumericalSelectorWindowOpen())
+            {
+                RectTransform numericalRectTransform = _contextWindowController.NumericalSelectorRectTransform();
+
+                //this just checks within the context menu AND the confirmBtn for the mouse
+                if (!RectTransformUtility.RectangleContainsScreenPoint(numericalRectTransform, _mousePosition)
+                    && !RectTransformUtility.RectangleContainsScreenPoint(_contextWindowController.GetConfirmBtnRectTransform(),_mousePosition))
+                    ContextWindowHelper.HideNumericalSelector();
+
+                return;
+            }
+
+            //close the window if the click wasn't inside the menu
             if (ContextWindowHelper.IsContextWindowShowing())
             {
-                
-                //close the numerical selector if a click was detected outside of it
-                //DONT CLOSE THE ENTIRE CONTEXT WINDOW, in this case
-                if (ContextWindowHelper.IsNumericalSelectorWindowOpen())
-                {
-                    RectTransform numericalRectTransform = _contextWindowController.NumericalSelectorRectTransform();
-                    if (!RectTransformUtility.RectangleContainsScreenPoint(numericalRectTransform, _mousePosition))
-                        ContextWindowHelper.HideNumericalSelector();
-
-                    return;
-                }
-
-
-                //close the window if the click wasn't inside the menu
                 RectTransform contextRectTransform = _contextWindowController.GetComponent<RectTransform>();
                 
                 if (!RectTransformUtility.RectangleContainsScreenPoint(contextRectTransform,_mousePosition))
@@ -1486,6 +1493,12 @@ namespace dtsInventory
         }
         public void RespondToRightClick()
         {
+            if (ContextWindowHelper.IsNumericalSelectorWindowOpen())
+            {
+                ContextWindowHelper.HideNumericalSelector();
+                return;
+            }
+
             //close the context menu of ANY rightClick is made
             if (ContextWindowHelper.IsContextWindowShowing())
             {
@@ -1520,16 +1533,30 @@ namespace dtsInventory
                     ShowContextMenuOnHoveredItem();
             }
         }
+        public void RespondToScroll()
+        {
+            if (ContextWindowHelper.IsNumericalSelectorWindowOpen())
+            {
+                //if scrolling within the input field
+                if (RectTransformUtility.RectangleContainsScreenPoint(_contextWindowController.GetInputAreaRectTransform(), _mousePosition))
+                {
+                    int modifier = (int)(_scrollDelta);
+
+                    Debug.Log($"Detected Scroll Magnitude: {modifier}");
+                    if (modifier > 0)
+                        ContextWindowHelper.IncrementNumericalSelector(modifier);
+                    else if (modifier < 0)
+                        ContextWindowHelper.DecrementNumericalSelector(-modifier);
+
+                    return;
+                }
+            }
+        }
         public void RespondToLeftDirectionalCommand()
         {
             
             if (ContextWindowHelper.IsNumericalSelectorWindowOpen())
-            {
-                //hide the numerical selector if left is pressed while at the leftmost navigation element
-                if (ContextWindowHelper.IsLeftmostNumericalNavElementSelected())
-                    ContextWindowHelper.HideNumericalSelector();
                 return;
-            }
 
             if (ContextWindowHelper.IsContextWindowShowing())
                 return;
@@ -1625,6 +1652,7 @@ namespace dtsInventory
         {
             if (ContextWindowHelper.IsNumericalSelectorWindowOpen())
             {
+
                 if (_altCmd && _altCmd2)
                     ContextWindowHelper.IncrementNumericalSelector(100);
                 else if (_altCmd || _altCmd2)
@@ -1777,14 +1805,28 @@ namespace dtsInventory
                     ClearDirectionalPointer();
 
                     ReEnterGridOnPointerLocation();
+
+                    ContextWindowHelper.SetPointerMode(true);
+                    _graphicRaycaster.enabled = true;
                 }
                 else if (_inputMode == InputMode.Directional)
                 {
                     
                     if (_invGrid == null)
                         SetPointerToHomeGrid();
+
+                    ContextWindowHelper.SetPointerMode(false);
+                    _graphicRaycaster.enabled = false;
                 }
+
+                
             }
+        }
+        public void SetScrollInput(Vector2 scrollDelta)
+        {
+            //Debug.Log($"Scroll Read in from InputReader: {scrollDelta.y}");
+            _scrollDelta = scrollDelta.y * _scrollMultiplier;
+            RespondToScroll();
         }
         public InputMode GetInputMode() { return _inputMode; }
         public void OpenInventoryWindow()
@@ -1817,10 +1859,18 @@ namespace dtsInventory
         }
         public void RespondToBackInput()
         {
+            //back out of the numerical selector if it's open
+            if (ContextWindowHelper.IsNumericalSelectorWindowOpen())
+            {
+                ContextWindowHelper.HideNumericalSelector();
+                return;
+            }
+
             //close the context window if it's open
             if (ContextWindowHelper.IsContextWindowShowing())
             {
                 HideContextMenu();
+                return;
             }
 
             //else close whatever inventory we're in (if we aren't holding an item)
@@ -1834,17 +1884,22 @@ namespace dtsInventory
         }
         public void RespondToConfirm()
         {
-            if (ContextWindowHelper.IsNumericalSelectorWindowOpen())
+            if (_ignoreConfirmUntilDelayExpires)
                 return;
+
+            if (ContextWindowHelper.IsNumericalSelectorWindowOpen())
+            {
+                ContextWindowHelper.SubmitCurrentNumber();
+                return;
+            }
+                
+
             if (ContextWindowHelper.IsContextWindowShowing())
                 return;
-            Debug.Log("Confirm Pressed");
 
             if (_isInteractionsLocked)
                 return;
 
-            if (_ignoreConfirmUntilDelayExpires)
-                return;
 
             //only respond if we're hovering over a grid
             if (_invGrid != null)

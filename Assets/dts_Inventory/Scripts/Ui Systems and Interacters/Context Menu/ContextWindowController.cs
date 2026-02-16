@@ -207,6 +207,7 @@ namespace dtsInventory
 
 
 
+
         //Externals
         public void MarkOptionAsSelected(Button option)
         {
@@ -376,6 +377,7 @@ namespace dtsInventory
                 return;
             }
 
+
             _numericalSelector.ShowNumericalSelector(_minimumInteractionAmount,_maximumInteractionAmount);
             _currentSelectedOption = specifiedOption;
 
@@ -442,11 +444,19 @@ namespace dtsInventory
             }
 
         }
-        public bool IsLeftmostNumericalNavElementSelected() { return _numericalSelector.IsLeftMostNavigationElementSelected(); }
         public void PlayValueChangeAudioFeedback()
         {
             _numericalSelector.PlayValueChangeAudioFeedback();
         }
+        public void SubmitCurrentNumericalSelection()
+        {
+            if (_numericalSelector.IsNumericalSelectorOpen())
+                _numericalSelector.SubmitNumber();
+        }
+        public void SetPointerMode(bool newState) { _numericalSelector.TogglePointerMode(newState); }
+        public bool PointerMode() { return _numericalSelector.IsInPointerMode(); }
+        public RectTransform GetConfirmBtnRectTransform() { return _numericalSelector.GetConfirmBtnRectTransform(); }
+        public RectTransform GetInputAreaRectTransform() { return _numericalSelector.GetTextNavAreaRectTransform(); }
     }
 
     public static class ContextWindowHelper
@@ -471,7 +481,9 @@ namespace dtsInventory
         public static void ForceUnsubFromNumericalSelector() { _controller.ForceUnsubFromNumericalSelector(); }
         public static void IncrementNumericalSelector(int amount) { _controller.IncrementNumericalSelector(amount); _controller.PlayValueChangeAudioFeedback(); }
         public static void DecrementNumericalSelector(int amount) {_controller.DecrementNumericalSelector(amount); _controller.PlayValueChangeAudioFeedback(); }
-        public static bool IsLeftmostNumericalNavElementSelected() { return _controller.IsLeftmostNumericalNavElementSelected(); }
+        public static void SubmitCurrentNumber() { _controller.SubmitCurrentNumericalSelection(); }
+        public static void SetPointerMode(bool newState) { _controller.SetPointerMode(newState); }
+        public static bool IsPointerModeActive() { return _controller.PointerMode(); }
 
     }
 }
