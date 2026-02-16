@@ -1,4 +1,5 @@
 using UnityEngine;
+using UnityEngine.UI;
 
 namespace dtsInventory
 {
@@ -8,7 +9,7 @@ namespace dtsInventory
         [SerializeField] private ContextWindowController _contextWindowController;
 
         public ContextOption GetContextOption() { return _optionType; }
-        public void PerformSelectionOfThisOption() { _contextWindowController.TriggerSelectionEventAndCloseWindow(_optionType); }
+        public void PerformSelectionOfThisOption() { _contextWindowController.MarkOptionAsSelected(GetComponent<Button>()); _contextWindowController.OpenNumericalSelector(_optionType); }
     }
 }
 

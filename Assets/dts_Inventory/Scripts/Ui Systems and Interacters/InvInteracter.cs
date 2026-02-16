@@ -93,7 +93,6 @@ namespace dtsInventory
         //Monobehaviours
         private void Awake()
         {
-            _contextWindowController.gameObject.SetActive(true);
 
             InvManagerHelper.SetInventoryController(this);
             _pointerRectTransform = _pointerContainer.GetComponent<RectTransform>();
@@ -1153,7 +1152,7 @@ namespace dtsInventory
 
             return true;
         }
-        private void ListenForValidContextualOption(ContextOption selectedOption)
+        private void ListenForValidContextualOption(ContextOption selectedOption, int amount)
         {
             //only respond to the contextual menu if we have an active item selected
             if (_contextualItemPosition != (-1, -1))
@@ -1161,7 +1160,7 @@ namespace dtsInventory
                 switch (selectedOption)
                 {
                     case ContextOption.OrganizeItem:
-                        RespondToOrganize();
+                        RespondToOrganize(amount);
                         SetInteractionLock(false);
 
                         //Do this in case the input button [for UiButton events]
@@ -1171,13 +1170,13 @@ namespace dtsInventory
                         return;
 
                     case ContextOption.UseItem:
-                        RespondToUse();
+                        RespondToUse(amount);
                         SetInteractionLock(false);
                         IgnoreOtherConfirmCommandsUntilEndOfFrame();
                         return;
 
                     case ContextOption.DiscardItem:
-                        RespondToDiscard();
+                        RespondToDiscard(amount);
                         SetInteractionLock(false);
                         IgnoreOtherConfirmCommandsUntilEndOfFrame();
                         return;
@@ -1193,7 +1192,7 @@ namespace dtsInventory
         
 
         //menu Option Responses
-        private void RespondToOrganize()
+        private void RespondToOrganize(int amount)
         {
             //exit if the contextual data expired somehow
             if (!IsContextualDataValid())
@@ -1224,7 +1223,7 @@ namespace dtsInventory
             _contextualItemPosition = (-1, -1);
 
         }
-        private void RespondToDiscard()
+        private void RespondToDiscard(int amount)
         {
             //exit if the contextual data expired somehow
             if (!IsContextualDataValid())
@@ -1235,7 +1234,7 @@ namespace dtsInventory
 
             PlayDiscardAudio();
         }
-        private void RespondToUse()
+        private void RespondToUse(int amount)
         {
             //exit if the contextual data expired somehow
             if (!IsContextualDataValid())
@@ -1422,9 +1421,22 @@ namespace dtsInventory
         {
             if (ContextWindowHelper.IsContextWindowShowing())
             {
-                RectTransform contextRectTransform = _contextWindowController.GetComponent<RectTransform>();
+                
+                //close the numerical selector if a click was detected outside of it
+                //DONT CLOSE THE ENTIRE CONTEXT WINDOW, in this case
+                if (ContextWindowHelper.IsNumericalSelectorWindowOpen())
+                {
+                    RectTransform numericalRectTransform = _contextWindowController.NumericalSelectorRectTransform();
+                    if (!RectTransformUtility.RectangleContainsScreenPoint(numericalRectTransform, _mousePosition))
+                        ContextWindowHelper.HideNumericalSelector();
+
+                    return;
+                }
+
 
                 //close the window if the click wasn't inside the menu
+                RectTransform contextRectTransform = _contextWindowController.GetComponent<RectTransform>();
+                
                 if (!RectTransformUtility.RectangleContainsScreenPoint(contextRectTransform,_mousePosition))
                     ContextWindowHelper.HideContextWindow();
 
@@ -1484,6 +1496,18 @@ namespace dtsInventory
         }
         public void RespondToLeftDirectionalCommand()
         {
+            
+            if (ContextWindowHelper.IsNumericalSelectorWindowOpen())
+            {
+                //hide the numerical selector if left is pressed while at the leftmost navigation element
+                if (ContextWindowHelper.IsLeftmostNumericalNavElementSelected())
+                    ContextWindowHelper.HideNumericalSelector();
+                return;
+            }
+
+            if (ContextWindowHelper.IsContextWindowShowing())
+                return;
+
             if (_isInteractionsLocked)
                 return;
 
@@ -1526,6 +1550,12 @@ namespace dtsInventory
         }
         public void RespondToRightDirectionalCommand()
         {
+            if (ContextWindowHelper.IsNumericalSelectorWindowOpen())
+                return;
+
+            if (ContextWindowHelper.IsContextWindowShowing())
+                return;
+
             if (_isInteractionsLocked)
                 return;
 
@@ -1567,11 +1597,25 @@ namespace dtsInventory
         }
         public void RespondToUpDirectionalCommand()
         {
+            if (ContextWindowHelper.IsNumericalSelectorWindowOpen())
+            {
+                if (_altCmd && _altCmd2)
+                    ContextWindowHelper.IncrementNumericalSelector(100);
+                else if (_altCmd || _altCmd2)
+                    ContextWindowHelper.IncrementNumericalSelector(10);
+                else
+                    ContextWindowHelper.IncrementNumericalSelector(1);
+
+                return;
+            }
+
             if (ContextWindowHelper.IsContextWindowShowing())
             {
+                
                 if (!ContextWindowHelper.IsAnyMenuOptionCurrentlyFocused())
                 {
                     ContextWindowHelper.FocusOnMenu();
+                    Debug.Log($"No menu option was selected. Now {EventSystem.current.currentSelectedGameObject} is selected.");
                     return;
                 }
                 return;
@@ -1618,6 +1662,18 @@ namespace dtsInventory
         }
         public void RespondToDownDirectionalCommand()
         {
+            if (ContextWindowHelper.IsNumericalSelectorWindowOpen())
+            {
+                if (_altCmd && _altCmd2)
+                    ContextWindowHelper.DecrementNumericalSelector(100);
+                else if (_altCmd || _altCmd2)
+                    ContextWindowHelper.DecrementNumericalSelector(10);
+                else
+                    ContextWindowHelper.DecrementNumericalSelector(1);
+
+                return;
+            }
+
             if (ContextWindowHelper.IsContextWindowShowing())
             {
                 if (!ContextWindowHelper.IsAnyMenuOptionCurrentlyFocused())
@@ -1752,6 +1808,10 @@ namespace dtsInventory
         }
         public void RespondToConfirm()
         {
+            if (ContextWindowHelper.IsNumericalSelectorWindowOpen())
+                return;
+            if (ContextWindowHelper.IsContextWindowShowing())
+                return;
             Debug.Log("Confirm Pressed");
 
             if (_isInteractionsLocked)

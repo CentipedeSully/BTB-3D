@@ -1,5 +1,6 @@
 using System.Collections;
 using System.Collections.Generic;
+using System.Diagnostics.Tracing;
 using TMPro;
 using UnityEngine;
 using UnityEngine.EventSystems;
@@ -24,6 +25,18 @@ namespace dtsInventory
         //Declarations
         [SerializeField] private GameObject _optionElementPrefab;
         [SerializeField] private RectTransform _pointerContainerTransform;
+        [SerializeField] private Transform _buttonOptionsContainer;
+        [SerializeField] private Image _darkenEffectImage;
+        [SerializeField] private float _darkenDuration;
+        [SerializeField] private float _maxDarkness;
+        [SerializeField] private NumericalSelectorController _numericalSelector;
+        [Tooltip("Where to position the numerical selector when a context option is selected, relative to the selected button's position")]
+        [SerializeField] private Vector2 _numberSelectorOffsetFromButton;
+        private ContextOption _currentSelectedOption = ContextOption.None;
+        private Button _selectedButton;
+        [SerializeField] private Color _btnSelectedColor;
+        [SerializeField] private Color _btnPressedColor;
+        [SerializeField] private Color _btnDefualtColor;
         private float _yPadding;
         private float _xPadding;
         private float _spacingBtwnOptions;
@@ -32,9 +45,16 @@ namespace dtsInventory
         private bool _isWindowOpen = false;
         private InvWindow _boundWindow;
         private List<Button> _currentButtons = new();
-
-        public delegate void ContextWindowEvent(ContextOption selectedOption);
+        private ContextualOptionDefinition _contextOptionDef;
+        public delegate void ContextWindowEvent(ContextOption selectedOption, int selectedAmount);
         public event ContextWindowEvent OnOptionSelected;
+        private bool _isDarkenInProgress = false;
+        private float _alpha;
+        private float _currentDarkenTime;
+        private float _targetDarknessValue;
+        private float _startingDarknessValue;
+        
+
 
 
 
@@ -44,13 +64,14 @@ namespace dtsInventory
         private void Awake()
         {
             ContextWindowHelper.SetContextWindowController(this);
+            CloseNumericalSelector();
 
             _rectTransform = GetComponent<RectTransform>();
 
             if (_optionElementPrefab != null)
                 _optionHeight = _optionElementPrefab.GetComponent<RectTransform>().sizeDelta.y;
 
-            VerticalLayoutGroup layoutController = GetComponent<VerticalLayoutGroup>();
+            VerticalLayoutGroup layoutController = _buttonOptionsContainer.GetComponent<VerticalLayoutGroup>();
             if (layoutController != null)
             {
                 _xPadding = layoutController.padding.left + layoutController.padding.right;
@@ -61,20 +82,134 @@ namespace dtsInventory
             }
 
             gameObject.SetActive(false);
-
+            _darkenEffectImage.gameObject.SetActive(false);
+            
 
         }
-        
 
+        private void Update()
+        {
+            if (_isDarkenInProgress)
+                UpdateDarkeningEffects();
+        }
+
+        private void OnEnable()
+        {
+            if (_numericalSelector != null)
+                SubToNumericalSelector();
+        }
+        private void OnDisable()
+        {
+            if (_numericalSelector != null)
+                UnsubFromNumericalSelector();
+        }
 
 
         //Internals
+        private void SubToNumericalSelector()
+        {
+            _numericalSelector.OnNumberSubmitted += ConfirmNumercialSelection;
+        }
+        private void UnsubFromNumericalSelector()
+        {
+            _numericalSelector.OnNumberSubmitted -= ConfirmNumercialSelection;
+        }
+        private void UpdateDarkeningEffects()
+        {
+            if (_darkenEffectImage.color.a == _targetDarknessValue)
+            {
+                _isDarkenInProgress = false;
+                _currentDarkenTime = 0;
 
+                if (_targetDarknessValue == 0)
+                {
+                    _darkenEffectImage.gameObject.SetActive(false);
+                }
+            }
+            else
+            {
+                _currentDarkenTime += Time.deltaTime;
+                _alpha = Mathf.Lerp(_startingDarknessValue, _targetDarknessValue, _currentDarkenTime / _darkenDuration);
+                _darkenEffectImage.color = new Color(_darkenEffectImage.color.r, _darkenEffectImage.color.g, _darkenEffectImage.color.b, _alpha);
+            }
+        }
+        public void DarkenMenu()
+        {
+            //ignore command if the grid is already dark
+            if (_darkenEffectImage.color.a == _darkenDuration)
+                return;
+
+            //ignore command if we're already darkening the grid
+            if (_isDarkenInProgress && _targetDarknessValue == _maxDarkness)
+                return;
+
+            //if we're currently UNDOING a previous darkening effect, then reverse direction
+            if (_isDarkenInProgress && _targetDarknessValue == 0)
+            {
+                //reverse our progression point
+                _currentDarkenTime = _darkenDuration - _currentDarkenTime;
+
+                //ensure our start and end points are reversed
+                _startingDarknessValue = 0;
+                _targetDarknessValue = _maxDarkness;
+            }
+
+            //if we're starting
+            else if (!_isDarkenInProgress)
+            {
+                _startingDarknessValue = 0;
+                _targetDarknessValue = _maxDarkness;
+                _isDarkenInProgress = true;
+                _darkenEffectImage.gameObject.SetActive(true);
+            }
+        }
+        public void UndarkenMenu()
+        {
+            //ignore command if the grid is not dark
+            if (_darkenEffectImage.color.a == 0)
+                return;
+
+            //ignore command if we're already UNdarkening the grid
+            if (_isDarkenInProgress && _targetDarknessValue == 0)
+                return;
+
+            //if we're currently darkening, then reverse direction
+            if (_isDarkenInProgress && _targetDarknessValue == _maxDarkness)
+            {
+                //reverse our progression point
+                _currentDarkenTime = _darkenDuration - _currentDarkenTime;
+
+                //ensure our start and end points are reversed
+                _startingDarknessValue = _maxDarkness;
+                _targetDarknessValue = 0;
+            }
+
+            //if we're starting
+            else if (!_isDarkenInProgress)
+            {
+                _startingDarknessValue = _maxDarkness;
+                _targetDarknessValue = 0;
+                _isDarkenInProgress = true;
+                _currentDarkenTime = 0;
+            }
+        }
+        public void ForceImmediateUndarken()
+        {
+            _isDarkenInProgress = false;
+            _darkenEffectImage.color = new Color(_darkenEffectImage.color.r, _darkenEffectImage.color.g, _darkenEffectImage.color.b, 0);
+            _currentDarkenTime = 0;
+            _darkenEffectImage.gameObject.SetActive(false);
+        }
 
 
 
 
         //Externals
+        public void MarkOptionAsSelected(Button option)
+        {
+            _selectedButton = option;
+
+        }
         public void ShowOptionsWindow(Vector3 drawPosition, InvWindow boundWindow, HashSet<ContextOption> availableOptions)
         {
             if (availableOptions == null)
@@ -88,9 +223,9 @@ namespace dtsInventory
             int optionCount = 0;
 
             //show all matching context buttons, and hide all buttons that don't match the context
-            for (int i = 0; i < transform.childCount; i++)
+            for (int i = 0; i < _buttonOptionsContainer.childCount; i++)
             {
-                Transform child = transform.GetChild(i);
+                Transform child = _buttonOptionsContainer.GetChild(i);
                 ContextualOptionDefinition context = child.GetComponent<ContextualOptionDefinition>();
 
                 if (context != null)
@@ -142,23 +277,29 @@ namespace dtsInventory
 
             if (_isWindowOpen)
             {
+                if (_numericalSelector.IsNumericalSelectorOpen())
+                    CloseNumericalSelector();
+
                 _isWindowOpen = false;
                 _boundWindow.UndarkenGrid();
                 _boundWindow = null;
                 _currentButtons.Clear();
                 EventSystem.current.SetSelectedGameObject(null);
+                ForceImmediateUndarken();
                 gameObject.SetActive(false);
-
+                
             }
 
         }
-        public void TriggerSelectionEventAndCloseWindow(ContextOption selectedOption)
+        public void TriggerSelectionEventAndCloseWindow(ContextOption selectedOption,int selectedAmount)
         {
             if (_isWindowOpen)
             {
-                OnOptionSelected.Invoke(selectedOption);
+                
+                _numericalSelector.HideNumericalSelector();
                 HideOptionsWindow();
-            }
+                OnOptionSelected.Invoke(selectedOption, selectedAmount);
+            } 
 
         }
         public InvWindow CurrentBoundWindow() { return _boundWindow; }
@@ -171,19 +312,120 @@ namespace dtsInventory
         public bool IsAnyMenuOptionCurrentlyFocused()
         {
             
-            foreach(Button button in _currentButtons)
+            foreach(Button option in _currentButtons)
             {
-                if (EventSystem.current.currentSelectedGameObject == button.gameObject)
+                if (EventSystem.current.currentSelectedGameObject == option.gameObject)
+                {
+                    Debug.Log($"Option {option.name} is selected");
                     return true;
+                }
             }
 
             return false;
         }
+        public bool IsNumercialSelectorOpen()
+        {
+            return _numericalSelector.IsNumericalSelectorOpen() ;
+        }
         public void FocusOnFirstMenuOption()
         {
             if (_currentButtons.Count > 0)
+            {
                 EventSystem.current.SetSelectedGameObject(_currentButtons[0].gameObject);
+            }
+                
         }
+        public void FocusOnLastMenuOption() 
+        {
+            if (_currentButtons.Count > 0)
+            {
+                EventSystem.current.SetSelectedGameObject(_currentButtons[_currentButtons.Count -1].gameObject);
+            }
+        
+        }
+        public void FocusOnLatestMenuOption()
+        {
+            if (_currentButtons.Count > 0)
+            {
+                if (_selectedButton.gameObject.activeSelf)
+                    EventSystem.current.SetSelectedGameObject(_selectedButton.gameObject);
+                else 
+                    FocusOnFirstMenuOption();
+            }
+        }
+        public void OpenNumericalSelector(ContextOption specifiedOption)
+        {
+            _numericalSelector.ShowNumericalSelector();
+            _currentSelectedOption = specifiedOption;
+
+            //get the rect transform of this matching button
+            RectTransform rectTransform = _selectedButton.GetComponent<RectTransform>();
+
+            //move the numerical selector to the button's position (include the offset)
+            _numericalSelector.GetRectTransform().position = rectTransform.TransformPoint(_numberSelectorOffsetFromButton);
+
+            //darken the context menu
+            DarkenMenu();
+
+
+
+            
+        }
+        public void CloseNumericalSelector()
+        {
+            _currentSelectedOption = ContextOption.None;
+            _numericalSelector.HideNumericalSelector();
+            UndarkenMenu();
+        }
+        public void ConfirmNumercialSelection(int amount)
+        {
+            TriggerSelectionEventAndCloseWindow(_currentSelectedOption, amount);
+        }
+        public void ForceUnsubFromNumericalSelector()
+        {
+            if (_numericalSelector != null)
+                UnsubFromNumericalSelector();
+        }
+        public RectTransform NumericalSelectorRectTransform() { return _numericalSelector.GetRectTransform(); }
+        public void IncrementNumericalSelector(int amount)
+        {
+            //only increment once if we're at the maximum, regardless of the jump size
+            if (_numericalSelector.GetNumber() == _numericalSelector.GetMax())
+            {
+                _numericalSelector.IncrementNumber();
+                return;
+            }
+
+            int count = 0;
+
+            //only keep incrementing if we havent reached the max
+            while (count < amount && _numericalSelector.GetNumber() < _numericalSelector.GetMax())
+            {
+                _numericalSelector.IncrementNumber();
+                count++;
+            }
+            
+        }
+        public void DecrementNumericalSelector(int amount)
+        {
+            //only decrement once if we're at the minimum, regardless of the jump size
+            if (_numericalSelector.GetNumber() == _numericalSelector.GetMin())
+            {
+                _numericalSelector.DecrementNumber();
+                return;
+            }
+
+            int count = 0;
+
+            //only keep decrementing if we havent reached the min
+            while (count < amount && _numericalSelector.GetNumber() > _numericalSelector.GetMin())
+            {
+                _numericalSelector.DecrementNumber();
+                count++;
+            }
+
+        }
+        public bool IsLeftmostNumericalNavElementSelected() { return _numericalSelector.IsLeftMostNavigationElementSelected(); }
     }
 
     public static class ContextWindowHelper
@@ -193,13 +435,19 @@ namespace dtsInventory
         public static void SetContextWindowController(ContextWindowController controller) { _controller = controller; }
         public static void ShowContextWindow(Vector3 drawPosition,InvWindow boundWindow, HashSet<ContextOption> optionsToShow) { _controller.ShowOptionsWindow(drawPosition,boundWindow,optionsToShow); }
         public static void HideContextWindow() { _controller.HideOptionsWindow(); }
+        public static void HideNumericalSelector() { _controller.CloseNumericalSelector(); }
         public static ContextWindowController GetContextWindowController() { return _controller; }
         public static bool IsContextWindowShowing() { return _controller.IsWindowOpen(); }
+        public static bool IsNumericalSelectorWindowOpen() { return _controller.IsNumercialSelectorOpen(); }
         public static bool CurrentlyBoundWindow() { return _controller.CurrentBoundWindow(); }
         public static void MoveWindow(Vector2 offset) { _controller.OffsetWindow(offset); }
         public static bool IsAnyMenuOptionCurrentlyFocused() { return _controller.IsAnyMenuOptionCurrentlyFocused(); }
         public static void FocusOnMenu() { _controller.FocusOnFirstMenuOption(); }
-
+        public static void FocusOnLatestMenuOption() { _controller.FocusOnLatestMenuOption(); }
+        public static void ForceUnsubFromNumericalSelector() { _controller.ForceUnsubFromNumericalSelector(); }
+        public static void IncrementNumericalSelector(int amount) { _controller.IncrementNumericalSelector(amount); }
+        public static void DecrementNumericalSelector(int amount) {_controller.DecrementNumericalSelector(amount); }
+        public static bool IsLeftmostNumericalNavElementSelected() { return _controller.IsLeftmostNumericalNavElementSelected(); }
 
     }
 }
