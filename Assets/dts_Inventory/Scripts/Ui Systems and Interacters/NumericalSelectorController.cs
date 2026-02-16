@@ -13,6 +13,8 @@ public class NumericalSelectorController : MonoBehaviour
     [SerializeField] private int _number = 0;
     [SerializeField] private Text _textDisplay;
     [SerializeField] private GameObject _textNavigationTarget;
+    [SerializeField] private AudioClip _onValueChangedAudioClip;
+    private AudioSource _audioSource;
 
     public delegate void NumercialSelectionEvent(int submittedNumber);
     public event NumercialSelectionEvent OnNumberSubmitted;
@@ -109,6 +111,18 @@ public class NumericalSelectorController : MonoBehaviour
         }
         
     }
+    public void ShowNumericalSelector(int minValue,int maxValue)
+    {
+        if (!gameObject.activeSelf)
+        {
+            ShowNumericalSelector();
+            SetMin(minValue);
+            SetMax(maxValue);
+            _number = _minNumber;
+            RenderNumbertoDisplay();
+        }
+
+    }
     public void HideNumericalSelector()
     {
         gameObject.SetActive(false);
@@ -128,7 +142,7 @@ public class NumericalSelectorController : MonoBehaviour
     {
         if (gameObject.activeSelf)
         {
-            Debug.Log($"submitting number [{_number}]");
+            //Debug.Log($"submitting number [{_number}]");
             OnNumberSubmitted?.Invoke(_number);
         }
     }
@@ -145,6 +159,17 @@ public class NumericalSelectorController : MonoBehaviour
     public bool IsLeftMostNavigationElementSelected()
     {
         return EventSystem.current.currentSelectedGameObject == _textNavigationTarget;
+    }
+    public void PlayValueChangeAudioFeedback()
+    {
+        if (_audioSource == null)
+            _audioSource = InvManagerHelper.GetInvInteracterAudiosource();
+
+        if (_audioSource != null && _onValueChangedAudioClip != null)
+        {
+            _audioSource.clip = _onValueChangedAudioClip;
+            _audioSource.Play();
+        }
     }
 
 }

@@ -33,6 +33,8 @@ namespace dtsInventory
         [Header("Possible UI Options")]
         [Tooltip("Should this item show the 'use' context within the inventory")]
         [SerializeField] private bool _isUsable;
+        [Tooltip("Determines if more than one item may be used at a time")]
+        [SerializeField] private bool _isBulkUseEnabled = false;
         [Tooltip("Should this item show the 'discard' context within the inventory")]
         [SerializeField] private bool _isDiscardable;
         [Tooltip("Should this item show the 'organize' context within the inventory. Controls whether or not the item can be manipulated")]
@@ -158,6 +160,7 @@ namespace dtsInventory
 
         public AudioClip OnPickupAudioClip() { return _onPickUpAudio; }
         public AudioClip OnDropAudioClip() { return _onDropAudio; }
+        public bool IsBulkUseEnabled() { return _isBulkUseEnabled; }
     }
 }
 

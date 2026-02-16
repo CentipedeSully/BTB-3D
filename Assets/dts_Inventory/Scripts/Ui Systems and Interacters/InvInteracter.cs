@@ -921,7 +921,7 @@ namespace dtsInventory
             //if we're not holding an item, pickup the full stack of items
             if (_heldItem == null)
             {
-                Debug.Log("Pickup stack Called");
+                //Debug.Log("Pickup stack Called");
                 //save the item reference
                 _heldItem = _invGrid.GetItemGraphicOnCell(_hoveredCellIndex);
 
@@ -945,7 +945,7 @@ namespace dtsInventory
             if (_heldItem != null)
             {
                 HashSet<(int, int)> placementArea = _invGrid.ConvertSpacialDefIntoGridIndexes(_hoveredCellIndex, _heldItem.GetSpacialDefinition(), _heldItem.ItemHandle());
-                Debug.Log($"Drop Stack Called. Placement area: {_invGrid.StringifyPositions(placementArea)}");
+                //Debug.Log($"Drop Stack Called. Placement area: {_invGrid.StringifyPositions(placementArea)}");
                 //make sure the entire item area is within the grid
                 if (_invGrid.IsAreaWithinGrid(placementArea))
                 {
@@ -1066,8 +1066,10 @@ namespace dtsInventory
                 //merge the item-in-question's context options with the container's
                 containerContextOptions.UnionWith(_invGrid.GetStackItemData(_hoveredCellIndex).ContextualOptions());
 
+                int hoveredStackSize = _invGrid.GetStackValue(_hoveredCellIndex);
+
                 //open the context window
-                ContextWindowHelper.ShowContextWindow(pointerPositionRelativeToCanvas, _invGrid.GetParentWindow() ,containerContextOptions);
+                ContextWindowHelper.ShowContextWindow(pointerPositionRelativeToCanvas, _invGrid.GetParentWindow() ,containerContextOptions,_invGrid.GetStackItemData(_hoveredCellIndex),1,hoveredStackSize);
 
                 PlaySelectionAudio();
                 return;
@@ -1197,22 +1199,37 @@ namespace dtsInventory
             //exit if the contextual data expired somehow
             if (!IsContextualDataValid())
             {
-                Debug.Log("Organize Response INVALID");
+                Debug.LogWarning("Organize Response INVALID");
                 _contextualInvGrid = null;
                 _contextualItemPosition = (-1, -1);
                 return;
             }
 
-            Debug.Log($"Organize Response Valid on position {_contextualItemPosition} [hovered Cell: {_hoveredCell}]. Organize Clicked.");
+            //Debug.Log($"Organize Response Valid on position {_contextualItemPosition} [hovered Cell: {_hoveredCell}]. Organize Clicked.");
 
-            //save the item reference
-            _heldItem = _contextualInvGrid.GetItemGraphicOnCell(_contextualItemPosition);
+            //pickup all items if our amount is the entire stack
+            if (amount == _contextualInvGrid.GetStackValue(_contextualItemPosition))
+            {
+                //save the item reference
+                _heldItem = _contextualInvGrid.GetItemGraphicOnCell(_contextualItemPosition);
 
-            //save the amount of the item held
-            _heldItemStackCount = _contextualInvGrid.GetStackValue(_contextualItemPosition);
+                //save the amount of the item held
+                _heldItemStackCount = _contextualInvGrid.GetStackValue(_contextualItemPosition);
 
-            //remove the item from the invGrid
-            _contextualInvGrid.DeleteStack(_contextualItemPosition);
+                //remove the item from the invGrid
+                _contextualInvGrid.DeleteStack(_contextualItemPosition);
+            }
+            else
+            {
+                //create a new sprite to hold [it's the same item as what's on the grid]
+                _heldItem = ItemCreatorHelper.CreateItem(_contextualInvGrid.GetStackItemData(_contextualItemPosition), _contextualInvGrid.CellSize().x, _contextualInvGrid.CellSize().y).GetComponent<InvItem>();
+
+                //save the amount of the held item
+                _heldItemStackCount = amount;
+
+                //remove the specified amount from the grid
+                _contextualInvGrid.DecreaseStack(_contextualItemPosition, amount);
+            }
 
             BindHeldItemToPointerContainer(_contextualInvGrid);
             UpdateHeldStackText();
@@ -1229,8 +1246,17 @@ namespace dtsInventory
             if (!IsContextualDataValid())
                 return;
 
-            //remove the item from inventory
-            _contextualInvGrid.DeleteStack(_contextualItemPosition);
+            //remove the entire stack from inventory if the full amount was specified
+            if (amount == _contextualInvGrid.GetStackValue(_contextualItemPosition))
+            {
+                _contextualInvGrid.DeleteStack(_contextualItemPosition);
+            }
+
+            //otherwise just decrease that stack by the amount
+            else
+            {
+                _contextualInvGrid.DecreaseStack(_contextualItemPosition, amount);
+            }
 
             PlayDiscardAudio();
         }
@@ -1246,8 +1272,8 @@ namespace dtsInventory
             //use the item
             Debug.Log($"Used {contextualItem.name}!");
 
-            //remove the item from inventory
-            _contextualInvGrid.RemoveItem(_contextualItemPosition, 1);
+            //remove the items from inventory
+            _contextualInvGrid.RemoveItem(_contextualItemPosition, amount);
 
             PlayUseAudio();
 
@@ -1862,10 +1888,13 @@ namespace dtsInventory
         private void SetInteractionLock(bool newState)
         {
             _isInteractionsLocked = newState;
+
+            /*
             if (_isInteractionsLocked)
                 Debug.Log("Interactions Locked");
             else
                 Debug.Log("UNLOCKED Interactions");
+            */
             
         }
         private void IgnoreOtherConfirmCommandsUntilEndOfFrame()
@@ -1957,6 +1986,7 @@ namespace dtsInventory
 
         public static bool DoOpenedContainersExist() { return _invController.DoOpenedContainersExist(); }
         public static List<InvWindow> GetOpenedContainers() { return _invController.GetOpenedContainers(); }
+        public static AudioSource GetInvInteracterAudiosource() { return _invController.GetComponent<AudioSource>(); }
 
 
     }

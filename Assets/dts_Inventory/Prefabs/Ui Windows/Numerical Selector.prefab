@@ -885,6 +885,8 @@ MonoBehaviour:
   _number: 0
   _textDisplay: {fileID: 2368659159923377257}
   _textNavigationTarget: {fileID: 9207795701193546632}
+  _onValueChangedAudioClip: {fileID: 8300000, guid: 087224dd7ec352f42a3b950a07009a88,
+    type: 3}
 --- !u!114 &4943581801058887961
 MonoBehaviour:
   m_ObjectHideFlags: 0

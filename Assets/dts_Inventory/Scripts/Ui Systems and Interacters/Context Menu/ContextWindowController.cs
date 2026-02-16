@@ -34,6 +34,9 @@ namespace dtsInventory
         [SerializeField] private Vector2 _numberSelectorOffsetFromButton;
         private ContextOption _currentSelectedOption = ContextOption.None;
         private Button _selectedButton;
+        private int _maximumInteractionAmount;
+        private int _minimumInteractionAmount;
+        private ItemData _itemData;
         [SerializeField] private Color _btnSelectedColor;
         [SerializeField] private Color _btnPressedColor;
         [SerializeField] private Color _btnDefualtColor;
@@ -210,7 +213,7 @@ namespace dtsInventory
             _selectedButton = option;
 
         }
-        public void ShowOptionsWindow(Vector3 drawPosition, InvWindow boundWindow, HashSet<ContextOption> availableOptions)
+        public void ShowOptionsWindow(Vector3 drawPosition, InvWindow boundWindow, HashSet<ContextOption> availableOptions,ItemData itemData,int minimumInteractionAmount,int maximumInteractionAmount)
         {
             if (availableOptions == null)
                 return;
@@ -254,7 +257,6 @@ namespace dtsInventory
 
                 //provide visual feedback to represent the menu being opened
                 _boundWindow.DarkenGrid();
-
                 _isWindowOpen = true;
 
                 //resize the window to match the number of options
@@ -265,6 +267,11 @@ namespace dtsInventory
 
                 //show the window
                 gameObject.SetActive(true);
+
+                //Dont forget to save the interaction values of the context & item data
+                _minimumInteractionAmount = minimumInteractionAmount;
+                _maximumInteractionAmount = maximumInteractionAmount;
+                _itemData = itemData;
             }
             else
                 Debug.LogWarning("No contextual predefined contextual options were discovered. Ignoring 'ShowContextWindow' request");
@@ -316,7 +323,7 @@ namespace dtsInventory
             {
                 if (EventSystem.current.currentSelectedGameObject == option.gameObject)
                 {
-                    Debug.Log($"Option {option.name} is selected");
+                    //Debug.Log($"Option {option.name} is selected");
                     return true;
                 }
             }
@@ -353,9 +360,23 @@ namespace dtsInventory
                     FocusOnFirstMenuOption();
             }
         }
-        public void OpenNumericalSelector(ContextOption specifiedOption)
+        public void SpecifyAmount(ContextOption specifiedOption)
         {
-            _numericalSelector.ShowNumericalSelector();
+            //skip opening the numerical selector if there's only 1 item to act upon
+            if (_maximumInteractionAmount == 1)
+            {
+                TriggerSelectionEventAndCloseWindow(specifiedOption, 1);
+                return;
+            }
+
+            //also, skip opening the numerical selector if we're 'using' an item stack, and bulkUse is disabled
+            else if (specifiedOption == ContextOption.UseItem && !_itemData.IsBulkUseEnabled())
+            {
+                TriggerSelectionEventAndCloseWindow(specifiedOption, 1);
+                return;
+            }
+
+            _numericalSelector.ShowNumericalSelector(_minimumInteractionAmount,_maximumInteractionAmount);
             _currentSelectedOption = specifiedOption;
 
             //get the rect transform of this matching button
@@ -366,10 +387,6 @@ namespace dtsInventory
 
             //darken the context menu
             DarkenMenu();
-
-
-
-            
         }
         public void CloseNumericalSelector()
         {
@@ -426,6 +443,10 @@ namespace dtsInventory
 
         }
         public bool IsLeftmostNumericalNavElementSelected() { return _numericalSelector.IsLeftMostNavigationElementSelected(); }
+        public void PlayValueChangeAudioFeedback()
+        {
+            _numericalSelector.PlayValueChangeAudioFeedback();
+        }
     }
 
     public static class ContextWindowHelper
@@ -433,7 +454,10 @@ namespace dtsInventory
         public static ContextWindowController _controller;
 
         public static void SetContextWindowController(ContextWindowController controller) { _controller = controller; }
-        public static void ShowContextWindow(Vector3 drawPosition,InvWindow boundWindow, HashSet<ContextOption> optionsToShow) { _controller.ShowOptionsWindow(drawPosition,boundWindow,optionsToShow); }
+        public static void ShowContextWindow(Vector3 drawPosition,InvWindow boundWindow, HashSet<ContextOption> optionsToShow,ItemData itemData, int minValue, int maxValue) 
+        { 
+            _controller.ShowOptionsWindow(drawPosition,boundWindow,optionsToShow,itemData,minValue,maxValue); 
+        }
         public static void HideContextWindow() { _controller.HideOptionsWindow(); }
         public static void HideNumericalSelector() { _controller.CloseNumericalSelector(); }
         public static ContextWindowController GetContextWindowController() { return _controller; }
@@ -445,8 +469,8 @@ namespace dtsInventory
         public static void FocusOnMenu() { _controller.FocusOnFirstMenuOption(); }
         public static void FocusOnLatestMenuOption() { _controller.FocusOnLatestMenuOption(); }
         public static void ForceUnsubFromNumericalSelector() { _controller.ForceUnsubFromNumericalSelector(); }
-        public static void IncrementNumericalSelector(int amount) { _controller.IncrementNumericalSelector(amount); }
-        public static void DecrementNumericalSelector(int amount) {_controller.DecrementNumericalSelector(amount); }
+        public static void IncrementNumericalSelector(int amount) { _controller.IncrementNumericalSelector(amount); _controller.PlayValueChangeAudioFeedback(); }
+        public static void DecrementNumericalSelector(int amount) {_controller.DecrementNumericalSelector(amount); _controller.PlayValueChangeAudioFeedback(); }
         public static bool IsLeftmostNumericalNavElementSelected() { return _controller.IsLeftmostNumericalNavElementSelected(); }
 
     }

@@ -23,5 +23,6 @@ MonoBehaviour:
   _onPickUpAudio: {fileID: 8300000, guid: 7abccce1359ba0d4a8421bcc212783c5, type: 3}
   _onDropAudio: {fileID: 8300000, guid: e8af9035f5758f44da37af4225a02619, type: 3}
   _isUsable: 1
+  _isBulkUseEnabled: 1
   _isDiscardable: 1
   _isOrganizable: 1
