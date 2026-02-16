@@ -69,7 +69,11 @@ public class NumericalSelectorController : MonoBehaviour
             }
         }
     }
-
+    private void ResetConfirmDelay()
+    {
+        _confirmReady = false;
+        _currentDelayCount = 0;
+    }
 
 
 
@@ -116,39 +120,20 @@ public class NumericalSelectorController : MonoBehaviour
     {
         _minNumber = min;
     }
-    public void ShowNumericalSelector()
-    {
-        if (!gameObject.activeSelf)
-        {
-            ResetNumber();
-            gameObject.SetActive(true);
-            
-            if (InvManagerHelper.GetInvController().GetInputMode() == InputMode.Directional)
-            {
-                EventSystem.current.SetSelectedGameObject(_textNavigationTarget);
-            }
-        }
-        
-    }
-    public void ShowNumericalSelector(int startingNumber)
-    {
-        if (!gameObject.activeSelf)
-        {
-            ShowNumericalSelector();
-            _number = startingNumber;
-            RenderNumbertoDisplay();
-        }
-        
-    }
+
     public void ShowNumericalSelector(int minValue,int maxValue)
     {
         if (!gameObject.activeSelf)
         {
-            ShowNumericalSelector();
+            
+            gameObject.SetActive(true);
+            if (InvManagerHelper.GetInvController().GetInputMode() == InputMode.Directional)
+                FocusOnTextNavigationTarget();
+
             SetMin(minValue);
             SetMax(maxValue);
-            _number = _minNumber;
-            RenderNumbertoDisplay();
+            ResetNumber();
+            ResetConfirmDelay();
         }
 
     }
@@ -174,8 +159,6 @@ public class NumericalSelectorController : MonoBehaviour
     {
         if (gameObject.activeSelf && _confirmReady)
         {
-            //Debug.Log($"submitting number [{_number}]");
-            _confirmReady = false;
             OnNumberSubmitted?.Invoke(_number);
         }
     }
@@ -207,7 +190,7 @@ public class NumericalSelectorController : MonoBehaviour
     {
         
         _pointerMode = newState;
-        Debug.Log($"pointerMode: {_pointerMode}");
+        //Debug.Log($"pointerMode: {_pointerMode}");
         if (_pointerConfirmBtn == null || _confirmBtnAnimator == null)
             return;
 
@@ -215,6 +198,14 @@ public class NumericalSelectorController : MonoBehaviour
         _confirmBtnAnimator.SetBool("pointerMode", _pointerMode);
     }
     public bool IsInPointerMode() { return _pointerMode; }
+    public void FocusOnTextNavigationTarget()
+    {
+        EventSystem.current.SetSelectedGameObject(_textNavigationTarget);
+    }
+    public bool IsTextNavigationFocused()
+    {
+        return EventSystem.current.currentSelectedGameObject == _textNavigationTarget;
+    }
     
 
 }

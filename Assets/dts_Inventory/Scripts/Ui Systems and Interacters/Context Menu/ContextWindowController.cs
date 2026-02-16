@@ -32,14 +32,12 @@ namespace dtsInventory
         [SerializeField] private NumericalSelectorController _numericalSelector;
         [Tooltip("Where to position the numerical selector when a context option is selected, relative to the selected button's position")]
         [SerializeField] private Vector2 _numberSelectorOffsetFromButton;
+        
         private ContextOption _currentSelectedOption = ContextOption.None;
         private Button _selectedButton;
         private int _maximumInteractionAmount;
         private int _minimumInteractionAmount;
         private ItemData _itemData;
-        [SerializeField] private Color _btnSelectedColor;
-        [SerializeField] private Color _btnPressedColor;
-        [SerializeField] private Color _btnDefualtColor;
         private float _yPadding;
         private float _xPadding;
         private float _spacingBtwnOptions;
@@ -56,7 +54,7 @@ namespace dtsInventory
         private float _currentDarkenTime;
         private float _targetDarknessValue;
         private float _startingDarknessValue;
-        
+        private Navigation _tempNavStruct;
 
 
 
@@ -136,6 +134,66 @@ namespace dtsInventory
                 _darkenEffectImage.color = new Color(_darkenEffectImage.color.r, _darkenEffectImage.color.g, _darkenEffectImage.color.b, _alpha);
             }
         }
+        private void RebuildButtonNavigations()
+        {
+            if (_currentButtons.Count == 0)
+                return;
+
+            if (_currentButtons.Count == 1)
+            {
+                //get the button's current nav data
+                _tempNavStruct = _currentButtons[0].navigation;
+
+                //tweak the data so this single button can only select itself
+                _tempNavStruct.mode = Navigation.Mode.Explicit;
+                _tempNavStruct.selectOnUp = _currentButtons[0];
+                _tempNavStruct.selectOnDown = _currentButtons[0];
+                _tempNavStruct.wrapAround = true;
+
+                //update the button with the new nav data
+                _currentButtons[0].navigation = _tempNavStruct;
+            }
+
+            else
+            {
+                for (int i =0; i < _currentButtons.Count; i++)
+                {
+                    //get the button's current nav data
+                    _tempNavStruct = _currentButtons[i].navigation;
+
+
+                    //tweak the data so this button navigates to it's neighbors
+                    _tempNavStruct.mode = Navigation.Mode.Explicit;
+                    
+                    //navigate to the last element if this is the first element
+                    if (i == 0)
+                        _tempNavStruct.selectOnUp = _currentButtons[_currentButtons.Count - 1];
+
+                    //otherwise, navigate to the previous element
+                    else
+                        _tempNavStruct.selectOnUp = _currentButtons[i-1];
+
+
+                    //navigate to the first element if this is the last element
+                    if (i == _currentButtons.Count - 1)
+                        _tempNavStruct.selectOnDown = _currentButtons[0];
+
+                    //otherwise, navigate to the next element
+                    else
+                        _tempNavStruct.selectOnDown = _currentButtons[i + 1];
+
+                    _tempNavStruct.wrapAround = true;
+
+
+                    //update the button with the new nav data
+                    _currentButtons[i].navigation = _tempNavStruct;
+                }
+            }
+        }
+
+
+
+
         public void DarkenMenu()
         {
             //ignore command if the grid is already dark
@@ -266,6 +324,9 @@ namespace dtsInventory
                 float width = _xPadding + transform.GetChild(0).GetComponent<RectTransform>().sizeDelta.x; //make sure the child fits well
                 _rectTransform.sizeDelta = new Vector2(_rectTransform.sizeDelta.x, height);
 
+                //Rebuild each button's navData to reflect this context
+                RebuildButtonNavigations();
+
                 //show the window
                 gameObject.SetActive(true);
 
@@ -366,6 +427,7 @@ namespace dtsInventory
             //skip opening the numerical selector if there's only 1 item to act upon
             if (_maximumInteractionAmount == 1)
             {
+                Debug.Log("Triggering selection due to max == 1");
                 TriggerSelectionEventAndCloseWindow(specifiedOption, 1);
                 return;
             }
@@ -457,6 +519,14 @@ namespace dtsInventory
         public bool PointerMode() { return _numericalSelector.IsInPointerMode(); }
         public RectTransform GetConfirmBtnRectTransform() { return _numericalSelector.GetConfirmBtnRectTransform(); }
         public RectTransform GetInputAreaRectTransform() { return _numericalSelector.GetTextNavAreaRectTransform(); }
+        public void FocusOnNumericalSelector()
+        {
+            _numericalSelector.FocusOnTextNavigationTarget();
+        }
+        public bool IsNumericalSelectorCurrentlyFocused()
+        {
+            return _numericalSelector.IsTextNavigationFocused();
+        }
     }
 
     public static class ContextWindowHelper
@@ -484,6 +554,8 @@ namespace dtsInventory
         public static void SubmitCurrentNumber() { _controller.SubmitCurrentNumericalSelection(); }
         public static void SetPointerMode(bool newState) { _controller.SetPointerMode(newState); }
         public static bool IsPointerModeActive() { return _controller.PointerMode(); }
+        public static void FocusOnNumericalSelector() { _controller.FocusOnNumericalSelector(); }
+        public static bool IsNumericalSelectorCurrentlyFocused() { return _controller.IsNumericalSelectorCurrentlyFocused(); }
 
     }
 }

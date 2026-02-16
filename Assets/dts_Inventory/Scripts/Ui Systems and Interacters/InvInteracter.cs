@@ -1542,7 +1542,7 @@ namespace dtsInventory
                 {
                     int modifier = (int)(_scrollDelta);
 
-                    Debug.Log($"Detected Scroll Magnitude: {modifier}");
+                    //Debug.Log($"Detected Scroll Magnitude: {modifier}");
                     if (modifier > 0)
                         ContextWindowHelper.IncrementNumericalSelector(modifier);
                     else if (modifier < 0)
@@ -1652,6 +1652,8 @@ namespace dtsInventory
         {
             if (ContextWindowHelper.IsNumericalSelectorWindowOpen())
             {
+                if (!ContextWindowHelper.IsNumericalSelectorCurrentlyFocused())
+                    ContextWindowHelper.FocusOnNumericalSelector();
 
                 if (_altCmd && _altCmd2)
                     ContextWindowHelper.IncrementNumericalSelector(100);
@@ -1718,6 +1720,9 @@ namespace dtsInventory
         {
             if (ContextWindowHelper.IsNumericalSelectorWindowOpen())
             {
+                if (!ContextWindowHelper.IsNumericalSelectorCurrentlyFocused())
+                    ContextWindowHelper.FocusOnNumericalSelector();
+
                 if (_altCmd && _altCmd2)
                     ContextWindowHelper.DecrementNumericalSelector(100);
                 else if (_altCmd || _altCmd2)
@@ -1795,6 +1800,16 @@ namespace dtsInventory
         {
             if (_inputMode != newMode)
             {
+                if (ContextWindowHelper.IsContextWindowShowing())
+                {
+                    //IF We're switching from directional to pointer mode with the context menu open
+                    if (_inputMode == InputMode.Directional && newMode == InputMode.Pointer)
+                    {
+                        //deselect the current navigation element
+                        EventSystem.current.SetSelectedGameObject(null);
+                    }
+                }
+
                 _inputMode = newMode;
                 //Debug.Log($"InputMode changed to [{_inputMode.ToString()}]");
 
@@ -1804,11 +1819,13 @@ namespace dtsInventory
                     ClearHoverTiles();
                     ClearDirectionalPointer();
 
-                    ReEnterGridOnPointerLocation();
+                    if (!ContextWindowHelper.IsContextWindowShowing())
+                        ReEnterGridOnPointerLocation();
 
                     ContextWindowHelper.SetPointerMode(true);
                     _graphicRaycaster.enabled = true;
                 }
+
                 else if (_inputMode == InputMode.Directional)
                 {
                     
@@ -1889,6 +1906,7 @@ namespace dtsInventory
 
             if (ContextWindowHelper.IsNumericalSelectorWindowOpen())
             {
+                Debug.Log("Confirm Detected. Submitting number");
                 ContextWindowHelper.SubmitCurrentNumber();
                 return;
             }
@@ -1958,11 +1976,11 @@ namespace dtsInventory
             //only trigger the coroutine if one isn't yet active
             if (_resetIgnoreConfirmFlagCoroutine == null)
             {
-                _resetIgnoreConfirmFlagCoroutine = ResetIgnoreConfirmFlagAtEndOfFrame();
+                _resetIgnoreConfirmFlagCoroutine = ResetIgnoreConfirmFlagAfterDelay();
                 StartCoroutine(_resetIgnoreConfirmFlagCoroutine);
             }
         }
-        private IEnumerator ResetIgnoreConfirmFlagAtEndOfFrame()
+        private IEnumerator ResetIgnoreConfirmFlagAfterDelay()
         {
             yield return new WaitForSeconds(_ignoreDelay);
             _ignoreConfirmUntilDelayExpires = false;
