@@ -1359,6 +1359,10 @@ namespace dtsInventory
 
             TransferItems(_contextualInvGrid,_homeInventoryGrid,_contextualItemPosition,amount);
         }
+        private void RespondToTranfer(int amount)
+        {
+
+        }
 
         
 
@@ -2125,6 +2129,14 @@ namespace dtsInventory
 
             return returnList;
 
+        }
+        public bool IsCurrentInvGrid(InvGrid invGrid)
+        {
+            return invGrid == _invGrid;
+        }
+        public bool IsCurrentContextualInvGrid(InvGrid invGrid)
+        {
+            return invGrid == _contextualInvGrid;
         }
     }
 

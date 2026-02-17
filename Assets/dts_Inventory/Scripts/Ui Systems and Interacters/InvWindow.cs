@@ -18,6 +18,8 @@ namespace dtsInventory
         [SerializeField] private Text _itemName;
         [SerializeField] private InvGrid _itemGrid;
 
+        [SerializeField] private Text _containerNameText;
+
         [Header("Customization")]
         [SerializeField] string _containerName;
 
@@ -42,6 +44,7 @@ namespace dtsInventory
         private void Awake()
         {
             _rectTransform = GetComponent<RectTransform>();
+            _containerNameText.text = _containerName;
         }
 
         private void Start()
@@ -118,6 +121,11 @@ namespace dtsInventory
                 return;
             
             _containerName = newName;
+            _containerNameText.text = _containerName;
+        }
+        public void RenameContainerViaInput()
+        {
+            _containerName = _containerNameText.text;
         }
 
 

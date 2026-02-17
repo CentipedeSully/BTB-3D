@@ -30,6 +30,7 @@ namespace dtsInventory
         [SerializeField] private float _darkenDuration;
         [SerializeField] private float _maxDarkness;
         [SerializeField] private NumericalSelectorController _numericalSelector;
+        [SerializeField] private TransferMenuController _transferMenuController;
         [Tooltip("Where to position the numerical selector when a context option is selected, relative to the selected button's position")]
         [SerializeField] private Vector2 _numberSelectorOffsetFromButton;
         
@@ -341,6 +342,13 @@ namespace dtsInventory
 
 
         }
+        public void ShowTranferWindow(Vector3 drawPosition, InvWindow boundWindow, int minimumInteractionAmount, int maximumInteractionAmount)
+        {
+            if (_transferMenuController == null)
+                return;
+
+            //_transferMenuController.ShowMenu(drawPosition)
+        }
         public void HideOptionsWindow()
         {
 
@@ -532,6 +540,7 @@ namespace dtsInventory
     public static class ContextWindowHelper
     {
         public static ContextWindowController _controller;
+        
 
         public static void SetContextWindowController(ContextWindowController controller) { _controller = controller; }
         public static void ShowContextWindow(Vector3 drawPosition,InvWindow boundWindow, HashSet<ContextOption> optionsToShow,ItemData itemData, int minValue, int maxValue) 
