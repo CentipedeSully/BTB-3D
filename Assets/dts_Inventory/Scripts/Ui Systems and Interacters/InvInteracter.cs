@@ -3,6 +3,7 @@ using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
+using Unity.VisualScripting;
 using UnityEditor.Build;
 using UnityEditor.PackageManager.UI;
 using UnityEngine;
@@ -1055,6 +1056,62 @@ namespace dtsInventory
                 }
             }
         }
+        private void TakeStackOnHoveredPosition()
+        {
+            if (_heldItem == null && _invGrid != _homeInventoryGrid)
+            {
+                TransferItems(_invGrid, _homeInventoryGrid, _hoveredCellIndex, _invGrid.GetStackValue(_hoveredCellIndex));
+            }
+        }
+        private void TransferStackOnHoveredPosition()
+        {
+            if (_heldItem ==null && _invGrid != null)
+            {
+                if (_openedInvWindows.Count == 2)
+                {
+                    
+                    InvGrid receiver;
+
+                    //make sure the OTHER inventory is on the receiving end of the transfer
+                    if (_openedInvWindows[0].GetItemGrid() != _invGrid)
+                        receiver = _openedInvWindows[0].GetItemGrid();
+                    else receiver = _openedInvWindows[1].GetItemGrid();
+
+                    TransferItems(_invGrid,receiver,_hoveredCellIndex,_invGrid.GetStackValue(_hoveredCellIndex));
+                }
+
+                //else, show the transfer menu
+            }
+        }
+        private void TransferItems(InvGrid donor, InvGrid receiver, (int,int) cellPosition,int amount)
+        {
+            if (receiver == null || donor == null)
+                return;
+
+            if (!donor.IsCellOnGrid(cellPosition))
+                return;
+
+            if (!donor.IsCellOccupied(cellPosition))
+                return;
+
+            ItemData item = donor.GetStackItemData(cellPosition);
+
+            int amountTaken = 0;
+
+            while (amountTaken < amount)
+            {
+                //keep taking items if we BOTH 1) have space for it and 2) more items remain at the specified position
+                if (receiver.DoesSpaceExist(item, 1, null) && donor.GetStackValue(cellPosition) >= 1)
+                {
+                    receiver.AddItem(item, 1);
+                    donor.RemoveItem(cellPosition, 1);
+                    amountTaken++;
+                }
+
+                //otherwise, we ran out of space (or items to take). End the operation
+                else return;
+            }
+        }
         private void ShowContextMenuOnHoveredItem()
         {
             //only show if we're hovering over an item while not holding anything
@@ -1113,7 +1170,8 @@ namespace dtsInventory
                         contextOptions.Add(ContextOption.TakeItem);
 
                     //Transfer if we're in our home inv
-                    else contextOptions.Add(ContextOption.TransferItem);
+                    else
+                        contextOptions.Add(ContextOption.TransferItem);
                 }
 
                 //otherwise, many containers are open indeed
@@ -1189,6 +1247,14 @@ namespace dtsInventory
                         SetInteractionLock(false);
                         IgnoreOtherConfirmCommandsUntilEndOfFrame();
                         return;
+
+
+                    case ContextOption.TakeItem:
+                        RespondToTake(amount);
+                        SetInteractionLock(false);
+                        IgnoreOtherConfirmCommandsUntilEndOfFrame();
+                        return;
+
 
                     default:
                         return;
@@ -1284,6 +1350,14 @@ namespace dtsInventory
 
             PlayUseAudio();
 
+        }
+        private void RespondToTake(int amount)
+        {
+            //exit if the contextual data expired somehow
+            if (!IsContextualDataValid())
+                return;
+
+            TransferItems(_contextualInvGrid,_homeInventoryGrid,_contextualItemPosition,amount);
         }
 
         
@@ -1482,9 +1556,25 @@ namespace dtsInventory
             //only respond if we're hovering over a grid
             if (_invGrid != null)
             {
-                //if we're not holding an item, pickup the full stack of items
+
+                //if we're not holding an item..
                 if (_heldItem == null)
-                    PickupStackOnHoveredPosition();
+                {
+                    //if we're holding the alt command, perform quick transfer based on the uiContext
+                    if (_altCmd)
+                    {
+                        //quick-take the stack if we aren't
+                        if (_invGrid != _homeInventoryGrid)
+                            TakeStackOnHoveredPosition();
+                        else
+                            TransferStackOnHoveredPosition();
+                    }
+
+                    //else pickup the full stack of items
+                    else
+                        PickupStackOnHoveredPosition();
+                }
+                    
 
                 //else,place the full held itemStack on the grid
                 else
@@ -1499,7 +1589,7 @@ namespace dtsInventory
                 return;
             }
 
-            //close the context menu of ANY rightClick is made
+            //close the context menu if ANY rightClick is made
             if (ContextWindowHelper.IsContextWindowShowing())
             {
                 ContextWindowHelper.HideContextWindow();

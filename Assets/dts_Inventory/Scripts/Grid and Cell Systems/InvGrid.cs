@@ -1820,15 +1820,18 @@ namespace dtsInventory
                 if (tempQueryResponse == default)
                     return null;
 
+                /*
                 debugString = $"iteration: {iterationCount}\nStackUpdates [{stackCounts.Count} stacks]:\n";
                 foreach (KeyValuePair<HashSet<(int, int)>, int> stack in stackCounts)
                 {
+                    Debug.Log($"Building debug string. Stack[{StringifyPositions(stack.Key)}]");
                     debugString += $"> Item: {stackTypes[stack.Key].name}(s)\n" +
                         $"> Placement: {StringifyPositions(stack.Key)}\n" +
                         $"> Occupied Capacity: {stack.Value}\n" +
                         $"------------------------\n";
                 }
                 Debug.Log(debugString);
+                */
 
                 foreach (ItemQueryResponse response in tempQueryResponse)
                     totalQueryResponse.Add(response);
@@ -1862,6 +1865,39 @@ namespace dtsInventory
             if (FindSpaceForItems(queryList) != null)
                 return true;
             else return false;
+        }
+        public int HowManyCanFit(ItemData itemData)
+        {
+            if (itemData == null)
+            {
+                Debug.LogWarning("Null item data passed as parameter [on 'HowManyCanFit' request]. returning 0");
+                return 0;
+            }
+
+            int amount = 0;
+            List<ItemQuery> queryList = new List<ItemQuery>();
+            ItemQuery newQuery = new ItemQuery(itemData, 1);
+
+            queryList.Add(newQuery);
+            amount++;
+
+            //check if at least one item can fit before we try more
+            //due this because 'DoesSpaceExist' doesn't answer 'dOeS zErO ItEmS fIt???' questions
+            if (!DoesSpaceExist(queryList))
+            {
+                //not even 1 item will fit. return 0
+                return 0;
+            }
+
+            //now keep expanding the query list until max capacity is met
+            while (DoesSpaceExist(queryList))
+            {
+                queryList.Add(newQuery);
+                amount++;
+            }
+
+            return amount;
+
         }
 
         private void PositionUiTextOntoStack(RectTransform uiText, HashSet<(int, int)> stackPositions)
