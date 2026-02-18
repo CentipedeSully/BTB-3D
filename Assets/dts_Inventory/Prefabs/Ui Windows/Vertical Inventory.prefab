@@ -142,7 +142,8 @@ MonoBehaviour:
   _itemName: {fileID: 1012576320197236395}
   _itemGrid: {fileID: 4906056226602732301}
   _containerNameText: {fileID: 4661180941180228063}
-  _containerName: 
+  _containerInputField: {fileID: 7279745971405830584}
+  _containerName: Unnamed container
 --- !u!114 &6896145340030639544
 MonoBehaviour:
   m_ObjectHideFlags: 0

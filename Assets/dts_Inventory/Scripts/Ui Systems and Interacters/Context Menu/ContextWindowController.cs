@@ -33,6 +33,7 @@ namespace dtsInventory
         [SerializeField] private TransferMenuController _transferMenuController;
         [Tooltip("Where to position the numerical selector when a context option is selected, relative to the selected button's position")]
         [SerializeField] private Vector2 _numberSelectorOffsetFromButton;
+        [SerializeField] private Vector2 _transferMenuOffsetFromButton;
         
         private ContextOption _currentSelectedOption = ContextOption.None;
         private Button _selectedButton;
@@ -56,6 +57,8 @@ namespace dtsInventory
         private float _targetDarknessValue;
         private float _startingDarknessValue;
         private Navigation _tempNavStruct;
+        private InvGrid _specifiedContainer;
+        private RectTransform _selectedTransferOption;
 
 
 
@@ -85,6 +88,7 @@ namespace dtsInventory
 
             gameObject.SetActive(false);
             _darkenEffectImage.gameObject.SetActive(false);
+            _transferMenuController.SetContextMenuController(this);
             
 
         }
@@ -198,7 +202,7 @@ namespace dtsInventory
         public void DarkenMenu()
         {
             //ignore command if the grid is already dark
-            if (_darkenEffectImage.color.a == _darkenDuration)
+            if (_darkenEffectImage.color.a == _maxDarkness)
                 return;
 
             //ignore command if we're already darkening the grid
@@ -364,7 +368,8 @@ namespace dtsInventory
                 EventSystem.current.SetSelectedGameObject(null);
                 ForceImmediateUndarken();
                 gameObject.SetActive(false);
-                
+                _specifiedContainer = null;
+                _selectedButton = null;
             }
 
         }
@@ -374,6 +379,7 @@ namespace dtsInventory
             {
                 
                 _numericalSelector.HideNumericalSelector();
+                _transferMenuController.HideMenu();
                 HideOptionsWindow();
                 OnOptionSelected.Invoke(selectedOption, selectedAmount);
             } 
@@ -430,12 +436,53 @@ namespace dtsInventory
                     FocusOnFirstMenuOption();
             }
         }
+        public void SaveTransferOption(RectTransform savedRectTransform) { _selectedTransferOption = savedRectTransform; }
         public void SpecifyAmount(ContextOption specifiedOption)
         {
+            //if the context is to tranfer, we need to also specify which container to transfer to before specifying the amount
+            if (specifiedOption == ContextOption.TransferItem)
+            {
+                //if we haven't yet specified a container, show the tranfer menu
+                if (_specifiedContainer == null)
+                {
+                    Button transferBtn = null;
+                    foreach (Button btn in _currentButtons)
+                    {
+                        if (btn.GetComponent<ContextualOptionDefinition>().GetContextOption() == ContextOption.TransferItem)
+                        {
+                            transferBtn = btn;
+                            break;
+                        }
+                    }
+
+                    if (transferBtn == null)
+                    {
+                        Debug.LogError("The transfer button is missing from the button options. How did it get lost?" +
+                            "Cant determine the tranfser menu's draw position without it.");
+                        return;
+                    }
+
+                    Vector3 menuDrawPosition = transferBtn.GetComponent<RectTransform>().TransformPoint(Vector3.zero);
+                    _transferMenuController.ShowMenu(menuDrawPosition);
+                    _transferMenuController.OffsetMenu(_transferMenuOffsetFromButton);
+                    DarkenMenu();
+                    return;
+                }
+
+                //otherwise, the tranfer button option already told us the specified container.
+                //we've also already received the selected button
+                //continue as normal
+            }
+
             //skip opening the numerical selector if there's only 1 item to act upon
             if (_maximumInteractionAmount == 1)
             {
-                Debug.Log("Triggering selection due to max == 1");
+                if (specifiedOption == ContextOption.TransferItem)
+                {
+                    InvManagerHelper.GetInvController().SetTransferReceiverContext(_specifiedContainer);
+                    _specifiedContainer = null;
+                }
+
                 TriggerSelectionEventAndCloseWindow(specifiedOption, 1);
                 return;
             }
@@ -447,18 +494,37 @@ namespace dtsInventory
                 return;
             }
 
-
+            Debug.Log("Attempting to show the numerical selector...");
             _numericalSelector.ShowNumericalSelector(_minimumInteractionAmount,_maximumInteractionAmount);
-            _currentSelectedOption = specifiedOption;
+            Debug.Log("Numerical selector should be showing.");
 
-            //get the rect transform of this matching button
-            RectTransform rectTransform = _selectedButton.GetComponent<RectTransform>();
+            //if we're transferring items, then draw the numerical selector alongside the selected transferMenu button
+            if (specifiedOption == ContextOption.TransferItem)
+            {
+                _numericalSelector.GetRectTransform().position = _selectedTransferOption.GetComponent<RectTransform>().TransformPoint(_numberSelectorOffsetFromButton);
+            }
 
-            //move the numerical selector to the button's position (include the offset)
-            _numericalSelector.GetRectTransform().position = rectTransform.TransformPoint(_numberSelectorOffsetFromButton);
+            //draw the numerical selector alongside the context button [visually]
+            else
+            {
+                _currentSelectedOption = specifiedOption;
 
-            //darken the context menu
-            DarkenMenu();
+                //get the rect transform of this matching button
+                RectTransform rectTransform = _selectedButton.GetComponent<RectTransform>();
+
+                //move the numerical selector to the button's position (include the offset)
+                _numericalSelector.GetRectTransform().position = rectTransform.TransformPoint(_numberSelectorOffsetFromButton);
+
+                //darken the context menu
+                DarkenMenu();
+            }
+
+            
+        }
+        public void SpecifyAmount(ContextOption option, InvGrid specifiedGrid)
+        {
+            _specifiedContainer = specifiedGrid;
+            SpecifyAmount(option);
         }
         public void CloseNumericalSelector()
         {
@@ -527,6 +593,7 @@ namespace dtsInventory
         public bool PointerMode() { return _numericalSelector.IsInPointerMode(); }
         public RectTransform GetConfirmBtnRectTransform() { return _numericalSelector.GetConfirmBtnRectTransform(); }
         public RectTransform GetInputAreaRectTransform() { return _numericalSelector.GetTextNavAreaRectTransform(); }
+        public RectTransform GetTransferMenuRectTransform() { return _transferMenuController.GetComponent<RectTransform>(); }
         public void FocusOnNumericalSelector()
         {
             _numericalSelector.FocusOnTextNavigationTarget();
@@ -535,6 +602,21 @@ namespace dtsInventory
         {
             return _numericalSelector.IsTextNavigationFocused();
         }
+        public void ShowTransferMenu(Vector3 position)
+        {
+            _transferMenuController.ShowMenu(position);
+        }
+        public void HideTransferMenu()
+        {
+            _transferMenuController.HideMenu();
+        }
+        public bool IsTransferMenuOpen() { return _transferMenuController.IsTransferMenuOpen();}
+        public bool IsDarkened() 
+        {
+            // return true if the image is dark, or is currently darkening
+            return (_darkenEffectImage.color.a == _maxDarkness) || (_isDarkenInProgress && _targetDarknessValue == _maxDarkness);
+        }
+        public void UndarkenContextMenu() { UndarkenMenu(); }
     }
 
     public static class ContextWindowHelper
@@ -565,6 +647,10 @@ namespace dtsInventory
         public static bool IsPointerModeActive() { return _controller.PointerMode(); }
         public static void FocusOnNumericalSelector() { _controller.FocusOnNumericalSelector(); }
         public static bool IsNumericalSelectorCurrentlyFocused() { return _controller.IsNumericalSelectorCurrentlyFocused(); }
+        public static bool IsTransferMenuOpen() { return _controller.IsTransferMenuOpen(); }
+        public static bool IsMenuDarkened() { return _controller.IsDarkened(); }
+        public static void UndarkenContextmenu() { _controller.UndarkenMenu(); }
+        
 
     }
 }

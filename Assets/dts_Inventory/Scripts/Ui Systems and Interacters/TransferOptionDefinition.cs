@@ -11,8 +11,10 @@ namespace dtsInventory
     public class TransferOptionDefinition : MonoBehaviour
     {
         [SerializeField] Text _buttonText;
-        private InvGrid _invGridReference;
-        private TransferMenuController _menuController;
+        [SerializeField] private InvGrid _invGridReference;
+        [SerializeField] private TransferMenuController _menuController;
+
+        
 
 
 
@@ -24,7 +26,10 @@ namespace dtsInventory
         {
             if (_menuController != null && _invGridReference != null)
             {
-                _menuController.SubmitSelection(_invGridReference);
+                Debug.Log($"Selection Confirmed:\nGridReference: {_invGridReference}\nSelectedOption: {this.gameObject}");
+                _menuController.SetSelectedGrid(_invGridReference);
+                _menuController.SaveSelectedOption(this.gameObject);
+                _menuController.SubmitSelection();
             }
         }
     }

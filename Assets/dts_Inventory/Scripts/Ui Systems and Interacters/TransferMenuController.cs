@@ -14,11 +14,19 @@ namespace dtsInventory
         [SerializeField] private GameObject _containerOptionPrefab;
         [SerializeField] private Transform _activeOptionsContainer;
         [SerializeField] private Transform _unusedOptionsContainer;
+
+        [SerializeField] private float _spacingBtwnOptions = 2;
+        [SerializeField] private float _yPadding = 2;
+        [SerializeField] private float _xPadding = 2;
+        [SerializeField] private float _optionHeight;
+        [SerializeField] private float _optionWidth;
+
+        private ContextWindowController _contextController;
+        private InvGrid _selectedInvGrid;
         private List<Button> _btnOptions = new();
         private List<InvWindow> _openContainers = new();
-        private InvInteracter _invInteracter;
-        private InvGrid _selectedGrid;
-        private int _transferAmount;
+        private RectTransform _rectTransform;
+        private GameObject _selectedOption;
 
 
 
@@ -36,11 +44,12 @@ namespace dtsInventory
             }
 
             _unusedOptionsContainer.gameObject.SetActive(false);
+            _activeOptionsContainer.gameObject.SetActive(true);
+            _rectTransform = GetComponent<RectTransform>();
             
         }
         private void Start()
         {
-            _invInteracter = InvManagerHelper.GetInvController();
             HideMenu();
         }
 
@@ -57,21 +66,35 @@ namespace dtsInventory
             _openContainers.Clear();
             _btnOptions.Clear();
 
-            //ensure any options are recycled
-            foreach(Button btn in _activeOptionsContainer)
+            //ensure all options are recycled
+            List<GameObject> activeOptions = new();
+
+            //find all children that have options
+            for (int i = 0; i < _activeOptionsContainer.childCount; i++)
             {
-                btn.gameObject.SetActive(false);
-                btn.transform.SetParent(_unusedOptionsContainer);
+                if (_activeOptionsContainer.GetChild(i).GetComponent<TransferOptionDefinition>())
+                    activeOptions.Add(_activeOptionsContainer.GetChild(i).gameObject);
+                
             }
 
+            //remove all of the options
+            foreach (GameObject option in activeOptions)
+            {
+                option.SetActive(false);
+                option.transform.SetParent(_unusedOptionsContainer);
+            }
+
+            activeOptions.Clear();
+
+
             //get the updated collection of opened containers
-            _openContainers = _invInteracter.GetOpenedContainers();
+            _openContainers = InvManagerHelper.GetOpenedContainers();
 
             //rebuild the menu
             for (int i = 0; i < _openContainers.Count; i++)
             {
                 //ignore the invGrid that is the donor
-                if (_invInteracter.IsCurrentContextualInvGrid(_openContainers[i].GetItemGrid()))
+                if (InvManagerHelper.GetInvController().IsCurrentContextualInvGrid(_openContainers[i].GetItemGrid()))
                     continue;
 
                 //create the new option for this container
@@ -79,10 +102,19 @@ namespace dtsInventory
 
                 //reparent the new option
                 newOption.transform.SetParent(_activeOptionsContainer);
+                newOption.gameObject.SetActive(true);
 
                 //save the option
                 _btnOptions.Add(newOption);
             }
+
+            //resize the window to match the number of options
+            float betwixtSpacing = _spacingBtwnOptions * (_btnOptions.Count - 1);
+            float height = _yPadding + _optionHeight * _btnOptions.Count + _spacingBtwnOptions;
+            float width = _xPadding + _btnOptions[0].GetComponent<RectTransform>().sizeDelta.x; //make sure the child fits well
+            _rectTransform.sizeDelta = new Vector2(width, height);
+
+
         }
 
         private GameObject CreateNewOption(InvWindow invWindow)
@@ -137,39 +169,54 @@ namespace dtsInventory
 
 
         //Externals
+        public void SaveSelectedOption(GameObject selectedBtnObject) { _selectedOption = selectedBtnObject; }
+        public void SetContextMenuController(ContextWindowController controller) { _contextController = controller; }
+        public void SetSelectedGrid(InvGrid invGrid) { _selectedInvGrid = invGrid; }
         public bool IsTransferMenuOpen() { return gameObject.activeSelf; }
         public RectTransform GetRectTransform() { return GetComponent<RectTransform>(); }
-        public void ShowMenu(int transferAmount, Vector3 offset)
+        public void ShowMenu(Vector3 position)
         {
             if (_containerOptionPrefab == null)
                 return;
 
             if (!gameObject.activeSelf)
             {
-                if (!_invInteracter.DoOpenedContainersExist())
+                if (!InvManagerHelper.DoOpenedContainersExist())
                     return;
 
-
-                
-                _transferAmount = transferAmount;
                 BuildMenu();
-                GetComponent<RectTransform>().position += offset;
+                _rectTransform.position = position;
                 gameObject.SetActive(true);
 
             }
                 
         }
+        public void OffsetMenu(Vector3 offset)
+        {
+            _rectTransform.localPosition += offset;
+        }
         public void HideMenu()
         {
             if (gameObject.activeSelf)
+            {
+                if (ContextWindowHelper.IsMenuDarkened())
+                    ContextWindowHelper.UndarkenContextmenu();
                 gameObject.SetActive(false);
+            }
         }
-        public void SubmitSelection(InvGrid invGrid)
+        
+        public void SubmitSelection()
         {
-            _selectedGrid = invGrid;
 
+            if (_selectedInvGrid == null || _contextController == null)
+                return;
+
+            Debug.Log("Transfer menu submitted the option selection!");
+            _contextController.SaveTransferOption(_selectedOption.GetComponent<RectTransform>());
+            _contextController.SpecifyAmount(ContextOption.TransferItem, _selectedInvGrid);
+            _selectedOption = null;
+            _selectedInvGrid = null;
         }
-        public InvGrid GetSelectionDecision() { return _selectedGrid; }
-        public void ClearSelectionDecision() { _selectedGrid = null; _transferAmount = 0; }
+
     }
 }

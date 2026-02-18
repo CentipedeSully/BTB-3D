@@ -69,6 +69,7 @@ namespace dtsInventory
         (int, int) _hoveredCellIndex = (-1, -1);
         (int, int) _contextualItemPosition = (-1, -1);
         private InvGrid _contextualInvGrid;
+        private InvGrid _contextualGridReceiver;
         
         HashSet<(int, int)> _itemCellOccupancy = new();
         private List<ContextOption> _itemContextualOptions = new();
@@ -1080,7 +1081,10 @@ namespace dtsInventory
                     TransferItems(_invGrid,receiver,_hoveredCellIndex,_invGrid.GetStackValue(_hoveredCellIndex));
                 }
 
-                //else, show the transfer menu
+                else
+                {
+                    _contextWindowController.ShowTransferMenu(_uiCanvas.transform.InverseTransformPoint(_pointerRectTransform.position));
+                }
             }
         }
         private void TransferItems(InvGrid donor, InvGrid receiver, (int,int) cellPosition,int amount)
@@ -1255,6 +1259,11 @@ namespace dtsInventory
                         IgnoreOtherConfirmCommandsUntilEndOfFrame();
                         return;
 
+                    case ContextOption.TransferItem:
+                        RespondToTranfer(amount);
+                        SetInteractionLock(false);
+                        IgnoreOtherConfirmCommandsUntilEndOfFrame();
+                        return;
 
                     default:
                         return;
@@ -1358,9 +1367,18 @@ namespace dtsInventory
                 return;
 
             TransferItems(_contextualInvGrid,_homeInventoryGrid,_contextualItemPosition,amount);
+
+            PlayItemDropAudio();
         }
         private void RespondToTranfer(int amount)
         {
+            if (!IsContextualDataValid())
+                return;
+
+            TransferItems(_contextualInvGrid, _contextualGridReceiver, _contextualItemPosition, amount);
+
+
+            PlayItemDropAudio();
 
         }
 
@@ -1543,6 +1561,17 @@ namespace dtsInventory
                 return;
             }
 
+            //close the transferMenu if the click was outside of the menu
+            if (ContextWindowHelper.IsTransferMenuOpen())
+            {
+                RectTransform transferMenuRectTransform = _contextWindowController.GetTransferMenuRectTransform();
+
+                if (!RectTransformUtility.RectangleContainsScreenPoint(transferMenuRectTransform, _mousePosition))
+                    _contextWindowController.HideTransferMenu();
+
+                return;
+            }
+
             //close the window if the click wasn't inside the menu
             if (ContextWindowHelper.IsContextWindowShowing())
             {
@@ -1593,8 +1622,14 @@ namespace dtsInventory
                 return;
             }
 
-            //close the context menu if ANY rightClick is made
-            if (ContextWindowHelper.IsContextWindowShowing())
+            if (ContextWindowHelper.IsTransferMenuOpen())
+            {
+                _contextWindowController.HideTransferMenu();
+                return;
+            }
+
+                //close the context menu if ANY rightClick is made
+                if (ContextWindowHelper.IsContextWindowShowing())
             {
                 ContextWindowHelper.HideContextWindow();
                 return;
@@ -1652,6 +1687,9 @@ namespace dtsInventory
             if (ContextWindowHelper.IsNumericalSelectorWindowOpen())
                 return;
 
+            if (_contextWindowController.IsTransferMenuOpen())
+                return;
+
             if (ContextWindowHelper.IsContextWindowShowing())
                 return;
 
@@ -1698,6 +1736,9 @@ namespace dtsInventory
         public void RespondToRightDirectionalCommand()
         {
             if (ContextWindowHelper.IsNumericalSelectorWindowOpen())
+                return;
+
+            if (_contextWindowController.IsTransferMenuOpen())
                 return;
 
             if (ContextWindowHelper.IsContextWindowShowing())
@@ -1755,6 +1796,12 @@ namespace dtsInventory
                     ContextWindowHelper.IncrementNumericalSelector(10);
                 else
                     ContextWindowHelper.IncrementNumericalSelector(1);
+
+                return;
+            }
+
+            if (_contextWindowController.IsTransferMenuOpen())
+            {
 
                 return;
             }
@@ -1823,6 +1870,12 @@ namespace dtsInventory
                     ContextWindowHelper.DecrementNumericalSelector(10);
                 else
                     ContextWindowHelper.DecrementNumericalSelector(1);
+
+                return;
+            }
+
+            if (_contextWindowController.IsTransferMenuOpen())
+            {
 
                 return;
             }
@@ -2137,6 +2190,10 @@ namespace dtsInventory
         public bool IsCurrentContextualInvGrid(InvGrid invGrid)
         {
             return invGrid == _contextualInvGrid;
+        }
+        public void SetTransferReceiverContext(InvGrid receiver)
+        {
+            _contextualGridReceiver = receiver;
         }
     }
 
