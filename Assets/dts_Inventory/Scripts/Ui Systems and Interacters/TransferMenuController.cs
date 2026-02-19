@@ -14,6 +14,7 @@ namespace dtsInventory
         [SerializeField] private GameObject _containerOptionPrefab;
         [SerializeField] private Transform _activeOptionsContainer;
         [SerializeField] private Transform _unusedOptionsContainer;
+        [SerializeField] private UiDarkener _uiDarkener;
 
         [SerializeField] private float _spacingBtwnOptions = 2;
         [SerializeField] private float _yPadding = 2;
@@ -200,8 +201,10 @@ namespace dtsInventory
             if (gameObject.activeSelf)
             {
                 if (ContextWindowHelper.IsMenuDarkened())
-                    ContextWindowHelper.UndarkenContextmenu();
+                    ContextWindowHelper.UndarkenContextMenu();
+                _contextController.SetGridSelection(null);
                 gameObject.SetActive(false);
+                _uiDarkener.ForceImmediateUndarken();
             }
         }
         
@@ -211,12 +214,21 @@ namespace dtsInventory
             if (_selectedInvGrid == null || _contextController == null)
                 return;
 
-            Debug.Log("Transfer menu submitted the option selection!");
+            Debug.Log($"Transfer menu submitted the option selection!");
             _contextController.SaveTransferOption(_selectedOption.GetComponent<RectTransform>());
-            _contextController.SpecifyAmount(ContextOption.TransferItem, _selectedInvGrid);
+            _contextController.SetGridSelection(_selectedInvGrid);
+            _contextController.SpecifyAmount(ContextOption.TransferItem);
             _selectedOption = null;
             _selectedInvGrid = null;
         }
 
+        public bool IsDarkened()
+        {
+            // return true if the image is dark, or is currently darkening
+            return _uiDarkener.IsDarkened();
+        }
+        public void UndarkenTransferMenu() { _uiDarkener.UndarkenMenu(); }
+        public void DarkenTransferMenu() { _uiDarkener.DarkenMenu(); }
+        public void ForceImmediateUndarken() { _uiDarkener.ForceImmediateUndarken(); }
     }
 }

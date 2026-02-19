@@ -1368,7 +1368,7 @@ namespace dtsInventory
 
             TransferItems(_contextualInvGrid,_homeInventoryGrid,_contextualItemPosition,amount);
 
-            PlayItemDropAudio();
+            PlayItemDropAudio(_contextualInvGrid.GetStackItemData(_contextualItemPosition));
         }
         private void RespondToTranfer(int amount)
         {
@@ -1376,9 +1376,7 @@ namespace dtsInventory
                 return;
 
             TransferItems(_contextualInvGrid, _contextualGridReceiver, _contextualItemPosition, amount);
-
-
-            PlayItemDropAudio();
+            PlayItemDropAudio(_contextualInvGrid.GetStackItemData(_contextualItemPosition));
 
         }
 
@@ -1452,6 +1450,17 @@ namespace dtsInventory
                 if (_heldItem.ItemData().OnDropAudioClip() != null)
                 {
                     _audioSource.clip = _heldItem.ItemData().OnDropAudioClip();
+                    _audioSource.Play();
+                }
+            }
+        }
+        private void PlayItemDropAudio(ItemData itemData)
+        {
+            if (_audioSource != null && itemData != null)
+            {
+                if (itemData.OnDropAudioClip()!= null)
+                {
+                    _audioSource.clip = itemData.OnDropAudioClip();
                     _audioSource.Play();
                 }
             }
@@ -1628,8 +1637,8 @@ namespace dtsInventory
                 return;
             }
 
-                //close the context menu if ANY rightClick is made
-                if (ContextWindowHelper.IsContextWindowShowing())
+            //close the context menu if ANY rightClick is made
+            if (ContextWindowHelper.IsContextWindowShowing())
             {
                 ContextWindowHelper.HideContextWindow();
                 return;

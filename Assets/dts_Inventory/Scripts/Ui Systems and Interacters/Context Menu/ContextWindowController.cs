@@ -26,9 +26,7 @@ namespace dtsInventory
         [SerializeField] private GameObject _optionElementPrefab;
         [SerializeField] private RectTransform _pointerContainerTransform;
         [SerializeField] private Transform _buttonOptionsContainer;
-        [SerializeField] private Image _darkenEffectImage;
-        [SerializeField] private float _darkenDuration;
-        [SerializeField] private float _maxDarkness;
+        [SerializeField] private UiDarkener _uiDarkener;
         [SerializeField] private NumericalSelectorController _numericalSelector;
         [SerializeField] private TransferMenuController _transferMenuController;
         [Tooltip("Where to position the numerical selector when a context option is selected, relative to the selected button's position")]
@@ -51,11 +49,7 @@ namespace dtsInventory
         private ContextualOptionDefinition _contextOptionDef;
         public delegate void ContextWindowEvent(ContextOption selectedOption, int selectedAmount);
         public event ContextWindowEvent OnOptionSelected;
-        private bool _isDarkenInProgress = false;
-        private float _alpha;
-        private float _currentDarkenTime;
-        private float _targetDarknessValue;
-        private float _startingDarknessValue;
+
         private Navigation _tempNavStruct;
         private InvGrid _specifiedContainer;
         private RectTransform _selectedTransferOption;
@@ -87,17 +81,11 @@ namespace dtsInventory
             }
 
             gameObject.SetActive(false);
-            _darkenEffectImage.gameObject.SetActive(false);
             _transferMenuController.SetContextMenuController(this);
             
 
         }
 
-        private void Update()
-        {
-            if (_isDarkenInProgress)
-                UpdateDarkeningEffects();
-        }
 
         private void OnEnable()
         {
@@ -120,25 +108,7 @@ namespace dtsInventory
         {
             _numericalSelector.OnNumberSubmitted -= ConfirmNumercialSelection;
         }
-        private void UpdateDarkeningEffects()
-        {
-            if (_darkenEffectImage.color.a == _targetDarknessValue)
-            {
-                _isDarkenInProgress = false;
-                _currentDarkenTime = 0;
 
-                if (_targetDarknessValue == 0)
-                {
-                    _darkenEffectImage.gameObject.SetActive(false);
-                }
-            }
-            else
-            {
-                _currentDarkenTime += Time.deltaTime;
-                _alpha = Mathf.Lerp(_startingDarknessValue, _targetDarknessValue, _currentDarkenTime / _darkenDuration);
-                _darkenEffectImage.color = new Color(_darkenEffectImage.color.r, _darkenEffectImage.color.g, _darkenEffectImage.color.b, _alpha);
-            }
-        }
         private void RebuildButtonNavigations()
         {
             if (_currentButtons.Count == 0)
@@ -199,73 +169,7 @@ namespace dtsInventory
 
 
 
-        public void DarkenMenu()
-        {
-            //ignore command if the grid is already dark
-            if (_darkenEffectImage.color.a == _maxDarkness)
-                return;
 
-            //ignore command if we're already darkening the grid
-            if (_isDarkenInProgress && _targetDarknessValue == _maxDarkness)
-                return;
-
-            //if we're currently UNDOING a previous darkening effect, then reverse direction
-            if (_isDarkenInProgress && _targetDarknessValue == 0)
-            {
-                //reverse our progression point
-                _currentDarkenTime = _darkenDuration - _currentDarkenTime;
-
-                //ensure our start and end points are reversed
-                _startingDarknessValue = 0;
-                _targetDarknessValue = _maxDarkness;
-            }
-
-            //if we're starting
-            else if (!_isDarkenInProgress)
-            {
-                _startingDarknessValue = 0;
-                _targetDarknessValue = _maxDarkness;
-                _isDarkenInProgress = true;
-                _darkenEffectImage.gameObject.SetActive(true);
-            }
-        }
-        public void UndarkenMenu()
-        {
-            //ignore command if the grid is not dark
-            if (_darkenEffectImage.color.a == 0)
-                return;
-
-            //ignore command if we're already UNdarkening the grid
-            if (_isDarkenInProgress && _targetDarknessValue == 0)
-                return;
-
-            //if we're currently darkening, then reverse direction
-            if (_isDarkenInProgress && _targetDarknessValue == _maxDarkness)
-            {
-                //reverse our progression point
-                _currentDarkenTime = _darkenDuration - _currentDarkenTime;
-
-                //ensure our start and end points are reversed
-                _startingDarknessValue = _maxDarkness;
-                _targetDarknessValue = 0;
-            }
-
-            //if we're starting
-            else if (!_isDarkenInProgress)
-            {
-                _startingDarknessValue = _maxDarkness;
-                _targetDarknessValue = 0;
-                _isDarkenInProgress = true;
-                _currentDarkenTime = 0;
-            }
-        }
-        public void ForceImmediateUndarken()
-        {
-            _isDarkenInProgress = false;
-            _darkenEffectImage.color = new Color(_darkenEffectImage.color.r, _darkenEffectImage.color.g, _darkenEffectImage.color.b, 0);
-            _currentDarkenTime = 0;
-            _darkenEffectImage.gameObject.SetActive(false);
-        }
 
 
 
@@ -366,7 +270,8 @@ namespace dtsInventory
                 _boundWindow = null;
                 _currentButtons.Clear();
                 EventSystem.current.SetSelectedGameObject(null);
-                ForceImmediateUndarken();
+                _uiDarkener.ForceImmediateUndarken();
+                _transferMenuController.ForceImmediateUndarken();
                 gameObject.SetActive(false);
                 _specifiedContainer = null;
                 _selectedButton = null;
@@ -377,10 +282,12 @@ namespace dtsInventory
         {
             if (_isWindowOpen)
             {
-                
                 _numericalSelector.HideNumericalSelector();
                 _transferMenuController.HideMenu();
                 HideOptionsWindow();
+                Debug.Log($"Returning to invInteracter. Context: {selectedOption}, Amount:{selectedAmount}");
+
+
                 OnOptionSelected.Invoke(selectedOption, selectedAmount);
             } 
 
@@ -437,8 +344,14 @@ namespace dtsInventory
             }
         }
         public void SaveTransferOption(RectTransform savedRectTransform) { _selectedTransferOption = savedRectTransform; }
+        public void SetGridSelection(InvGrid transferGrid) { _specifiedContainer = transferGrid; }
         public void SpecifyAmount(ContextOption specifiedOption)
         {
+            if (specifiedOption == ContextOption.None)
+            {
+                Debug.LogError("Attempted to specift amount for empty context");
+                return;
+            }
             //if the context is to tranfer, we need to also specify which container to transfer to before specifying the amount
             if (specifiedOption == ContextOption.TransferItem)
             {
@@ -465,7 +378,7 @@ namespace dtsInventory
                     Vector3 menuDrawPosition = transferBtn.GetComponent<RectTransform>().TransformPoint(Vector3.zero);
                     _transferMenuController.ShowMenu(menuDrawPosition);
                     _transferMenuController.OffsetMenu(_transferMenuOffsetFromButton);
-                    DarkenMenu();
+                    _uiDarkener.DarkenMenu();
                     return;
                 }
 
@@ -484,6 +397,7 @@ namespace dtsInventory
                 }
 
                 TriggerSelectionEventAndCloseWindow(specifiedOption, 1);
+                Debug.Log("Transferring 1 item...");
                 return;
             }
 
@@ -494,43 +408,53 @@ namespace dtsInventory
                 return;
             }
 
-            Debug.Log("Attempting to show the numerical selector...");
             _numericalSelector.ShowNumericalSelector(_minimumInteractionAmount,_maximumInteractionAmount);
-            Debug.Log("Numerical selector should be showing.");
+            _currentSelectedOption = specifiedOption;
 
             //if we're transferring items, then draw the numerical selector alongside the selected transferMenu button
             if (specifiedOption == ContextOption.TransferItem)
             {
+
+                _numericalSelector.GetRectTransform().localPosition = Vector3.zero;
                 _numericalSelector.GetRectTransform().position = _selectedTransferOption.GetComponent<RectTransform>().TransformPoint(_numberSelectorOffsetFromButton);
+                InvManagerHelper.GetInvController().SetTransferReceiverContext(_specifiedContainer);
+                _specifiedContainer = null;
+
+
+                //darken the tranfer menu: if we reached this section of code, our transfer menu is already open 
+                //and the context menu is already darkened. 
+                _transferMenuController.DarkenTransferMenu();
+
             }
 
             //draw the numerical selector alongside the context button [visually]
             else
             {
-                _currentSelectedOption = specifiedOption;
 
                 //get the rect transform of this matching button
                 RectTransform rectTransform = _selectedButton.GetComponent<RectTransform>();
 
                 //move the numerical selector to the button's position (include the offset)
+
+                _numericalSelector.GetRectTransform().localPosition = Vector3.zero;
                 _numericalSelector.GetRectTransform().position = rectTransform.TransformPoint(_numberSelectorOffsetFromButton);
 
                 //darken the context menu
-                DarkenMenu();
+                _uiDarkener.DarkenMenu();
             }
 
             
-        }
-        public void SpecifyAmount(ContextOption option, InvGrid specifiedGrid)
-        {
-            _specifiedContainer = specifiedGrid;
-            SpecifyAmount(option);
         }
         public void CloseNumericalSelector()
         {
             _currentSelectedOption = ContextOption.None;
             _numericalSelector.HideNumericalSelector();
-            UndarkenMenu();
+
+            //if the transfer menu is open, undarken that first
+            if (ContextWindowHelper.IsTransferMenuOpen())
+                UndarkenTransferMenu();
+            else
+                UndarkenContextMenu();
         }
         public void ConfirmNumercialSelection(int amount)
         {
@@ -614,9 +538,10 @@ namespace dtsInventory
         public bool IsDarkened() 
         {
             // return true if the image is dark, or is currently darkening
-            return (_darkenEffectImage.color.a == _maxDarkness) || (_isDarkenInProgress && _targetDarknessValue == _maxDarkness);
+            return _uiDarkener.IsDarkened();
         }
-        public void UndarkenContextMenu() { UndarkenMenu(); }
+        public void UndarkenContextMenu() { _uiDarkener.UndarkenMenu(); }
+        public void UndarkenTransferMenu() { _transferMenuController.UndarkenTransferMenu(); }
     }
 
     public static class ContextWindowHelper
@@ -649,7 +574,7 @@ namespace dtsInventory
         public static bool IsNumericalSelectorCurrentlyFocused() { return _controller.IsNumericalSelectorCurrentlyFocused(); }
         public static bool IsTransferMenuOpen() { return _controller.IsTransferMenuOpen(); }
         public static bool IsMenuDarkened() { return _controller.IsDarkened(); }
-        public static void UndarkenContextmenu() { _controller.UndarkenMenu(); }
+        public static void UndarkenContextMenu() { _controller.UndarkenContextMenu(); }
         
 
     }
