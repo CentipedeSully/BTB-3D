@@ -1080,11 +1080,6 @@ namespace dtsInventory
 
                     TransferItems(_invGrid,receiver,_hoveredCellIndex,_invGrid.GetStackValue(_hoveredCellIndex));
                 }
-
-                else
-                {
-                    _contextWindowController.ShowTransferMenu(_uiCanvas.transform.InverseTransformPoint(_pointerRectTransform.position));
-                }
             }
         }
         private void TransferItems(InvGrid donor, InvGrid receiver, (int,int) cellPosition,int amount)
@@ -2036,6 +2031,12 @@ namespace dtsInventory
             if (ContextWindowHelper.IsNumericalSelectorWindowOpen())
             {
                 ContextWindowHelper.HideNumericalSelector();
+                return;
+            }
+
+            if (ContextWindowHelper.IsTransferMenuOpen())
+            {
+                ContextWindowHelper.HideTransferMenu();
                 return;
             }
 

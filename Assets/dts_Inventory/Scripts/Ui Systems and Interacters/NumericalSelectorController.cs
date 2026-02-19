@@ -147,7 +147,12 @@ public class NumericalSelectorController : MonoBehaviour
         {
             if (InvManagerHelper.GetInvController().GetInputMode() == InputMode.Directional)
             {
-                ContextWindowHelper.FocusOnLatestMenuOption();
+                //forus on the last transfer menu item if the tranfer menu is open
+                if (ContextWindowHelper.IsTransferMenuOpen())
+                    ContextWindowHelper.FocusOnLatestTransferMenuOption();
+
+                //otherwise focus on the last context menu item
+                else ContextWindowHelper.FocusOnLatestMenuOption();
             }
         }
         

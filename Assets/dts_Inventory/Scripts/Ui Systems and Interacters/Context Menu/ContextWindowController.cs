@@ -32,7 +32,6 @@ namespace dtsInventory
         [Tooltip("Where to position the numerical selector when a context option is selected, relative to the selected button's position")]
         [SerializeField] private Vector2 _numberSelectorOffsetFromButton;
         [SerializeField] private Vector2 _transferMenuOffsetFromButton;
-        
         private ContextOption _currentSelectedOption = ContextOption.None;
         private Button _selectedButton;
         private int _maximumInteractionAmount;
@@ -79,9 +78,10 @@ namespace dtsInventory
 
 
             }
-
+            _uiDarkener.ForceImmediateUndarken();
             gameObject.SetActive(false);
             _transferMenuController.SetContextMenuController(this);
+            
             
 
         }
@@ -192,7 +192,7 @@ namespace dtsInventory
 
 
             int optionCount = 0;
-
+            _buttonOptionsContainer.gameObject.SetActive(true);
             //show all matching context buttons, and hide all buttons that don't match the context
             for (int i = 0; i < _buttonOptionsContainer.childCount; i++)
             {
@@ -250,13 +250,7 @@ namespace dtsInventory
 
 
         }
-        public void ShowTranferWindow(Vector3 drawPosition, InvWindow boundWindow, int minimumInteractionAmount, int maximumInteractionAmount)
-        {
-            if (_transferMenuController == null)
-                return;
 
-            //_transferMenuController.ShowMenu(drawPosition)
-        }
         public void HideOptionsWindow()
         {
 
@@ -378,6 +372,7 @@ namespace dtsInventory
                     Vector3 menuDrawPosition = transferBtn.GetComponent<RectTransform>().TransformPoint(Vector3.zero);
                     _transferMenuController.ShowMenu(menuDrawPosition);
                     _transferMenuController.OffsetMenu(_transferMenuOffsetFromButton);
+                    _transferMenuController.SetSelectionToFirstElement();
                     _uiDarkener.DarkenMenu();
                     return;
                 }
@@ -533,6 +528,7 @@ namespace dtsInventory
         public void HideTransferMenu()
         {
             _transferMenuController.HideMenu();
+
         }
         public bool IsTransferMenuOpen() { return _transferMenuController.IsTransferMenuOpen();}
         public bool IsDarkened() 
@@ -542,6 +538,8 @@ namespace dtsInventory
         }
         public void UndarkenContextMenu() { _uiDarkener.UndarkenMenu(); }
         public void UndarkenTransferMenu() { _transferMenuController.UndarkenTransferMenu(); }
+        public void FocusOnTransferMenu() { _transferMenuController.SetSelectionToFirstElement(); }
+        public void FocusOnLatestTransferMenuElement() { _transferMenuController.SetSelectionToLatestElement(); }
     }
 
     public static class ContextWindowHelper
@@ -575,6 +573,9 @@ namespace dtsInventory
         public static bool IsTransferMenuOpen() { return _controller.IsTransferMenuOpen(); }
         public static bool IsMenuDarkened() { return _controller.IsDarkened(); }
         public static void UndarkenContextMenu() { _controller.UndarkenContextMenu(); }
+        public static void FocusOnTransferMenu() { _controller.FocusOnTransferMenu(); }
+        public static void FocusOnLatestTransferMenuOption() { _controller.FocusOnLatestTransferMenuElement(); }
+        public static void HideTransferMenu() { _controller.HideTransferMenu(); }
         
 
     }

@@ -4,6 +4,8 @@ using System.Collections.Generic;
 using System.Net.NetworkInformation;
 using UnityEngine;
 using UnityEngine.Analytics;
+using UnityEngine.Animations.Rigging;
+using UnityEngine.EventSystems;
 using UnityEngine.UI;
 
 namespace dtsInventory
@@ -28,6 +30,7 @@ namespace dtsInventory
         private List<InvWindow> _openContainers = new();
         private RectTransform _rectTransform;
         private GameObject _selectedOption;
+        private GameObject _latestSelectedObject;
 
 
 
@@ -47,11 +50,9 @@ namespace dtsInventory
             _unusedOptionsContainer.gameObject.SetActive(false);
             _activeOptionsContainer.gameObject.SetActive(true);
             _rectTransform = GetComponent<RectTransform>();
+            ForceImmediateUndarken();
+            gameObject.SetActive(false);
             
-        }
-        private void Start()
-        {
-            HideMenu();
         }
 
 
@@ -108,6 +109,9 @@ namespace dtsInventory
                 //save the option
                 _btnOptions.Add(newOption);
             }
+
+            //rebuild the navigation for the buttons
+            BuildNavigationData();
 
             //resize the window to match the number of options
             float betwixtSpacing = _spacingBtwnOptions * (_btnOptions.Count - 1);
@@ -166,6 +170,38 @@ namespace dtsInventory
             return newBtnObject;
 
         }
+        private void BuildNavigationData()
+        {
+            Navigation navData;
+
+            for (int i = 0; i < _btnOptions.Count; i++)
+            {
+                navData = _btnOptions[i].navigation;
+
+                navData.mode = Navigation.Mode.Explicit;
+                navData.wrapAround = true;
+
+                //wrap to the first element [when down is pressed] if this index is the last element
+                if (i == _btnOptions.Count - 1)
+                    navData.selectOnDown = _btnOptions[0];
+                //otherwise just go the next element in the list [when down is pressed]
+                else
+                    navData.selectOnDown = _btnOptions[i + 1];
+
+
+                //wrap to the last element [when up is pressed] if this index is the first element
+                if (i == 0)
+                    navData.selectOnUp = _btnOptions[_btnOptions.Count -1];
+
+                //otherwise just go the previous element in the list [when up is pressed]
+                else
+                    navData.selectOnUp = _btnOptions[i - 1];
+
+
+                //update the btn's nav data
+                _btnOptions[i].navigation = navData;
+            }
+        }
 
 
 
@@ -205,6 +241,10 @@ namespace dtsInventory
                 _contextController.SetGridSelection(null);
                 gameObject.SetActive(false);
                 _uiDarkener.ForceImmediateUndarken();
+
+                //focus navigation on the last known context menu option if 1) the menu is open and 2) we are in directional mode
+                if (ContextWindowHelper.IsContextWindowShowing() && InvManagerHelper.GetInvController().GetInputMode() == InputMode.Directional)
+                    ContextWindowHelper.FocusOnLatestMenuOption();
             }
         }
         
@@ -218,6 +258,7 @@ namespace dtsInventory
             _contextController.SaveTransferOption(_selectedOption.GetComponent<RectTransform>());
             _contextController.SetGridSelection(_selectedInvGrid);
             _contextController.SpecifyAmount(ContextOption.TransferItem);
+            _latestSelectedObject = _selectedOption;
             _selectedOption = null;
             _selectedInvGrid = null;
         }
@@ -230,5 +271,20 @@ namespace dtsInventory
         public void UndarkenTransferMenu() { _uiDarkener.UndarkenMenu(); }
         public void DarkenTransferMenu() { _uiDarkener.DarkenMenu(); }
         public void ForceImmediateUndarken() { _uiDarkener.ForceImmediateUndarken(); }
+        public void SetSelectionToFirstElement()
+        {
+            if (_btnOptions.Count > 0)
+            {
+                EventSystem.current.SetSelectedGameObject(_btnOptions[0].gameObject);
+                _latestSelectedObject = _btnOptions[0].gameObject;
+            }
+        }
+        public void SetSelectionToLatestElement()
+        {
+            if (_latestSelectedObject != null)
+                EventSystem.current.SetSelectedGameObject(_latestSelectedObject);
+            else 
+                SetSelectionToFirstElement();
+        }
     }
 }
