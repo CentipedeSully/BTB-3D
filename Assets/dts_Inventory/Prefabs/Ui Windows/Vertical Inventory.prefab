@@ -1234,6 +1234,7 @@ GameObject:
   - component: {fileID: 6948426074674928987}
   - component: {fileID: 381838643745246724}
   - component: {fileID: 7279745971405830584}
+  - component: {fileID: 4526048032060545596}
   m_Layer: 5
   m_Name: Header
   m_TagString: Untagged
@@ -1326,9 +1327,34 @@ MonoBehaviour:
   m_OnDidEndEdit:
     m_PersistentCalls:
       m_Calls:
+      - m_Target: {fileID: 4526048032060545596}
+        m_TargetAssemblyTypeName: dtsInventory.LockAndReleaseOnInputFieldEvents,
+          Assembly-CSharp
+        m_MethodName: UnlockInvSystem
+        m_Mode: 1
+        m_Arguments:
+          m_ObjectArgument: {fileID: 0}
+          m_ObjectArgumentAssemblyTypeName: UnityEngine.Object, UnityEngine
+          m_IntArgument: 0
+          m_FloatArgument: 0
+          m_StringArgument: 
+          m_BoolArgument: 0
+        m_CallState: 2
       - m_Target: {fileID: 5813932100073521210}
         m_TargetAssemblyTypeName: dtsInventory.InvWindow, Assembly-CSharp
         m_MethodName: RenameContainerViaInput
+        m_Mode: 1
+        m_Arguments:
+          m_ObjectArgument: {fileID: 0}
+          m_ObjectArgumentAssemblyTypeName: UnityEngine.Object, UnityEngine
+          m_IntArgument: 0
+          m_FloatArgument: 0
+          m_StringArgument: 
+          m_BoolArgument: 0
+        m_CallState: 2
+      - m_Target: {fileID: 5813932100073521210}
+        m_TargetAssemblyTypeName: dtsInventory.InvWindow, Assembly-CSharp
+        m_MethodName: ClearNav
         m_Mode: 1
         m_Arguments:
           m_ObjectArgument: {fileID: 0}
@@ -1349,6 +1375,18 @@ MonoBehaviour:
   m_CaretWidth: 1
   m_ReadOnly: 0
   m_ShouldActivateOnSelect: 1
+--- !u!114 &4526048032060545596
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 6255862560636390865}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: ecba9a8b181d20347a361deb082cbac1, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
 --- !u!1 &7573231875100885856
 GameObject:
   m_ObjectHideFlags: 0

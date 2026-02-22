@@ -135,5 +135,14 @@ namespace dtsInventory
 
         public void DarkenGrid() { _itemGrid.DarkenGrid(); }
         public void UndarkenGrid() { _itemGrid.UndarkenGrid(); }
+        public void ActivateInputFieldEditing()
+        {
+            _containerInputField.ActivateInputField();
+            InvManagerHelper.SetInvSystemLock(true);
+        }
+        public void ClearNav()
+        {
+            NavHelper.ClearNav();
+        }
     }
 }

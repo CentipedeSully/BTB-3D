@@ -10,7 +10,10 @@ namespace dtsInventory
 
         public ContextOption GetContextOption() { return _optionType; }
         public void PerformSelectionOfThisOption() 
-        { 
+        {
+            if (InvManagerHelper.IsInvSystemLocked())
+                return;
+
             _contextWindowController.MarkOptionAsSelected(GetComponent<Button>()); 
             _contextWindowController.SpecifyAmount(_optionType); 
         }

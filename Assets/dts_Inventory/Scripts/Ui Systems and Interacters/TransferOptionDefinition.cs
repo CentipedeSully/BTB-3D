@@ -24,6 +24,9 @@ namespace dtsInventory
         public void SetButtonText(string newText) {  _buttonText.text = newText; }
         public void ConfirmThisSelection()
         {
+            if (InvManagerHelper.IsInvSystemLocked())
+                return;
+
             if (_menuController != null && _invGridReference != null)
             {
                 Debug.Log($"Selection Confirmed:\nGridReference: {_invGridReference}\nSelectedOption: {this.gameObject}");

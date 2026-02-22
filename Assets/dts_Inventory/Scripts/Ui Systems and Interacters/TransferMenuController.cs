@@ -118,6 +118,7 @@ namespace dtsInventory
             float height = _yPadding + _optionHeight * _btnOptions.Count + _spacingBtwnOptions;
             float width = _xPadding + _btnOptions[0].GetComponent<RectTransform>().sizeDelta.x; //make sure the child fits well
             _rectTransform.sizeDelta = new Vector2(width, height);
+            
 
 
         }
@@ -275,14 +276,14 @@ namespace dtsInventory
         {
             if (_btnOptions.Count > 0)
             {
-                EventSystem.current.SetSelectedGameObject(_btnOptions[0].gameObject);
+                NavHelper.SetCurrentNavObject(_btnOptions[0].gameObject);
                 _latestSelectedObject = _btnOptions[0].gameObject;
             }
         }
         public void SetSelectionToLatestElement()
         {
             if (_latestSelectedObject != null)
-                EventSystem.current.SetSelectedGameObject(_latestSelectedObject);
+                NavHelper.SetCurrentNavObject(_latestSelectedObject);
             else 
                 SetSelectionToFirstElement();
         }

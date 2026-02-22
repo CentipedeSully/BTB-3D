@@ -25,6 +25,7 @@ namespace dtsInventory
         [SerializeField] private Text _heldStackText;
         [SerializeField] private RectTransform _heldStackContainer;
         [SerializeField] private GameObject _pointerContainer;
+        [SerializeField] private NavigationHelper _navHelper;
         
         [SerializeField] private Canvas _uiCanvas;
         [SerializeField] private GraphicRaycaster _graphicRaycaster;
@@ -35,11 +36,15 @@ namespace dtsInventory
             "Any Spawned invWindows will be a child of this transform.")]
         [SerializeField] private Transform _inventoryWindowsContainer;
         private HashSet<InvWindow> _knownInvWindows = new();
-        [SerializeField] private List<InvWindow> _openedInvWindows = new();
+        private List<InvWindow> _openedInvWindows = new();
         private RectTransform _defaultParentOfPointerContainer;
         private InvGrid _invGrid;
 
         [Header("Input Settings")]
+        [Tooltip("Completely stops ALL inputs (pointer commands and directional hotkeys) from affecting any Inv-related system." +
+            " Useful if you need to ignore all inventory-related inputs for an unspecified amount of time")]
+        [SerializeField] private bool _lockInvSystem = false;
+        [Tooltip("How sensitive should scrolling the mousewheel feel")]
         [SerializeField] private float _scrollMultiplier = 1;
 
         [Header("Audio Settings")]
@@ -91,10 +96,12 @@ namespace dtsInventory
 
         private Vector2 _mousePosition;
         private float _scrollDelta;
-        private bool _isInteractionsLocked = false;
+        private bool _isInventoryInteractionsLocked = false;
         private bool _ignoreConfirmUntilDelayExpires = false;
         private IEnumerator _resetIgnoreConfirmFlagCoroutine;
         private float _ignoreDelay = .05f;
+        private GameObject _selectedObjectBeforeLockdown;
+        
 
 
         //Monobehaviours
@@ -172,7 +179,8 @@ namespace dtsInventory
 
         private void Update()
         {
-            VisualizeHover();
+            if (!_lockInvSystem)
+                VisualizeHover();
         }
 
 
@@ -1227,7 +1235,7 @@ namespace dtsInventory
                 {
                     case ContextOption.OrganizeItem:
                         RespondToOrganize(amount);
-                        SetInteractionLock(false);
+                        SetInternalInventoryInteractionLock(false);
 
                         //Do this in case the input button [for UiButton events]
                         //is the same input as what's bound to the confirm response
@@ -1237,26 +1245,26 @@ namespace dtsInventory
 
                     case ContextOption.UseItem:
                         RespondToUse(amount);
-                        SetInteractionLock(false);
+                        SetInternalInventoryInteractionLock(false);
                         IgnoreOtherConfirmCommandsUntilEndOfFrame();
                         return;
 
                     case ContextOption.DiscardItem:
                         RespondToDiscard(amount);
-                        SetInteractionLock(false);
+                        SetInternalInventoryInteractionLock(false);
                         IgnoreOtherConfirmCommandsUntilEndOfFrame();
                         return;
 
 
                     case ContextOption.TakeItem:
                         RespondToTake(amount);
-                        SetInteractionLock(false);
+                        SetInternalInventoryInteractionLock(false);
                         IgnoreOtherConfirmCommandsUntilEndOfFrame();
                         return;
 
                     case ContextOption.TransferItem:
                         RespondToTranfer(amount);
-                        SetInteractionLock(false);
+                        SetInternalInventoryInteractionLock(false);
                         IgnoreOtherConfirmCommandsUntilEndOfFrame();
                         return;
 
@@ -1513,9 +1521,30 @@ namespace dtsInventory
 
 
 
+
+        public void RespondToChangeInputFieldCommand()
+        {
+            if (_lockInvSystem)
+                return;
+
+            if (ContextWindowHelper.IsNumericalSelectorWindowOpen())
+            {
+                ContextWindowHelper.ActivateNumericalSelectorInputEditing();
+                return;
+            }
+
+            if (_invGrid != null)
+            {
+                _invGrid.GetParentWindow().ActivateInputFieldEditing();
+                return;
+            }
+        }
         public void RespondToJumpWindowCommand()
         {
-            if (_isInteractionsLocked)
+            if (_lockInvSystem)
+                return;
+
+            if (_isInventoryInteractionsLocked)
                 return;
 
             //jump to the next opened window if [default:left-shift] is held down...
@@ -1529,7 +1558,10 @@ namespace dtsInventory
         }
         public void RotateHeldItemClockwise()
         {
-            if (_isInteractionsLocked)
+            if (_lockInvSystem)
+                return;
+
+            if (_isInventoryInteractionsLocked)
                 return;
 
             if (_heldItem != null)
@@ -1541,7 +1573,10 @@ namespace dtsInventory
         }
         public void RotateHeldItemCounterClockwise()
         {
-            if (_isInteractionsLocked)
+            if (_lockInvSystem)
+                return;
+
+            if (_isInventoryInteractionsLocked)
                 return;
 
             if (_heldItem != null )
@@ -1552,6 +1587,9 @@ namespace dtsInventory
         }
         public void RespondToLeftClick()
         {
+            if (_lockInvSystem)
+                return;
+
             //close the numerical selector if a click was detected outside of it (and the click wasn't in the confirm btn)
             if (ContextWindowHelper.IsNumericalSelectorWindowOpen())
             {
@@ -1587,7 +1625,7 @@ namespace dtsInventory
                 return;
             }
 
-            if (_isInteractionsLocked)
+            if (_isInventoryInteractionsLocked)
                 return;
 
             //only respond if we're hovering over a grid
@@ -1620,6 +1658,9 @@ namespace dtsInventory
         }
         public void RespondToRightClick()
         {
+            if (_lockInvSystem)
+                return;
+
             if (ContextWindowHelper.IsNumericalSelectorWindowOpen())
             {
                 ContextWindowHelper.HideNumericalSelector();
@@ -1639,7 +1680,7 @@ namespace dtsInventory
                 return;
             }
 
-            if (_isInteractionsLocked)
+            if (_isInventoryInteractionsLocked)
                 return;
 
             if (_invGrid != null)
@@ -1655,8 +1696,10 @@ namespace dtsInventory
         }
         public void RespondToMiddleClick()
         {
+            if (_lockInvSystem)
+                return;
 
-            if (_isInteractionsLocked)
+            if (_isInventoryInteractionsLocked)
                 return;
 
             if (_invGrid != null)
@@ -1668,6 +1711,9 @@ namespace dtsInventory
         }
         public void RespondToScroll()
         {
+            if (_lockInvSystem)
+                return;
+
             if (ContextWindowHelper.IsNumericalSelectorWindowOpen())
             {
                 //if scrolling within the input field
@@ -1687,7 +1733,9 @@ namespace dtsInventory
         }
         public void RespondToLeftDirectionalCommand()
         {
-            
+            if (_lockInvSystem)
+                return;
+
             if (ContextWindowHelper.IsNumericalSelectorWindowOpen())
                 return;
 
@@ -1697,7 +1745,7 @@ namespace dtsInventory
             if (ContextWindowHelper.IsContextWindowShowing())
                 return;
 
-            if (_isInteractionsLocked)
+            if (_isInventoryInteractionsLocked)
                 return;
 
             if (_lastKnownGrid != null)
@@ -1739,6 +1787,9 @@ namespace dtsInventory
         }
         public void RespondToRightDirectionalCommand()
         {
+            if (_lockInvSystem)
+                return;
+
             if (ContextWindowHelper.IsNumericalSelectorWindowOpen())
                 return;
 
@@ -1748,7 +1799,7 @@ namespace dtsInventory
             if (ContextWindowHelper.IsContextWindowShowing())
                 return;
 
-            if (_isInteractionsLocked)
+            if (_isInventoryInteractionsLocked)
                 return;
 
             if (_lastKnownGrid != null)
@@ -1789,6 +1840,9 @@ namespace dtsInventory
         }
         public void RespondToUpDirectionalCommand()
         {
+            if (_lockInvSystem)
+                return;
+
             if (ContextWindowHelper.IsNumericalSelectorWindowOpen())
             {
                 if (!ContextWindowHelper.IsNumericalSelectorCurrentlyFocused())
@@ -1822,7 +1876,7 @@ namespace dtsInventory
                 return;
             }
 
-            if (_isInteractionsLocked)
+            if (_isInventoryInteractionsLocked)
                 return;
 
             if (_lastKnownGrid != null)
@@ -1863,6 +1917,9 @@ namespace dtsInventory
         }
         public void RespondToDownDirectionalCommand()
         {
+            if (_lockInvSystem)
+                return;
+
             if (ContextWindowHelper.IsNumericalSelectorWindowOpen())
             {
                 if (!ContextWindowHelper.IsNumericalSelectorCurrentlyFocused())
@@ -1894,7 +1951,7 @@ namespace dtsInventory
                 return;
             }
 
-            if (_isInteractionsLocked)
+            if (_isInventoryInteractionsLocked)
                 return;
 
             if (_lastKnownGrid != null)
@@ -1935,12 +1992,18 @@ namespace dtsInventory
         }
         public void SetAlternateInputs(bool alternate1, bool alternate2, bool alternate3)
         {
+            if (_lockInvSystem)
+                return;
+
             _altCmd = alternate1;
             _altCmd2 = alternate2;
             _altCmd3 = alternate3;
         }
         public void SetMousePosition(Vector2 position)
         {
+            if (_lockInvSystem)
+                return;
+
             //update the mouse's latest position
             _mousePosition = position;
 
@@ -1949,6 +2012,9 @@ namespace dtsInventory
         }
         public void SetInputMode(InputMode newMode)
         {
+            if (_lockInvSystem)
+                return;
+
             if (_inputMode != newMode)
             {
                 if (ContextWindowHelper.IsContextWindowShowing())
@@ -1992,6 +2058,9 @@ namespace dtsInventory
         }
         public void SetScrollInput(Vector2 scrollDelta)
         {
+            if (_lockInvSystem)
+                return;
+
             //Debug.Log($"Scroll Read in from InputReader: {scrollDelta.y}");
             _scrollDelta = scrollDelta.y * _scrollMultiplier;
             RespondToScroll();
@@ -1999,6 +2068,9 @@ namespace dtsInventory
         public InputMode GetInputMode() { return _inputMode; }
         public void OpenInventoryWindow()
         {
+            if (_lockInvSystem)
+                return;
+
             if (_homeInventoryGrid != null)
             {
                 //only open the window if it's closed
@@ -2009,6 +2081,9 @@ namespace dtsInventory
         }
         public void CloseInventoryWindow()
         {
+            if (_lockInvSystem)
+                return;
+
             if (_homeInventoryGrid != null)
             {
                 //only close the window if its open
@@ -2019,6 +2094,9 @@ namespace dtsInventory
         }
         public void ToggleInventoryWindow()
         {
+            if (_lockInvSystem)
+                return;
+
             if (_homeInventoryGrid.GetParentWindow().IsWindowOpen())
                 CloseInventoryWindow();
 
@@ -2027,6 +2105,9 @@ namespace dtsInventory
         }
         public void RespondToBackInput()
         {
+            if (_lockInvSystem)
+                return;
+
             //back out of the numerical selector if it's open
             if (ContextWindowHelper.IsNumericalSelectorWindowOpen())
             {
@@ -2058,6 +2139,9 @@ namespace dtsInventory
         }
         public void RespondToConfirm()
         {
+            if (_lockInvSystem)
+                return;
+
             if (_ignoreConfirmUntilDelayExpires)
                 return;
 
@@ -2072,7 +2156,7 @@ namespace dtsInventory
             if (ContextWindowHelper.IsContextWindowShowing())
                 return;
 
-            if (_isInteractionsLocked)
+            if (_isInventoryInteractionsLocked)
                 return;
 
 
@@ -2115,9 +2199,9 @@ namespace dtsInventory
                 
             }
         }
-        private void SetInteractionLock(bool newState)
+        private void SetInternalInventoryInteractionLock(bool newState)
         {
-            _isInteractionsLocked = newState;
+            _isInventoryInteractionsLocked = newState;
 
             /*
             if (_isInteractionsLocked)
@@ -2127,7 +2211,7 @@ namespace dtsInventory
             */
             
         }
-        private void IgnoreOtherConfirmCommandsUntilEndOfFrame()
+        public void IgnoreOtherConfirmCommandsUntilEndOfFrame()
         {
             _ignoreConfirmUntilDelayExpires = true;
             //only trigger the coroutine if one isn't yet active
@@ -2205,6 +2289,11 @@ namespace dtsInventory
         {
             _contextualGridReceiver = receiver;
         }
+        public bool IsInvSystemLocked() { return _lockInvSystem; }
+        public void SetInvSystemLock(bool newState) 
+        { 
+            _lockInvSystem = newState; 
+        }
     }
 
     public static class InvManagerHelper
@@ -2229,7 +2318,9 @@ namespace dtsInventory
         public static bool DoOpenedContainersExist() { return _invController.DoOpenedContainersExist(); }
         public static List<InvWindow> GetOpenedContainers() { return _invController.GetOpenedContainers(); }
         public static AudioSource GetInvInteracterAudiosource() { return _invController.GetComponent<AudioSource>(); }
-
+        public static void SetInvSystemLock(bool newState) { _invController.SetInvSystemLock(newState); }
+        public static bool IsInvSystemLocked() { return _invController.IsInvSystemLocked(); }
+        public static void IgnoreOtherConfirmCommandsUntilEndOfFrame() { _invController.IgnoreOtherConfirmCommandsUntilEndOfFrame();}
 
     }
 }

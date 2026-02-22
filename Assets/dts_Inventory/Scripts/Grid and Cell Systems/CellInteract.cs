@@ -26,7 +26,7 @@ namespace dtsInventory
         //Interface
         public void OnPointerEnter(PointerEventData eventData)
         {
-            if (_grid != null)
+            if (_grid != null && !InvManagerHelper.IsInvSystemLocked())
             {
                 InvManagerHelper.SetHoveredCell(this);
                 InvManagerHelper.BringWindowToFront(_grid.GetParentWindow());
@@ -35,7 +35,7 @@ namespace dtsInventory
 
         public void OnPointerExit(PointerEventData eventData)
         {
-            if (_grid != null)
+            if (_grid != null && !InvManagerHelper.IsInvSystemLocked())
             {
                 InvManagerHelper.ClearHoveredCell(this);
             }

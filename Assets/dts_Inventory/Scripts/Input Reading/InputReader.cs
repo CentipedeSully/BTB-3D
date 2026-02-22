@@ -1,9 +1,5 @@
 using mapPointer;
-using System.Reflection;
 using UnityEngine;
-using UnityEngine.Rendering;
-using static UnityEditor.Searcher.SearcherWindow.Alignment;
-using static UnityEngine.EventSystems.StandaloneInputModule;
 
 
 namespace dtsInventory
@@ -34,6 +30,7 @@ namespace dtsInventory
         [SerializeField] private bool _upCmd = false;
         [SerializeField] private bool _downCmd = false;
         [SerializeField] private bool _inventoryCommand = false;
+        [SerializeField] private bool _editInputFieldCommandBaseKey = false;
         [SerializeField] private bool _lRotate = false;
         [SerializeField] private bool _rRotate = false;
         [SerializeField] private bool _confirm = false;
@@ -106,6 +103,7 @@ namespace dtsInventory
             _back = Input.GetKeyDown(KeyCode.Escape);
             _jumpWindow = Input.GetKeyDown(KeyCode.Tab);
             _inventoryCommand = Input.GetKeyDown(KeyCode.I);
+            _editInputFieldCommandBaseKey = Input.GetKeyDown(KeyCode.R);
             _alternativeInput = Input.GetKey(KeyCode.LeftShift);
             _alternativeInput2 = Input.GetKey(KeyCode.LeftControl);
             _alternativeInput3 = Input.GetKey(KeyCode.LeftAlt);
@@ -153,6 +151,9 @@ namespace dtsInventory
 
             if (_jumpWindow)
                 _invInteracter.RespondToJumpWindowCommand();
+
+            if (_editInputFieldCommandBaseKey && _alternativeInput)
+                _invInteracter.RespondToChangeInputFieldCommand();
 
 
             if (Input.mousePresent)

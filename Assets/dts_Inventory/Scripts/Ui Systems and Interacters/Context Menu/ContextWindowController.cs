@@ -53,6 +53,8 @@ namespace dtsInventory
         private InvGrid _specifiedContainer;
         private RectTransform _selectedTransferOption;
 
+        private GameObject _defaultReturnNavObject;
+
 
 
 
@@ -243,6 +245,9 @@ namespace dtsInventory
                 _minimumInteractionAmount = minimumInteractionAmount;
                 _maximumInteractionAmount = maximumInteractionAmount;
                 _itemData = itemData;
+
+                //set the default return nav object
+                _defaultReturnNavObject = _currentButtons[0].gameObject;
             }
             else
                 Debug.LogWarning("No contextual predefined contextual options were discovered. Ignoring 'ShowContextWindow' request");
@@ -323,7 +328,7 @@ namespace dtsInventory
         {
             if (_currentButtons.Count > 0)
             {
-                EventSystem.current.SetSelectedGameObject(_currentButtons[_currentButtons.Count -1].gameObject);
+                NavHelper.SetCurrentNavObject(_currentButtons[_currentButtons.Count - 1].gameObject);
             }
         
         }
@@ -332,7 +337,7 @@ namespace dtsInventory
             if (_currentButtons.Count > 0)
             {
                 if (_selectedButton.gameObject.activeSelf)
-                    EventSystem.current.SetSelectedGameObject(_selectedButton.gameObject);
+                    NavHelper.SetCurrentNavObject(_selectedButton.gameObject);
                 else 
                     FocusOnFirstMenuOption();
             }
@@ -540,6 +545,11 @@ namespace dtsInventory
         public void UndarkenTransferMenu() { _transferMenuController.UndarkenTransferMenu(); }
         public void FocusOnTransferMenu() { _transferMenuController.SetSelectionToFirstElement(); }
         public void FocusOnLatestTransferMenuElement() { _transferMenuController.SetSelectionToLatestElement(); }
+        public void ActivateNumericalSelectorInputEditing() 
+        { 
+            if (_numericalSelector.IsNumericalSelectorOpen())
+                _numericalSelector.ActivateInputEditing(); 
+        }
     }
 
     public static class ContextWindowHelper
@@ -576,6 +586,7 @@ namespace dtsInventory
         public static void FocusOnTransferMenu() { _controller.FocusOnTransferMenu(); }
         public static void FocusOnLatestTransferMenuOption() { _controller.FocusOnLatestTransferMenuElement(); }
         public static void HideTransferMenu() { _controller.HideTransferMenu(); }
+        public static void ActivateNumericalSelectorInputEditing() {  _controller.ActivateNumericalSelectorInputEditing();}
         
 
     }

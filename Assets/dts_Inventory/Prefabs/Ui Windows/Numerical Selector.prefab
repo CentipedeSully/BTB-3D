@@ -1112,6 +1112,7 @@ GameObject:
   - component: {fileID: 4805260121055411096}
   - component: {fileID: 8737413893544066717}
   - component: {fileID: 1222956322035517512}
+  - component: {fileID: 6161741852619159205}
   m_Layer: 5
   m_Name: Number inputDisplay
   m_TagString: Untagged
@@ -1258,9 +1259,34 @@ MonoBehaviour:
   m_OnDidEndEdit:
     m_PersistentCalls:
       m_Calls:
+      - m_Target: {fileID: 6161741852619159205}
+        m_TargetAssemblyTypeName: dtsInventory.LockAndReleaseOnInputFieldEvents,
+          Assembly-CSharp
+        m_MethodName: UnlockInvSystem
+        m_Mode: 1
+        m_Arguments:
+          m_ObjectArgument: {fileID: 0}
+          m_ObjectArgumentAssemblyTypeName: UnityEngine.Object, UnityEngine
+          m_IntArgument: 0
+          m_FloatArgument: 0
+          m_StringArgument: 
+          m_BoolArgument: 0
+        m_CallState: 2
       - m_Target: {fileID: 3387679963502274197}
         m_TargetAssemblyTypeName: NumericalSelectorController, Assembly-CSharp
         m_MethodName: VerifyInputOnEnd
+        m_Mode: 1
+        m_Arguments:
+          m_ObjectArgument: {fileID: 0}
+          m_ObjectArgumentAssemblyTypeName: UnityEngine.Object, UnityEngine
+          m_IntArgument: 0
+          m_FloatArgument: 0
+          m_StringArgument: 
+          m_BoolArgument: 0
+        m_CallState: 2
+      - m_Target: {fileID: 3387679963502274197}
+        m_TargetAssemblyTypeName: dtsInventory.NumericalSelectorController, Assembly-CSharp
+        m_MethodName: FocusOnTextNavigationTarget
         m_Mode: 1
         m_Arguments:
           m_ObjectArgument: {fileID: 0}
@@ -1281,3 +1307,15 @@ MonoBehaviour:
   m_CaretWidth: 1
   m_ReadOnly: 0
   m_ShouldActivateOnSelect: 1
+--- !u!114 &6161741852619159205
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 9207795701193546632}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: ecba9a8b181d20347a361deb082cbac1, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
