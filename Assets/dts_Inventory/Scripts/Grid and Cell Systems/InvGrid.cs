@@ -89,6 +89,7 @@ namespace dtsInventory
         private Image _darkenEffectImage;
         private float _originalAlpha;
         private float _alpha;
+        private IEnumerator _textUpdater;
 
         [Header("References")]
         [SerializeField] private GameObject _cellPrefab;
@@ -112,6 +113,9 @@ namespace dtsInventory
         [SerializeField] private bool _cmdMulticheckIfSpaceExists = false;
         [SerializeField] private bool _cmdDarkenGrid = false;
         [SerializeField] private bool _cmdUndarkenGrid = false;
+        [SerializeField] private Vector2Int _paramContainerModifier;
+        [SerializeField] private bool _cmdExpandGrid = false;
+        [SerializeField] private bool _cmdReduceGrid = false;
         /* Tests for the StackKey Generator [obsolete]  
         [SerializeField] private List<Vector2Int> _paramSet;
         [SerializeField] private bool _cmdTestKeyGeneration = false;
@@ -122,7 +126,7 @@ namespace dtsInventory
 
 
         private RectTransform _rectTransform;
-        private CellInteract[,] _cellObjects;
+        private Dictionary<(int,int),CellInteract> _cellInteractCollection = new();
         //private Dictionary<InventoryItem, List<(int, int)>> _containedItems = new(); //used for quick referencing any item in the grid
         //private Dictionary<(int, int), InventoryItem> _cellOccupancy = new(); //used to quickly check if specific cells are occupied (& what occupies them)
 
@@ -195,19 +199,11 @@ namespace dtsInventory
             //Initialize our references and utilities
             _rectTransform = GetComponent<RectTransform>();
             _layoutGroup = GetComponent<GridLayoutGroup>();
-            _cellObjects = new CellInteract[_containerSize.x, _containerSize.y];
             _layoutGroup.cellSize = _cellSize;
             _unusedStackTextsContainer.gameObject.SetActive(false);
 
             //Resize the UiWindow.
-            Vector2 dynamicSize = new();
-            dynamicSize.x = _containerSize.x * _cellSize.x + _layoutGroup.padding.right + _layoutGroup.padding.left;
-            dynamicSize.y = _containerSize.y * _cellSize.y + _layoutGroup.padding.bottom + _layoutGroup.padding.top;
-            _rectTransform.sizeDelta = dynamicSize;
-            _spritesContainer.sizeDelta = dynamicSize;
-            _activeStackTextsContainer.sizeDelta = dynamicSize;
-            _overlayContainer.sizeDelta = dynamicSize;
-            _gridDarkener.sizeDelta = dynamicSize;
+            ResizeContainer();
             _darkenEffectImage = _gridDarkener.GetComponent<Image>();
             _originalAlpha = _darkenEffectImage.color.a;
 
@@ -230,6 +226,17 @@ namespace dtsInventory
 
 
         //internals
+        private void ResizeContainer()
+        {
+            Vector2 dynamicSize = new();
+            dynamicSize.x = _containerSize.x * _cellSize.x + _layoutGroup.padding.right + _layoutGroup.padding.left;
+            dynamicSize.y = _containerSize.y * _cellSize.y + _layoutGroup.padding.bottom + _layoutGroup.padding.top;
+            _rectTransform.sizeDelta = dynamicSize;
+            _spritesContainer.sizeDelta = dynamicSize;
+            _activeStackTextsContainer.sizeDelta = dynamicSize;
+            _overlayContainer.sizeDelta = dynamicSize;
+            _gridDarkener.sizeDelta = dynamicSize;
+        }
         private void InitializeGrid()
         {
             //be mindful of the creation order of the cells. GridLayout configured to create them row by row.
@@ -237,14 +244,25 @@ namespace dtsInventory
             for (int y = 0; y < _containerSize.y; y++)//columns get created after rows
             {
                 for (int x = 0; x < _containerSize.x; x++)//rows get created first 
-                {
-                    GameObject newCell = Instantiate(_cellPrefab, _rectTransform);
-                    CellInteract cellInteract = newCell.GetComponent<CellInteract>();
-                    cellInteract.SetGrid(this);
-                    cellInteract.SetIndex((x, y));
-                    _cellObjects[x, y] = cellInteract;
-                }
+                    CreateNewCell((x, y));
             }
+        }
+        private GameObject CreateNewCell((int,int) index)
+        {
+            if (_cellInteractCollection.ContainsKey(index))
+            {
+                Debug.LogWarning($"Cell ({index.Item1},{index.Item2}) already exists within invetory {_parentWindow.ContainerName()}");
+                return null;
+            }
+
+            GameObject newCell = Instantiate(_cellPrefab, _rectTransform);
+            newCell.gameObject.name = $"Cell ({index.Item1},{index.Item2})";
+            CellInteract cellInteract = newCell.GetComponent<CellInteract>();
+            cellInteract.SetGrid(this);
+            cellInteract.SetIndex(index);
+            _cellInteractCollection.Add((index), cellInteract);
+            return newCell;
+
         }
         private void SeparateItemFromGridGraphically(InvItem item)
         {
@@ -637,10 +655,10 @@ namespace dtsInventory
         }
         public CellInteract GetCellObject((int, int) index)
         {
-            if (!IsCellOnGrid(index))
+            if (!_cellInteractCollection.ContainsKey(index))
                 return null;
 
-            return _cellObjects[index.Item1, index.Item2];
+            return _cellInteractCollection[index];
 
         }
         public ItemData GetStackItemData((int, int) index)
@@ -1808,7 +1826,7 @@ namespace dtsInventory
 
             List<ItemQueryResponse> totalQueryResponse = new List<ItemQueryResponse>();
             List<ItemQueryResponse> tempQueryResponse = new();
-            string debugString;
+            //string debugString;
             int iterationCount = 1;
 
             foreach (ItemQuery query in queryList)
@@ -1866,6 +1884,8 @@ namespace dtsInventory
                 return true;
             else return false;
         }
+
+        /* This utility is slow. It works, but it's really slow
         public int HowManyCanFit(ItemData itemData)
         {
             if (itemData == null)
@@ -1899,7 +1919,17 @@ namespace dtsInventory
             return amount;
 
         }
+        */
 
+        private IEnumerator RepositionTextAtEndOfFrame()
+        {
+            yield return new WaitForEndOfFrame();
+
+            foreach (KeyValuePair<HashSet<(int, int)>, Text> entry in _stackTexts)
+                PositionUiTextOntoStack(entry.Value.GetComponent<RectTransform>(), entry.Key);
+
+            _textUpdater = null;
+        }
         private void PositionUiTextOntoStack(RectTransform uiText, HashSet<(int, int)> stackPositions)
         {
 
@@ -1956,6 +1986,141 @@ namespace dtsInventory
         }
         public RectTransform GetOverlayRectTransform() { return _overlayContainer; }
 
+        public void ExpandGrid(int xPositions, int yPositions)
+        {
+            //ensure we're accepting no negative values
+            xPositions = Mathf.Max(xPositions, 0);
+            yPositions = Mathf.Max(yPositions, 0);
+
+            //return if no expansion is necessary
+            if (xPositions == 0 && yPositions == 0)
+                return;
+
+
+            List<(int,int)> newIndexes = new List<(int, int)>();
+            int indexPosition = -1;
+
+            //starting from (0,0) -> (1,0) -> (1,0) -> etc, record all the new "beyond container" indexes
+            for (int y = 0; y < _containerSize.y + yPositions; y++)
+            {
+                for (int x = 0; x < _containerSize.x + xPositions; x++)
+                {
+                    indexPosition++;
+                    //ignore all cells that already exist
+                    if (IsCellOnGrid((x, y)))
+                        continue;
+
+                    //otherwise, create the new Out-of-Bounds cells
+                    GameObject newCell = CreateNewCell((x, y));
+
+                    //if creation was successful
+                    if (newCell != null)
+                    {
+
+                        //place cell in it's appropriate position on the grid.
+                        newCell.GetComponent<RectTransform>().SetSiblingIndex(indexPosition);
+
+                    }
+                }
+            }
+
+            _containerSize.y = _containerSize.y + yPositions;
+            _containerSize.x = _containerSize.x + xPositions;
+
+            //resize the window, too.
+            ResizeContainer();
+            
+            if (_textUpdater == null)
+            {
+                _textUpdater = RepositionTextAtEndOfFrame();
+                StartCoroutine(_textUpdater);
+            }
+            else
+            {
+                StopCoroutine(_textUpdater);
+                _textUpdater = RepositionTextAtEndOfFrame();
+                StartCoroutine(_textUpdater);
+            }
+
+            _parentWindow.ResizeWindow();
+        }
+        public void ReduceGrid(int xPositions, int yPositions)
+        {
+            //ensure we're accepting no negative values
+            xPositions = Mathf.Max(xPositions, 0);
+            yPositions = Mathf.Max(yPositions, 0);
+
+            //if any of our parameters would reduce the grid's dimensions below 1, default the specified parameters to zero
+            if (_containerSize.x - xPositions < 1)
+                xPositions = 0;
+            if (_containerSize.y - yPositions < 1)
+                yPositions = 0;
+
+            //return if no expansion is necessary
+            if (xPositions == 0 && yPositions == 0)
+                return;
+
+
+            //calculate all of the target indexes 
+            List<(int,int)> removalIndexes = new List<(int,int)> ();
+            int xStartingRemovalIndex = _containerSize.x - xPositions -1;
+            int yStartingRemovalIndex = _containerSize.y - yPositions -1;
+
+            for (int y = 0; y < _containerSize.y; y++)
+            {
+                for (int x = 0; x < _containerSize.x; x++)
+                {
+
+                    if (x > xStartingRemovalIndex || y > yStartingRemovalIndex)
+                    {
+                        removalIndexes.Add((x, y));
+                        Debug.Log($"index ({x},{y}) marked for removal");
+                    }
+                }
+            }
+
+
+            //ensure nothing exists within the specified reduction boundaries
+            for (int i = 0; i < removalIndexes.Count; i++)
+            {
+                if (IsCellOccupied(removalIndexes[i]))
+                {
+                    Debug.LogWarning($"Attempted to reduce the grid size of contianer {_parentWindow.ContainerName()} by ({xPositions},{yPositions}), " +
+                        $"but Cell ({removalIndexes[i].Item1},{removalIndexes[i].Item2}) is occupied. Aborting grid Reduction.");
+                    return;
+                }
+            }
+
+
+            //now remove all of the specified indexes. Work from the back to the front.
+            for (int i = removalIndexes.Count - 1; i >= 0; i--)
+            {
+                GameObject CellToRemove = _cellInteractCollection[removalIndexes[i]].gameObject;
+                _cellInteractCollection.Remove(removalIndexes[i]);
+                Destroy(CellToRemove);
+            }
+
+            _containerSize.x = _containerSize.x - xPositions;
+            _containerSize.y = _containerSize.y - yPositions;
+
+            //resize the window, too.
+            ResizeContainer();
+
+            if (_textUpdater == null)
+            {
+                _textUpdater = RepositionTextAtEndOfFrame();
+                StartCoroutine(_textUpdater);
+            }
+            else
+            {
+                StopCoroutine(_textUpdater);
+                _textUpdater = RepositionTextAtEndOfFrame();
+                StartCoroutine(_textUpdater);
+            }
+
+            _parentWindow.ResizeWindow();
+        }
+
         //Debug
         public string StringifyPositions(HashSet<(int,int)> positions)
         {
@@ -1993,6 +2158,16 @@ namespace dtsInventory
             {
                 _cmdUndarkenGrid = false;
                 UndarkenGrid();
+            }
+            if (_cmdExpandGrid)
+            {
+                _cmdExpandGrid = false;
+                ExpandGrid(_paramContainerModifier.x,_paramContainerModifier.y);
+            }
+            if (_cmdReduceGrid)
+            {
+                _cmdReduceGrid = false;
+                ReduceGrid(_paramContainerModifier.x, _paramContainerModifier.y);
             }
 
             /* Tests for the StackKey Generator [obsolete]  

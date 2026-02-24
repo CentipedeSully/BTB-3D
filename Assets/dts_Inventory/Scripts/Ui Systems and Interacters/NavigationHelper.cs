@@ -23,6 +23,9 @@ public class NavigationHelper :MonoBehaviour
         if (_clearNav)
         {
             Debug.Log("ClearNav flag detected. Setting nav target to nothing");
+            if (_eventSystem.alreadySelecting)
+                yield return new WaitForEndOfFrame();
+
             _clearNav = false;
             _eventSystem.SetSelectedGameObject(null);
         }

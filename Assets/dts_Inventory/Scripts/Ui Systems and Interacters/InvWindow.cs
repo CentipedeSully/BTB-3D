@@ -52,13 +52,7 @@ namespace dtsInventory
 
         private void Start()
         {
-            float gridWidth = _actualGridRectTransform.sizeDelta.x;
-            float headerHeight = _headerRectTransform.sizeDelta.y;
-            float descHeight = _descRectTransform.sizeDelta.y;
-            float gridHeight = _actualGridRectTransform.sizeDelta.y;
-            _gridAreaRectTransform.sizeDelta = new Vector2(gridWidth, gridHeight);
-            _rectTransform.sizeDelta = new Vector2(gridWidth, headerHeight + descHeight + gridHeight);
-            _spritesContainerTransform.localPosition = _actualGridRectTransform.localPosition;
+            ResizeWindow();
 
             _canvas = CanvasReferenceHelper.GetCanvas();
 
@@ -70,6 +64,16 @@ namespace dtsInventory
 
 
         //externals
+        public void ResizeWindow()
+        {
+            float gridWidth = _actualGridRectTransform.sizeDelta.x;
+            float headerHeight = _headerRectTransform.sizeDelta.y;
+            float descHeight = _descRectTransform.sizeDelta.y;
+            float gridHeight = _actualGridRectTransform.sizeDelta.y;
+            _gridAreaRectTransform.sizeDelta = new Vector2(gridWidth, gridHeight);
+            _rectTransform.sizeDelta = new Vector2(gridWidth, headerHeight + descHeight + gridHeight);
+            _spritesContainerTransform.localPosition = _actualGridRectTransform.localPosition;
+        }
         public InvGrid GetItemGrid() { return _itemGrid; }
         public void OnDrag(PointerEventData eventData)
         {
