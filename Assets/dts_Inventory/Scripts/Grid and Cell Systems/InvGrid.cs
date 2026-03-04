@@ -2121,6 +2121,38 @@ namespace dtsInventory
             _parentWindow.ResizeWindow();
         }
 
+        /// <summary>
+        /// Returns every item that exists within the grid. Does NOT return the size of each stack. 
+        /// Use 'GetStackValue' on the first (or any) index of each of the returned keys to get each stack's size. 
+        /// </summary>
+        /// <returns>A collection of unique keyValue pairs where the key represents all the occupied positions 
+        /// of a specific item. The value associated with each key is the itemdata itself</returns>
+        /// 
+        public Dictionary<HashSet<(int,int)>,ItemData> GetAllStacks()
+        {
+            //make a new collection to give away, in case something tries to change the reference from beyond this script
+            Dictionary<HashSet<(int, int)>, ItemData> allItems = new Dictionary<HashSet<(int, int)>, ItemData>(HashSet<(int, int)>.CreateSetComparer());
+            
+
+            foreach(KeyValuePair<HashSet<(int,int)>,ItemData> entry in _stackItemDatas)
+            {
+                HashSet<(int, int)> tempHashSet = new();
+
+                //make a new collection to give away, in case something tries to change the reference from beyond this script
+                foreach ((int, int) position in entry.Key)
+                    tempHashSet.Add(position);
+
+                Debug.Log($"Stack: {entry.Value.name}\n Positions: {StringifyPositions(entry.Key)}");
+                allItems.Add(tempHashSet, entry.Value);
+            }
+
+            return allItems;
+        }
+
+
+
+
+
         //Debug
         public string StringifyPositions(HashSet<(int,int)> positions)
         {

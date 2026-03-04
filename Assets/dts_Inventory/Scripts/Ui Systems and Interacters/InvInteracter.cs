@@ -25,7 +25,7 @@ namespace dtsInventory
         [SerializeField] private Text _heldStackText;
         [SerializeField] private RectTransform _heldStackContainer;
         [SerializeField] private GameObject _pointerContainer;
-        [SerializeField] private NavigationHelper _navHelper;
+        //[SerializeField] private NavigationHelper _navHelper;
         
         [SerializeField] private Canvas _uiCanvas;
         [SerializeField] private GraphicRaycaster _graphicRaycaster;
@@ -128,6 +128,10 @@ namespace dtsInventory
             }
             
         }
+        private void Start()
+        {
+            ContextWindowHelper.SetPointerMode(true);
+        }
 
 
         private void OnEnable()
@@ -146,8 +150,6 @@ namespace dtsInventory
             //sub to all currently-known windows
             foreach (InvWindow window in _knownInvWindows)
                 SubscribeToWindow(window);
-
-            ContextWindowHelper.SetPointerMode(true);
 
         }
 
@@ -2294,6 +2296,7 @@ namespace dtsInventory
         { 
             _lockInvSystem = newState; 
         }
+        public Transform GetParentUiTransformForContainers() { return _inventoryWindowsContainer; }
     }
 
     public static class InvManagerHelper
@@ -2321,6 +2324,7 @@ namespace dtsInventory
         public static void SetInvSystemLock(bool newState) { _invController.SetInvSystemLock(newState); }
         public static bool IsInvSystemLocked() { return _invController.IsInvSystemLocked(); }
         public static void IgnoreOtherConfirmCommandsUntilEndOfFrame() { _invController.IgnoreOtherConfirmCommandsUntilEndOfFrame();}
+        public static Transform GetParentUiTransformForContainers() { return _invController.GetParentUiTransformForContainers(); }
 
     }
 }

@@ -33,9 +33,9 @@ namespace dtsInventory
 
 
         //monobehaviours
-        private void Awake()
+        private void Start()
         {
-            HideNumericalSelector();
+            //HideNumericalSelector();
         }
 
         private void OnDestroy()
