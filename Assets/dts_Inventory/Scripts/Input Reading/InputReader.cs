@@ -1,9 +1,22 @@
 using mapPointer;
+using System.Collections.Generic;
 using UnityEngine;
 
 
 namespace dtsInventory
 {
+    public static class InputFilter
+    {
+        static bool _allowNonUiInput = true;
+
+        public static bool AllowNonUiInput 
+        { 
+            get { return _allowNonUiInput; } 
+            set { _allowNonUiInput = value; } 
+        }
+
+    }
+
     public class InputReader : MonoBehaviour
     {
         //Declarations
@@ -12,6 +25,10 @@ namespace dtsInventory
         [SerializeField] private float _directionalMoveDelay = 0.02f;
         private bool _isCoolingDownPointer= false;
         private bool _isCoolingDownDirectional= false;
+
+        [Header("Demo-related utilities")]
+        [SerializeField] private MapPointer _mapPointer;
+        [SerializeField] private CameraController _camControlller;
 
         [Header("Detected Pointer Inputs")]
         [SerializeField] private bool _pointerActivityDetected = false;
@@ -32,7 +49,9 @@ namespace dtsInventory
         [SerializeField] private bool _inventoryCommand = false;
         [SerializeField] private bool _editInputFieldCommandBaseKey = false;
         [SerializeField] private bool _lRotate = false;
+        [SerializeField] private bool _lRotateHold = false;
         [SerializeField] private bool _rRotate = false;
+        [SerializeField] private bool _rRotateHold = false;
         [SerializeField] private bool _confirm = false;
         [SerializeField] private bool _back = false;
         [SerializeField] private bool _jumpWindow = false;
@@ -58,6 +77,14 @@ namespace dtsInventory
 
             if (_invInteracter!=null)
                 ShareInputsWithInvInteracter();
+
+            if (InputFilter.AllowNonUiInput == true)
+            {
+                if (Input.mousePresent)
+                    ShareInputsWithMapPointer();
+
+                ShareInputsWithCamController();
+            }
         }
 
 
@@ -97,7 +124,9 @@ namespace dtsInventory
             _downCmd = Input.GetKey(KeyCode.S) || Input.GetKey(KeyCode.DownArrow);
 
             _lRotate = Input.GetKeyDown(KeyCode.Q);
+            _lRotateHold = Input.GetKey(KeyCode.Q);
             _rRotate = Input.GetKeyDown(KeyCode.E);
+            _rRotateHold = Input.GetKey(KeyCode.E);
 
             _confirm = Input.GetKeyDown(KeyCode.Return);
             _back = Input.GetKeyDown(KeyCode.Escape);
@@ -214,11 +243,30 @@ namespace dtsInventory
 
         }
 
+        private void ShareInputsWithMapPointer()
+        {
+            if (_lClick)
+                _mapPointer.RespondToLeftClick();
+            else if (_rClick)
+                _mapPointer.RespondToRightClick();
+            else if (_mClick)
+                _mapPointer.RespondToMiddleClick();
+        }
+        private void ShareInputsWithCamController()
+        {
+            //respond to rotation commands
 
+            //default cam zoom to zero if no mouse is present
+            if (Input.mousePresent == false)
+                _camControlller.SetCamControls(_leftCmd, _rightCmd, _upCmd, _downCmd, _lRotateHold, _rRotateHold, Vector2.zero);
+
+            //else provide all values as is
+            else
+                _camControlller.SetCamControls(_leftCmd, _rightCmd, _upCmd, _downCmd, _lRotateHold, _rRotateHold, _scrollDelta);
+        }
 
 
         //externals
-
 
 
     }

@@ -44,12 +44,19 @@ namespace dtsInventory
     }
 
 
+    public interface IInteractable
+    {
+        GameObject GetGameObject();
+        void TriggerInteraction();
+        void EndInteraction();
+        float InteractDistance();
+    }
 
-
-    public class ContainerController : MonoBehaviour
+    public class ContainerController : MonoBehaviour, IInteractable
     {
         //Declarations
         [SerializeField] private GameObject _uiWindowPrefab;
+        [SerializeField] private float _interactRadius = 1;
         [SerializeField] List<LootRoll> _lootTable = new List<LootRoll>();
         private InvWindow _invWindow;
         [SerializeField] private Transform _containerUiParent;
@@ -107,6 +114,7 @@ namespace dtsInventory
 
 
             _invWindow = newUi.GetComponent<InvWindow>();
+            InvManagerHelper.TrackNewInvWindow(_invWindow);
 
         }
 
@@ -174,6 +182,12 @@ namespace dtsInventory
 
             _invWindow.CloseWindow();
         }
+        public GameObject GetGameObject(){ return gameObject; }
+
+        public void TriggerInteraction() { OpenContainer(); }
+        public void EndInteraction() { CloseContainer(); }
+
+        public float InteractDistance() { return _interactRadius; }
 
         public static List<bool> RollForLoot(List<LootRoll> lootTable, bool logRolls = false)
         {
@@ -239,6 +253,7 @@ namespace dtsInventory
             }
         }
 
+        
     }
 }
 

@@ -2,6 +2,7 @@ using System.Collections;
 using System.Collections.Generic;
 using TMPro;
 using UnityEngine;
+using UnityEngine.Rendering;
 
 public class CameraController : MonoBehaviour
 {
@@ -53,10 +54,10 @@ public class CameraController : MonoBehaviour
 
     private void Update()
     {
-        ReadInput();
-
+        /*
         if (_isCamControlEnabled)
             ControlCamera();
+        */
     }
 
 
@@ -203,6 +204,44 @@ public class CameraController : MonoBehaviour
 
         CalculateCameraMovementAxes();
         _isCamControlEnabled = true;
+    }
+    public void SetCamControls(bool left, bool right, bool up, bool down, bool rotateLeft, bool rotateRight, Vector2 zoomInput)
+    {
+        //reset move inputs
+        _positionInput = Vector2.zero;
+
+        if (left)
+            _positionInput.x += -1;
+        if (right)
+            _positionInput.x += 1;
+        if (down)
+            _positionInput.y += -1;
+        if (up)
+            _positionInput.y += 1;
+
+
+
+        //reset rotate input
+        _rotationInput = 0;
+
+        //read cam rotate input
+        if (rotateLeft)
+            _rotationInput += 1;
+        if (rotateRight)
+            _rotationInput += -1;
+
+
+
+        //reset zoom input
+        _zoomInput = Vector2.zero;
+
+        //read zoom input
+        _zoomInput = zoomInput;
+
+
+
+        //apply the changes
+        ControlCamera();
     }
 
 

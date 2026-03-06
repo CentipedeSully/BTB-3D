@@ -50,19 +50,23 @@ public class MapPointer : MonoBehaviour
 
     private void OnEnable()
     {
+        /* Personal Project code. You can delete this
         OnLClick += UpdateSelection;
         OnRClick += GiveOrder;
+        */
     }
 
     private void OnDisable()
     {
+        /* Personal Project code. You can delete this
         OnLClick -= UpdateSelection;
         OnRClick -= GiveOrder;
+        */
     }
 
     private void Update()
     {
-        ListenForInput();
+        //ListenForInput();
         DetectHoveredObjects();
     }
 
@@ -104,7 +108,7 @@ public class MapPointer : MonoBehaviour
 
     private void ReadyInput() { _inputReady = true; }
 
-
+    /* Personal Project code. You can delete this
     private void UpdateSelection()
     {
         CaptureDetectionsOnPointer();
@@ -128,7 +132,6 @@ public class MapPointer : MonoBehaviour
             
         }
     }
-
     private void GiveOrder()
     {
         RaycastHit[] detectionResults = CaptureDetectionsOnPointer();
@@ -170,7 +173,7 @@ public class MapPointer : MonoBehaviour
             }
         }
     }
-
+    */
 
     private void DetectHoveredObjects()
     {
@@ -249,6 +252,34 @@ public class MapPointer : MonoBehaviour
     public RaycastHit[] CaptureDetectionsOnPointer()
     {
         return CastDetections();
+    }
+    public void RespondToLeftClick()
+    {
+        if (!_inputReady)
+            return;
+
+        _inputReady = false;
+        Invoke(nameof(ReadyInput), _inputCooldown);
+        OnLClick?.Invoke();
+
+    }
+    public void RespondToRightClick()
+    {
+        if (!_inputReady)
+            return;
+
+        _inputReady = false;
+        Invoke(nameof(ReadyInput), _inputCooldown);
+        OnRClick?.Invoke();
+    }
+    public void RespondToMiddleClick()
+    {
+        if (!_inputReady)
+            return;
+
+        _inputReady = false;
+        Invoke(nameof(ReadyInput), _inputCooldown);
+        OnMClick?.Invoke();
     }
 
 

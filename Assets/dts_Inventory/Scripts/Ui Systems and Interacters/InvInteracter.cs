@@ -131,6 +131,7 @@ namespace dtsInventory
         private void Start()
         {
             ContextWindowHelper.SetPointerMode(true);
+
         }
 
 
@@ -215,12 +216,11 @@ namespace dtsInventory
                 if (window.IsWindowOpen() && !_openedInvWindows.Contains(window))
                 {
                     _openedInvWindows.Add(window);
-                    
+
                 }
                 
                 //subscribe to the window's open/close events
                 SubscribeToWindow(window);
-
             }
         }
         public void UntrackInvWindow(InvWindow window)
@@ -239,6 +239,7 @@ namespace dtsInventory
 
                 //unsub from the window's open/close events
                 UnsubFromWindow(window);
+                
             }
         }
         public bool IsWindowBeingTracked(InvWindow window)
@@ -389,12 +390,29 @@ namespace dtsInventory
         public void UpdateWindowAsOpened(InvWindow window)
         {
             if (!_openedInvWindows.Contains(window))
+            {
                 _openedInvWindows.Add(window);
+
+                //keep the non-ui inputs locked out if any windows are opened
+                if (_openedInvWindows.Count > 0)
+                {
+                    InputFilter.AllowNonUiInput = false;
+                }
+
+            }
         }
         public void UpdateWindowAsClosed(InvWindow window)
         {
             if (_openedInvWindows.Contains(window))
+            {
                 _openedInvWindows.Remove(window);
+
+                //allow non-ui inputs if all invWindows are closed
+                if (_openedInvWindows.Count == 0)
+                {
+                    InputFilter.AllowNonUiInput = true;
+                }
+            }
         }
 
 
