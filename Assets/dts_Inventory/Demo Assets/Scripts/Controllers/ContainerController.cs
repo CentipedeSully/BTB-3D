@@ -50,6 +50,7 @@ namespace dtsInventory
         void TriggerInteraction();
         void EndInteraction();
         float InteractDistance();
+
     }
 
     public class ContainerController : MonoBehaviour, IInteractable
@@ -57,6 +58,7 @@ namespace dtsInventory
         //Declarations
         [SerializeField] private GameObject _uiWindowPrefab;
         [SerializeField] private float _interactRadius = 1;
+        [SerializeField] private bool _showLootRolls = false;
         [SerializeField] List<LootRoll> _lootTable = new List<LootRoll>();
         private InvWindow _invWindow;
         [SerializeField] private Transform _containerUiParent;
@@ -123,7 +125,7 @@ namespace dtsInventory
             if (_invWindow == null)
                 return;
 
-            List<bool> lootRollResults = RollForLoot(_lootTable, true);
+            List<bool> lootRollResults = RollForLoot(_lootTable, _showLootRolls);
 
 
             //add all successfully-rolled items to the container
@@ -133,7 +135,10 @@ namespace dtsInventory
                 if (lootRollResults[i] == true)
                 {
                     int amountToAdd = UnityEngine.Random.Range(_lootTable[i].minAmount, _lootTable[i].maxAmount + 1);
-                    Debug.Log($"Rolled Amount to add: {amountToAdd}");
+                    
+                    if (_showLootRolls)
+                        Debug.Log($"Rolled Amount to add: {amountToAdd}");
+
                     _invWindow.GetItemGrid().AddItem(_lootTable[i].itemdata, amountToAdd);
                 }
                     
@@ -186,8 +191,8 @@ namespace dtsInventory
 
         public void TriggerInteraction() { OpenContainer(); }
         public void EndInteraction() { CloseContainer(); }
-
         public float InteractDistance() { return _interactRadius; }
+        
 
         public static List<bool> RollForLoot(List<LootRoll> lootTable, bool logRolls = false)
         {
@@ -244,7 +249,7 @@ namespace dtsInventory
                 //delete the contents of the container
                 foreach (KeyValuePair<HashSet<(int, int)>, ItemData> entry in allStacks)
                 {
-                    Debug.Log($"Deleting stack at position [{_invWindow.GetItemGrid().StringifyPositions(entry.Key)}]...");
+                    //Debug.Log($"Deleting stack at position [{_invWindow.GetItemGrid().StringifyPositions(entry.Key)}]...");
                     _invWindow.GetItemGrid().DeleteStack(entry.Key.First());
                 }
 

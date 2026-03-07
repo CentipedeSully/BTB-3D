@@ -39,6 +39,7 @@ namespace dtsInventory
         private List<InvWindow> _openedInvWindows = new();
         private RectTransform _defaultParentOfPointerContainer;
         private InvGrid _invGrid;
+        private InvWindow _currentHoveredWindow;
 
         [Header("Input Settings")]
         [Tooltip("Completely stops ALL inputs (pointer commands and directional hotkeys) from affecting any Inv-related system." +
@@ -213,14 +214,20 @@ namespace dtsInventory
                 _knownInvWindows.Add(window);
 
                 //also track whether or not the found window is opened
-                if (window.IsWindowOpen() && !_openedInvWindows.Contains(window))
+                if (window.IsWindowOpen())
                 {
-                    _openedInvWindows.Add(window);
+                    UpdateWindowAsOpened(window);
 
                 }
                 
                 //subscribe to the window's open/close events
                 SubscribeToWindow(window);
+
+                /*
+                Debug.Log($"Window [{window.name}] now being tracked.\n" +
+                    $"Is Window open?: {window.IsWindowOpen()}\n" +
+                    $"Is Window in the opened container?: {_openedInvWindows.Contains(window)}");
+                */
             }
         }
         public void UntrackInvWindow(InvWindow window)
@@ -234,8 +241,7 @@ namespace dtsInventory
                 _knownInvWindows.Remove(window);
 
                 //also ensure the window is removed from our 'opened' memory
-                if (_openedInvWindows.Contains(window))
-                    _openedInvWindows.Remove(window);
+                UpdateWindowAsClosed(window);
 
                 //unsub from the window's open/close events
                 UnsubFromWindow(window);
@@ -795,6 +801,20 @@ namespace dtsInventory
 
                 //Focus on our home (inv)windows
                 FocusOnWindowForDirectionalInput(_homeInventoryGrid.GetParentWindow());
+            }
+
+            //if our home grid is closed, but any other grid is opened, just go to a valid grid instead
+            else if (!_homeInventoryGrid.GetParentWindow().IsWindowOpen() && _openedInvWindows.Count > 0)
+            {
+                for (int i = 0; i < _openedInvWindows.Count; i++)
+                {
+                    //focus on the first valid opened window we find
+                    if (_openedInvWindows[i].GetItemGrid().ContainerSize().x > 0 && _openedInvWindows[i].GetItemGrid().ContainerSize().y > 0)
+                    {
+                        FocusOnWindowForDirectionalInput(_openedInvWindows[i]);
+                        return;
+                    }
+                }
             }
         }
 
@@ -2315,6 +2335,58 @@ namespace dtsInventory
             _lockInvSystem = newState; 
         }
         public Transform GetParentUiTransformForContainers() { return _inventoryWindowsContainer; }
+        public bool IsPointerPointContainedWithinInvUi()
+        {
+            if (_inputMode == InputMode.Pointer)
+            {
+                //return true if any invWindow is currently hovered
+                if (_currentHoveredWindow != null)
+                    return true;
+
+                //return true if the pointer is in any subUi menu system
+                if (ContextWindowHelper.IsNumericalSelectorWindowOpen())
+                {
+                    if (RectTransformUtility.RectangleContainsScreenPoint(_contextWindowController.NumericalSelectorRectTransform(), _mousePosition))
+                        return true;
+                }
+
+                if (ContextWindowHelper.IsContextWindowShowing())
+                {
+                    if (RectTransformUtility.RectangleContainsScreenPoint(_contextWindowController.GetComponent<RectTransform>(), _mousePosition))
+                        return true;
+                }
+
+                if (ContextWindowHelper.IsTransferMenuOpen())
+                {
+                    if (RectTransformUtility.RectangleContainsScreenPoint(_contextWindowController.GetTransferMenuRectTransform(), _mousePosition))
+                        return true;
+                }
+
+                return false;
+                
+            }
+
+            return false;
+            
+        }
+        public void SetCurrentHoveredInvWindow(InvWindow invWindow)
+        {
+            _currentHoveredWindow = invWindow;
+            //Debug.Log("Hovered Inv Ui Set");
+        }
+        public void ClearInvWindowFromHovered(InvWindow previousInWindow)
+        {
+            if (previousInWindow == _currentHoveredWindow)
+            {
+                _currentHoveredWindow = null;
+                //Debug.Log("Cleared hovered Inv Ui ");
+            }
+        }
+        public Vector3 GetMousePosition()
+        {
+            return _mousePosition;
+        }
+
     }
 
     public static class InvManagerHelper
@@ -2343,6 +2415,10 @@ namespace dtsInventory
         public static bool IsInvSystemLocked() { return _invController.IsInvSystemLocked(); }
         public static void IgnoreOtherConfirmCommandsUntilEndOfFrame() { _invController.IgnoreOtherConfirmCommandsUntilEndOfFrame();}
         public static Transform GetParentUiTransformForContainers() { return _invController.GetParentUiTransformForContainers(); }
+        public static void SetCurrentHoveredInvWindow(InvWindow hoveredWindow) { _invController.SetCurrentHoveredInvWindow(hoveredWindow); }
+        public static void ClearHoveredInvWindow(InvWindow previousHoveredWindow) { _invController.ClearInvWindowFromHovered(previousHoveredWindow); }
+        public static bool IsPointerWithinUiRect() { return _invController.IsPointerPointContainedWithinInvUi(); }
+        public static Vector2 GetMousePosition() { return _invController.GetMousePosition(); }
 
     }
 }

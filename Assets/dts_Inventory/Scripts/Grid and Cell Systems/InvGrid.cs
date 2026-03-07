@@ -2142,7 +2142,7 @@ namespace dtsInventory
                 foreach ((int, int) position in entry.Key)
                     tempHashSet.Add(position);
 
-                Debug.Log($"Stack: {entry.Value.name}\n Positions: {StringifyPositions(entry.Key)}");
+                //Debug.Log($"Stack: {entry.Value.name}\n Positions: {StringifyPositions(entry.Key)}");
                 allItems.Add(tempHashSet, entry.Value);
             }
 

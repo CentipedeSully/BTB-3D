@@ -5,7 +5,7 @@ using UnityEngine.UI;
 
 namespace dtsInventory
 {
-    public class InvWindow : MonoBehaviour, IDragHandler
+    public class InvWindow : MonoBehaviour, IDragHandler, IPointerEnterHandler, IPointerExitHandler
     {
         [Header("References")]
         [SerializeField] private RectTransform _headerRectTransform;
@@ -94,6 +94,8 @@ namespace dtsInventory
         {
             if (gameObject.activeSelf)
             {
+                InvManagerHelper.ClearHoveredInvWindow(this);
+
                 //close the context window if its bound to this window
                 if (ContextWindowHelper.IsContextWindowShowing())
                 {
@@ -106,6 +108,8 @@ namespace dtsInventory
                 //Debug.Log($"Firing [{gameObject.name}]'s OnClose Window Event now...");
                 OnWindowClosed?.Invoke(this);
                 gameObject.SetActive(false);
+
+
                 
 
             }
@@ -117,6 +121,12 @@ namespace dtsInventory
             {
 
                 gameObject.SetActive(true);
+
+                //update the hovered window state if applicable
+                if (RectTransformUtility.RectangleContainsScreenPoint(_rectTransform,InvManagerHelper.GetMousePosition()))
+                    InvManagerHelper.SetCurrentHoveredInvWindow(this);
+
+
                 //Debug.Log($"Firing [{gameObject.name}]'s OnOpen Window Event now...");
                 OnWindowOpened?.Invoke(this);
             }
@@ -147,6 +157,18 @@ namespace dtsInventory
         public void ClearNav()
         {
             NavHelper.ClearNav();
+        }
+
+        public void OnPointerEnter(PointerEventData eventData)
+        {
+            //Debug.Log("Pointer Entered an InvWindow");
+            InvManagerHelper.SetCurrentHoveredInvWindow(this);
+        }
+
+        public void OnPointerExit(PointerEventData eventData)
+        {
+            //Debug.Log("pointer Left an InvWindow");
+            InvManagerHelper.ClearHoveredInvWindow(this);
         }
     }
 }

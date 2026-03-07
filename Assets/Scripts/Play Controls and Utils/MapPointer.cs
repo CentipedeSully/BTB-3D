@@ -1,3 +1,4 @@
+using dtsInventory;
 using mapPointer;
 using System.Collections;
 using System.Collections.Generic;
@@ -189,7 +190,8 @@ public class MapPointer : MonoBehaviour
 
         }
 
-        if (detections.Length > 0)
+        //only provide hover feedback when the pointer ISNT in an inv ui element
+        if (detections.Length > 0 && !InvManagerHelper.IsPointerWithinUiRect())
         {
             GameObject closestDetection = detections[0].collider.gameObject;
             if (!closestDetection.CompareTag("Ground"))

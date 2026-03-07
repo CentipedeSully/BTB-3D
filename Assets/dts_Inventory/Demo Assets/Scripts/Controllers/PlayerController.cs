@@ -15,7 +15,6 @@ namespace dtsInventory
         [SerializeField] private bool _isMoving = false;
         [SerializeField] private GameObject _interactionTarget;
         private IInteractable _interactable;
-        [SerializeField] private bool _isInteractionInProgress = false;
         private NavMeshAgent _navAgent;
         private RaycastHit[] _raycastHits;
         float _distanceFromTarget = 0;
@@ -43,8 +42,8 @@ namespace dtsInventory
         {
             if (_isMoving)
             {
-                if (_interactionTarget != null && !_isInteractionInProgress)
-                    EndMoveAndInteractWhenInRange();
+                if (_interactionTarget != null)
+                    EnterInteractionWhenInRange();
 
                 WatchForMoveEnd();
             }
@@ -76,24 +75,32 @@ namespace dtsInventory
                 _interactable = interactible;
                 _interactionTarget = _interactable.GetGameObject();
             }
+            else
+                ClearInteractionTarget();
 
             MoveToPosition(chosedDetection.point);
         }
-        private void EndMoveAndInteractWhenInRange()
+        private void EnterInteractionWhenInRange()
         {
             _distanceFromTarget = Mathf.Abs(Vector3.Distance(_interactionTarget.transform.position, transform.position));
 
             if (_distanceFromTarget <= _interactable.InteractDistance())
             {
-                _isInteractionInProgress = true;
                 _interactable.TriggerInteraction();
+                ClearInteractionTarget();
                 EndMovement();
+
             }
         }
         private void WatchForMoveEnd()
         {
             if (_navAgent.isStopped)
                 EndMovement();
+        }
+        private void ClearInteractionTarget()
+        {
+            _interactable = null;
+            _interactionTarget = null;
         }
 
 
@@ -112,24 +119,8 @@ namespace dtsInventory
             _navAgent.isStopped = true;
             _navAgent.ResetPath();
 
-            if (!_isInteractionInProgress)
-            {
-                _interactionTarget = null;
-                _interactable = null;
-            }
         }
         public bool IsMoving() { return _isMoving; }
-        public bool IsInteractionInProgress() { return _isInteractionInProgress; }
-        public void EndCurrentInteraction()
-        {
-            if (_isInteractionInProgress)
-            {
-                _isInteractionInProgress = false;
-                _interactable.EndInteraction();
-                _interactable = null;
-                _interactionTarget = null;
-            }
-        }
 
 
 

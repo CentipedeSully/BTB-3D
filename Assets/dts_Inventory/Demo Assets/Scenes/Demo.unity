@@ -759,7 +759,7 @@ MonoBehaviour:
   _castDistance: 200
   _mapLayermask:
     serializedVersion: 2
-    m_Bits: 321
+    m_Bits: 353
   _inputCooldown: 0.1
   _pointerColor: {r: 0.6583052, g: 0.009611944, b: 0.6792453, a: 1}
   _hoverObject: {fileID: 1802178656}
@@ -4254,6 +4254,8 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   _pointerClickDelay: 0.1
   _directionalMoveDelay: 0.17
+  _mapPointer: {fileID: 665218362}
+  _camControlller: {fileID: 3313994365550775208}
   _pointerActivityDetected: 0
   _lClick: 0
   _rClick: 0
@@ -4269,7 +4271,9 @@ MonoBehaviour:
   _inventoryCommand: 0
   _editInputFieldCommandBaseKey: 0
   _lRotate: 0
+  _lRotateHold: 0
   _rRotate: 0
+  _rRotateHold: 0
   _confirm: 0
   _back: 0
   _jumpWindow: 0
