@@ -2149,7 +2149,47 @@ namespace dtsInventory
             return allItems;
         }
 
+        public bool DoesItemExist(ItemData item, int amount, out Dictionary<HashSet<(int,int)>,int> stackPositions)
+        {
+            stackPositions = new Dictionary<HashSet<(int, int)>,int>();
+            
+            if (item == null)
+                return false;
 
+            amount = Mathf.Max(1, amount);
+
+            int neededAmount = amount;
+            int amountTaken;
+
+            foreach(KeyValuePair<HashSet<(int,int)>,ItemData> itemEntry in _stackItemDatas)
+            {
+                if (itemEntry.Value == item)
+                {
+                    //take exacly what we need if its all here
+                    if ( _stackCapacities[itemEntry.Key] >= neededAmount)
+                        amountTaken = neededAmount;
+
+                    //or take the entire stack if we still need more
+                    else
+                        amountTaken = _stackCapacities[itemEntry.Key];
+
+                    neededAmount -= amountTaken;
+                    stackPositions.Add(itemEntry.Key, amountTaken);
+
+                    if (neededAmount == 0)
+                    {
+                        //the exacct positions and amounts are provided by the out parameter
+                        return true;
+                    }
+                }
+            }
+            
+            //the requested amount wasn't found. Return false
+            //Also clear the out parameter. Dont provide an incomplete query to the user
+            stackPositions.Clear();
+            return false;
+
+        }
 
 
 
