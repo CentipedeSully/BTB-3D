@@ -206,7 +206,9 @@ namespace dtsInventory
             return;
         }
 
-
+        public Vector2Int Lv1Dimensions() { return _gridDimensionsUpgradeLv1; }
+        public Vector2Int Lv2Dimensions() { return _gridDimensionsUpgradeLv2; }
+        public Vector2Int Lv3Dimensions() { return _gridDimensionsUpgradeLv3; }
 
 
 
