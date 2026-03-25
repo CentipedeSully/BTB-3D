@@ -26,12 +26,14 @@ public class MapPointer : MonoBehaviour
     [SerializeField] private LayerMask _mapLayermask;
     [SerializeField] private float _inputCooldown = .1f;
     [SerializeField] private Color _pointerColor;
+   
     
     private Ray _castRay;
 
     [Header("Ui Object References")]
     [SerializeField] private GameObject _hoverObject;
     [SerializeField] private Text _hoverText;
+    [SerializeField] private ExpandUiWindowController _uiExpansionController;
 
 
     [Header("Watch Values (Don't Modify)")]
@@ -191,7 +193,7 @@ public class MapPointer : MonoBehaviour
         }
 
         //only provide hover feedback when the pointer ISNT in an inv ui element
-        if (detections.Length > 0 && !InvManagerHelper.IsPointerWithinUiRect())
+        if (detections.Length > 0 && !InvManagerHelper.IsPointerWithinUiRect() && !_uiExpansionController.IsPointerInUi())
         {
             GameObject closestDetection = detections[0].collider.gameObject;
             if (!closestDetection.CompareTag("Ground"))

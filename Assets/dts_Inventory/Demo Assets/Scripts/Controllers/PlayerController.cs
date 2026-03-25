@@ -64,9 +64,6 @@ namespace dtsInventory
             //the map pointer autoSorts the detections. Nearest first
             RaycastHit chosedDetection = _raycastHits[0];
 
-            //ignore the cast if a ui element was captured (Ui layer is index:5)
-            if (chosedDetection.collider.gameObject.layer == 5)
-                return;
 
             //update our interal interact state if the player clicked an interactible
             IInteractable interactible = chosedDetection.collider.GetComponent<IInteractable>();
@@ -86,6 +83,7 @@ namespace dtsInventory
 
             if (_distanceFromTarget <= _interactable.InteractDistance())
             {
+                //Debug.Log("interaction Triggered");
                 _interactable.TriggerInteraction();
                 ClearInteractionTarget();
                 EndMovement();

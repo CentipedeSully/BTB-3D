@@ -398,12 +398,7 @@ namespace dtsInventory
             if (!_openedInvWindows.Contains(window))
             {
                 _openedInvWindows.Add(window);
-
-                //keep the non-ui inputs locked out if any windows are opened
-                if (_openedInvWindows.Count > 0)
-                {
-                    InputFilter.AllowNonUiInput = false;
-                }
+                InputFilter.DisallowNonUiInput(window.gameObject);
 
             }
         }
@@ -412,12 +407,7 @@ namespace dtsInventory
             if (_openedInvWindows.Contains(window))
             {
                 _openedInvWindows.Remove(window);
-
-                //allow non-ui inputs if all invWindows are closed
-                if (_openedInvWindows.Count == 0)
-                {
-                    InputFilter.AllowNonUiInput = true;
-                }
+                InputFilter.AllowNonUiInput(window.gameObject);
             }
         }
 

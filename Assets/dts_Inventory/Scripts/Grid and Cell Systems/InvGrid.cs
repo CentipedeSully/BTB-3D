@@ -2190,7 +2190,17 @@ namespace dtsInventory
             return false;
 
         }
+        public int CountItem(ItemData itemToCount)
+        {
+            int count = 0;
+            foreach (KeyValuePair<HashSet<(int,int)>,ItemData> entry in _stackItemDatas)
+            {
+                if (itemToCount == entry.Value)
+                    count += _stackCapacities[entry.Key];
+            }
 
+            return count;
+        }
 
 
         //Debug

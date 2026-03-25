@@ -21,6 +21,8 @@ namespace dtsInventory
         [SerializeField] private Text _containerNameText;
         [SerializeField] private InputField _containerInputField;
 
+        [SerializeField] private bool _autocloseOnStart = false;
+
         [Header("Customization")]
         [SerializeField] string _containerName;
 
@@ -58,6 +60,9 @@ namespace dtsInventory
 
             InvManagerHelper.TrackNewInvWindow(this);
             InvManagerHelper.ParentInvWindowToInventoryUisContainer(this);
+
+            if (_autocloseOnStart)
+                CloseWindow();
         }
 
 

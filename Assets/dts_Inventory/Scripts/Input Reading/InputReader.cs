@@ -5,15 +5,32 @@ using UnityEngine;
 
 namespace dtsInventory
 {
+    /// <summary>
+    /// Filters inputs
+    /// </summary>
     public static class InputFilter
     {
-        static bool _allowNonUiInput = true;
+        static List<GameObject> _objectDisallowingNonUiInput = new List<GameObject>();
 
-        public static bool AllowNonUiInput 
-        { 
-            get { return _allowNonUiInput; } 
-            set { _allowNonUiInput = value; } 
+
+        public static List<GameObject> GetAllObjectsDisallowingNonUiInput()
+        {
+            return _objectDisallowingNonUiInput;
         }
+
+        public static void DisallowNonUiInput(GameObject source)
+        {
+
+            if (!_objectDisallowingNonUiInput.Contains(source))
+                _objectDisallowingNonUiInput.Add(source);
+        }
+        public static void AllowNonUiInput(GameObject source)
+        {
+            if (_objectDisallowingNonUiInput.Contains(source))
+                _objectDisallowingNonUiInput.Remove(source);
+        }
+
+        public static bool AllowNonUiInput() { return _objectDisallowingNonUiInput.Count == 0; }
 
     }
 
@@ -59,8 +76,13 @@ namespace dtsInventory
         [SerializeField] private bool _alternativeInput2 = false;
         [SerializeField] private bool _alternativeInput3 = false;
         private InvInteracter _invInteracter;
+        private Vector2 _directionalInput;
 
-
+        public delegate void DirectionalInputEvent(Vector2 directionalInput);
+        public event DirectionalInputEvent OnDirectionalInputDetected;
+        public delegate void PressedInputEvent();
+        public event PressedInputEvent OnConfirmPressed;
+        public event PressedInputEvent OnCancelPressed;
 
 
 
@@ -78,7 +100,7 @@ namespace dtsInventory
             if (_invInteracter!=null)
                 ShareInputsWithInvInteracter();
 
-            if (InputFilter.AllowNonUiInput == true)
+            if (InputFilter.AllowNonUiInput() == true)
             {
                 if (Input.mousePresent)
                     ShareInputsWithMapPointer();
@@ -143,6 +165,25 @@ namespace dtsInventory
                 _directionalActivityDetected = true;
             else _directionalActivityDetected= false;
 
+            if (_leftCmd || _rightCmd || _upCmd || _downCmd)
+            {
+                _directionalInput = Vector2.zero;
+                if (_leftCmd)
+                    _directionalInput.x -= 1;
+                if (_rightCmd)
+                    _directionalInput.x += 1;
+                if (_upCmd) 
+                    _directionalInput.y += 1;
+                if (_downCmd)
+                    _directionalInput.y -= 1;
+
+                OnDirectionalInputDetected?.Invoke(_directionalInput);
+            }
+
+            if (_confirm)
+                OnConfirmPressed?.Invoke();
+            if (_back)
+                OnCancelPressed?.Invoke();
 
         }
 
@@ -267,7 +308,8 @@ namespace dtsInventory
 
 
         //externals
-
+        public Vector2 CurrentPointerPosition() { return _pointerPosition; }
+        public bool DoesPointerExist() { return Input.mousePresent; }
 
     }
 }
