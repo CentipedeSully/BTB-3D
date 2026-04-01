@@ -79,6 +79,9 @@ namespace dtsInventory
                 return false;
             }
 
+            //Merge both lists into a single dictionary
+            //count duplicate item entries
+            Dictionary<string,int> costsDict = new Dictionary<string,int>();
 
             for (int i = 0; i < itemList.Count; i++)
             {
@@ -88,12 +91,21 @@ namespace dtsInventory
                     continue;
                 }
 
-                Dictionary<HashSet<(int, int)>, int> queryResults = new();
-                if (!grid.DoesItemExist(itemList[i], costList[i], out queryResults))
+                if (costsDict.ContainsKey(itemList[i].ItemCode()))
+                    costsDict[itemList[i].ItemCode()] += costList[i];
+                else
+                    costsDict.Add(itemList[i].ItemCode(), costList[i]);
+            }
+
+
+            Dictionary<HashSet<(int, int)>, int> queryResults = new();
+            foreach(KeyValuePair<string,int> entry in costsDict)
+            {
+                if (!grid.DoesItemExist(ItemCreatorHelper.GetItemDataFromItemCode(entry.Key),entry.Value, out queryResults))
                 {
-                    Debug.Log($"Grid [{grid.name}] FAILED to contain {costList[i]} {itemList[i].name}. returning false");
+                    Debug.Log($"Grid [{grid.name}] FAILED to contain {entry.Value} {ItemCreatorHelper.GetItemDataFromItemCode(entry.Key).name}(s). returning false");
                     return false;
-                }
+                }       
             }
 
             return true;
