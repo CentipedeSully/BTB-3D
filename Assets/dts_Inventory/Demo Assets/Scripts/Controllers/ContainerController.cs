@@ -258,7 +258,7 @@ namespace dtsInventory
                 foreach (KeyValuePair<HashSet<(int, int)>, ItemData> entry in allStacks)
                 {
                     //Debug.Log($"Deleting stack at position [{_invWindow.GetItemGrid().StringifyPositions(entry.Key)}]...");
-                    _invWindow.GetItemGrid().DeleteStack(entry.Key.First());
+                    _invWindow.GetItemGrid().RemoveItem(entry.Key.First(),_invWindow.GetItemGrid().GetStackValue(entry.Key.First()));
                 }
 
                 InitializeContents();

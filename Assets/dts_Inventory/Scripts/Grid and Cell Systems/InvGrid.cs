@@ -2,7 +2,6 @@ using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
-using UnityEditor;
 using UnityEngine;
 using UnityEngine.UI;
 
@@ -883,7 +882,7 @@ namespace dtsInventory
             //hide or toggle the stack text based on the new amount
             ToggleStackTextViaCurrentAmount(_stackTexts[stackArea].GetComponent<RectTransform>(), _stackCapacities[stackArea]);
         }
-        public void DecreaseStack((int, int) position, int decrement)
+        private void DecreaseStack((int, int) position, int decrement)
         {
             HashSet<(int, int)> stackArea = StackArea(position);
             if (stackArea.Count <= 0)
@@ -902,7 +901,7 @@ namespace dtsInventory
                 DeleteStack(position);
 
         }
-        public void DeleteStack((int, int) position)
+        private void DeleteStack((int, int) position)
         {
             HashSet<(int, int)> stackArea = StackArea(position);
             if (stackArea.Count <= 0)
@@ -1017,11 +1016,16 @@ namespace dtsInventory
         /// </summary>
         /// <param name="position"></param>
         /// <param name="amount"></param>
-        public void RemoveItem((int, int) position, int amount)
+        /// <param name="suppressOnChangedEvent">If true, then the "OnContentsChanged" event will not fire in response to this current operation. 
+        /// Use this if you need to perform multiple operations as one operation before raising the OnContentsChanged event.
+        /// If you're doing this, then call 'ForceRaiseBulkInvContentsChanged' after all your operations are performed. 
+        /// You'll need to track your performed changes manually, in this case.</param>
+        /// <returns>true if all requested items were removed successfully. false otherwise.</returns>
+        public bool RemoveItem((int, int) position, int amount, bool suppressOnChangedEvent = false)
         {
             //ignore if no stack exists at the position
             if (StackArea(position).Count == 0)
-                return;
+                return false;
 
             //Log invalid command if not enough items exist within the stack at the specified position
             if (_stackCapacities[StackArea(position)] < amount)
@@ -1029,22 +1033,31 @@ namespace dtsInventory
 
                 //if we got down here, then we didn't find the full amount of items to fulfill the request. Raise a yellow alert. The User probably didn't check the item count beforehand.
                 Debug.LogWarning($"Failed to find {amount} items at position [({position.Item1},{position.Item2})]. Found {amount} items.");
-                return;
+                return false;
             }
 
+            if (!suppressOnChangedEvent)
+                RaiseInvContentsChangeEvent(new InvContentsUpdate(GetStackItemData(position), amount, InvOperation.Remove));
+
             DecreaseStack(position, amount);
+            return true;
         }
 
         /// <summary>
-        /// Removes the requested amount of items from the inventory. If not enough exist, then the command is ignored.
+        /// Removes the requested amount of whatever that exists at the specified position. If not enough existsm then the command is ignored.
         /// </summary>
-        /// <param name="itemCode"></param>
+        /// <param name="position"></param>
         /// <param name="amount"></param>
-        public void RemoveItem(string itemCode, int amount)
+        /// <param name="suppressOnChangedEvent">If true, then the "OnContentsChanged" event will not fire in response to this current operation. 
+        /// Use this if you need to perform multiple operations as one operation before raising the OnContentsChanged event.
+        /// If you're doing this, then call 'ForceRaiseBulkInvContentsChanged' after all your operations are performed. 
+        /// You'll need to track your performed changes manually, in this case.</param>
+        /// <returns>true if all requested items were removed successfully. false otherwise.</returns>
+        public bool RemoveItem(string itemCode, int amount, bool suppressOnChangedEvent = false)
         {
             int remainder = amount;
             int found = 0;
-            Dictionary<HashSet<(int, int)>, int> _foundAmounts = new Dictionary<HashSet<(int, int)>, int>(HashSet<(int, int)>.CreateSetComparer());
+            Dictionary<HashSet<(int, int)>, int> foundAmounts = new Dictionary<HashSet<(int, int)>, int>(HashSet<(int, int)>.CreateSetComparer());
 
             //check each itemStack's itemData for a matching itemCode
             foreach (KeyValuePair<HashSet<(int, int)>, ItemData> entry in _stackItemDatas)
@@ -1058,17 +1071,20 @@ namespace dtsInventory
                         RemoveItem(entry.Key.First(), remainder);
 
                         //then remove all the recorded amounts from the previous stacks
-                        foreach (KeyValuePair<HashSet<(int,int)>,int> stack in _foundAmounts)
+                        foreach (KeyValuePair<HashSet<(int,int)>,int> stack in foundAmounts)
                             RemoveItem(stack.Key.First(), stack.Value);
 
-                        return;
+                        if (!suppressOnChangedEvent)
+                            RaiseInvContentsChangeEvent(new InvContentsUpdate(ItemCreatorHelper.GetItemDataFromItemCode(itemCode), amount, InvOperation.Remove));
+
+                        return true;
                     }
 
                     //else, save the current stack, reduce the amount by the found stack's capacity, and continue looking for the remainder
                     else
                     {
                         found += _stackCapacities[entry.Key];
-                        _foundAmounts[entry.Key] = _stackCapacities[entry.Key];
+                        foundAmounts[entry.Key] = _stackCapacities[entry.Key];
                         remainder -= _stackCapacities[entry.Key];
                     }
                 }
@@ -1076,11 +1092,11 @@ namespace dtsInventory
 
             //if we got down here, then we didn't find the full amount of items to fulfill the request. Raise a yellow alert. The User probably didn't check the item count beforehand.
             Debug.LogWarning($"Failed to find {amount} items of itemCode [{itemCode}]. Only found {found} of {amount} items.");
-            return;
+            return false;
         }
-        public void RemoveItem(ItemData itemData, int amount)
+        public bool RemoveItem(ItemData itemData, int amount, bool suppressOnChangedEvent = false)
         {
-            RemoveItem(itemData.ItemCode(), amount);
+            return RemoveItem(itemData.ItemCode(), amount, suppressOnChangedEvent);
         }
 
         /// <summary>
@@ -1088,12 +1104,12 @@ namespace dtsInventory
         ///  and the operation will fail. Pre-existing stacks will be filled before creating new stacks.
         /// </summary>
         /// <param name="itemData"></param>
-        /// /// <param name="suppressItemAddedEvent">If true, then the "OnContentsChanged" event will not fire in response to this current operation. 
+        /// /// <param name="suppressOnChangedEvent">If true, then the "OnContentsChanged" event will not fire in response to this current operation. 
         /// Use this if you need to perform multiple operations as one operation before raising the OnContentsChanged event.
         /// If you're doing this, then call 'ForceRaiseBulkInvContentsChanged' after all your operations are performed. 
         /// You'll need to track your performed changes manually, in this case.</param>
         /// <returns>true if all items were added successfully. false otherwise.</returns>
-        public bool AddItem(ItemData itemData, int amount, bool suppressItemAddedEvent = false)
+        public bool AddItem(ItemData itemData, int amount, bool suppressOnChangedEvent = false)
         {
             //make sure the item is valid
             if (itemData == null)
@@ -1156,7 +1172,7 @@ namespace dtsInventory
                     //we've Added the requested items into preexisting stacks
                     if (remainingAmount == 0)
                     {
-                        if (!suppressItemAddedEvent)
+                        if (!suppressOnChangedEvent)
                             RaiseInvContentsChangeEvent(itemData, amount,InvOperation.Add);
                             
                         return true;
@@ -1271,7 +1287,7 @@ namespace dtsInventory
             }
 
             //We're Done!
-            if (!suppressItemAddedEvent)
+            if (!suppressOnChangedEvent)
                 RaiseInvContentsChangeEvent(itemData, amount, InvOperation.Add);
             return true;
 
@@ -1288,12 +1304,12 @@ namespace dtsInventory
         /// <param name="amount">The amount to add</param>
         /// <param name="rotation">How rotated whould the item be when placed</param>
         /// <param name="position">The targeted grid placement position. If the item spans many cells, this position will be relative to the item's item handle</param>
-        /// <param name="suppressItemAddedEvent">If true, then the "OnContentsChanged" event will not fire in response to this current operation. 
+        /// <param name="suppressOnChangedEvent">If true, then the "OnContentsChanged" event will not fire in response to this current operation. 
         /// Use this if you need to perform multiple operations as one operation before raising the OnContentsChanged event.
         /// If you're doing this, then call 'ForceRaiseBulkInvContentsChanged' after all your operations are performed. 
         /// You'll need to track your performed changes manually, in this case.</param>
         /// <returns>true if all items were added successfully. false otherwise.</returns>
-        public bool AddItem(ItemData itemData, int amount, (int,int) position, ItemRotation rotation, bool suppressItemAddedEvent = false)
+        public bool AddItem(ItemData itemData, int amount, (int,int) position, ItemRotation rotation, bool suppressOnChangedEvent = false)
         {
             //make sure the item is valid
             if (itemData == null)
@@ -1369,7 +1385,7 @@ namespace dtsInventory
                 }
 
                 CreateStack(position, invItem, amount);
-                if (!suppressItemAddedEvent)
+                if (!suppressOnChangedEvent)
                     RaiseInvContentsChangeEvent(itemData, amount, InvOperation.Add);
 
                 return true;
@@ -1408,7 +1424,7 @@ namespace dtsInventory
                     {
                         IncreaseStack(position, placementValue);
 
-                        if (!suppressItemAddedEvent)
+                        if (!suppressOnChangedEvent)
                             RaiseInvContentsChangeEvent(itemData, amount, InvOperation.Add);
 
                         return true;
@@ -1448,7 +1464,7 @@ namespace dtsInventory
                             for (int i = 0; i <= openStacks.Count; i++)
                                 IncreaseStack(openStacks[i].First(), stackCapacities[i]);
 
-                            if (!suppressItemAddedEvent)
+                            if (!suppressOnChangedEvent)
                                 RaiseInvContentsChangeEvent(itemData, amount, InvOperation.Add);
 
                             return true;

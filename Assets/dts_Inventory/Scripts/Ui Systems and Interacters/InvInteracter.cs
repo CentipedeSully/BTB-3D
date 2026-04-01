@@ -606,14 +606,19 @@ namespace dtsInventory
                 {
                     GameObject currentHoverGraphic = _hoverTileGraphics[i];
 
+                    if (currentHoverGraphic == null)
+
+
                     //hide the graphic
-                    currentHoverGraphic.SetActive(false);
+                    if (currentHoverGraphic != null)
+                        currentHoverGraphic.SetActive(false);
 
                     //remove the graphic from the active list
                     _hoverTileGraphics.Remove(currentHoverGraphic);
 
                     //add the graphic to the inactive list
-                    _unusedHoverTileGraphics.Add(currentHoverGraphic);
+                    if (currentHoverGraphic != null)
+                        _unusedHoverTileGraphics.Add(currentHoverGraphic);
                 }
             }
         }
@@ -829,7 +834,7 @@ namespace dtsInventory
                     _heldItem = _invGrid.GetItemGraphicOnCell(_hoveredCellIndex);
 
                     //remove the stack from the inventory
-                    _invGrid.DeleteStack(_hoveredCellIndex);
+                    _invGrid.RemoveItem(_hoveredCellIndex,1);
 
                     //update the 'holding item' feedback utils
                     BindHeldItemToPointerContainer();
@@ -853,7 +858,7 @@ namespace dtsInventory
                     _heldItem = pickedUpItem;
 
                     //remove the heldAmount from the hovered stack
-                    _invGrid.DecreaseStack(_hoveredCellIndex, _heldItemStackCount);
+                    _invGrid.RemoveItem(_hoveredCellIndex, _heldItemStackCount);
 
                     //update the 'holding item' feedback utils
                     BindHeldItemToPointerContainer();
@@ -971,7 +976,7 @@ namespace dtsInventory
                 _heldItemStackCount = _invGrid.GetStackValue(_hoveredCellIndex);
 
                 //remove the item from the invGrid
-                _invGrid.DeleteStack(_hoveredCellIndex);
+                _invGrid.RemoveItem(_hoveredCellIndex,_heldItemStackCount);
 
                 //update the "held item" feedback utils
                 BindHeldItemToPointerContainer();
@@ -1061,7 +1066,7 @@ namespace dtsInventory
                                     int stackSize = _invGrid.GetStackValue(index);
 
                                     //delete the currently-stored item
-                                    _invGrid.DeleteStack(index);
+                                    _invGrid.RemoveItem(index,stackSize);
 
                                     //place the held item into the now-fully-open position
                                     _invGrid.AddItem(_heldItem.ItemData(), _heldItemStackCount, _hoveredCellIndex, _heldItem.Rotation());
@@ -1331,7 +1336,7 @@ namespace dtsInventory
                 _heldItemStackCount = _contextualInvGrid.GetStackValue(_contextualItemPosition);
 
                 //remove the item from the invGrid
-                _contextualInvGrid.DeleteStack(_contextualItemPosition);
+                _contextualInvGrid.RemoveItem(_contextualItemPosition,amount);
             }
             else
             {
@@ -1342,7 +1347,7 @@ namespace dtsInventory
                 _heldItemStackCount = amount;
 
                 //remove the specified amount from the grid
-                _contextualInvGrid.DecreaseStack(_contextualItemPosition, amount);
+                _contextualInvGrid.RemoveItem(_contextualItemPosition, amount);
             }
 
             BindHeldItemToPointerContainer(_contextualInvGrid);
@@ -1360,18 +1365,7 @@ namespace dtsInventory
             if (!IsContextualDataValid())
                 return;
 
-            //remove the entire stack from inventory if the full amount was specified
-            if (amount == _contextualInvGrid.GetStackValue(_contextualItemPosition))
-            {
-                _contextualInvGrid.DeleteStack(_contextualItemPosition);
-            }
-
-            //otherwise just decrease that stack by the amount
-            else
-            {
-                _contextualInvGrid.DecreaseStack(_contextualItemPosition, amount);
-            }
-
+            _contextualInvGrid.RemoveItem(_contextualItemPosition, amount);
             PlayDiscardAudio();
         }
         private void RespondToUse(int amount)
