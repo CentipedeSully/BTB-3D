@@ -98,13 +98,13 @@ namespace dtsInventory
 
             if (_overlapResults.Length > 0)
             {
-                Debug.Log($"Position [{position.name}] blocked]");
+                //Debug.Log($"Position [{position.name}] blocked]");
                 return false;
             }
 
             else
             {
-                Debug.Log($"Position [{position.name}] open]");
+                //Debug.Log($"Position [{position.name}] open]");
                 return true;
             }
 

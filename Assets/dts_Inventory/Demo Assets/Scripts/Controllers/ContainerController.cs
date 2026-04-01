@@ -64,6 +64,8 @@ namespace dtsInventory
         private Transform _containerUiParent;
         private IEnumerator _containerInitializer;
         private bool _contentsInitialized = false;
+        [SerializeField] private bool _isContainerEmpty = true;
+        private bool _isOpen = false;
 
 
         public delegate void ContainerInteractionEvent();
@@ -80,14 +82,28 @@ namespace dtsInventory
 
 
         //Monobehaviours
+        private void OnEnable()
+        {
+            SubscribeToUi();
+            OnContainerClosed += RespondToContainerClosed;
+        }
+        private void OnDisable()
+        {
+            UnsubToUi();
+            OnContainerClosed -= RespondToContainerClosed;
+        }
+
         private void Update()
         {
             if (_isDebugActive)
                 ListenForDebugCommands();
         }
 
+
+
         private void OnDestroy()
         {
+            UnsubToUi();
             DestroyContainerUi();
         }
 
@@ -160,15 +176,68 @@ namespace dtsInventory
             Destroy(_invWindow.gameObject);
 
         }
+        private void UpdateContainerEmptyState()
+        {
+            _isContainerEmpty = _invWindow.GetItemGrid().GetAllStacks().Count()==0;
+        }
+        private void RespondToOnChanged(InvContentsUpdate update)
+        {
+            if (update.operation == InvOperation.Add)
+                Debug.Log($"Item added to {gameObject.name}");
+            else if (update.operation == InvOperation.Remove)
+                Debug.Log($"Item removed from {gameObject.name}");
 
+            
+            UpdateContainerEmptyState();
+            Debug.Log($"Is container empty: {_isContainerEmpty}");
+        }
+        private void RespondToOnBulkChanges(List<InvContentsUpdate> updates)
+        {
+            Debug.Log($"{updates.Count} Changes occured to {gameObject.name}");
+            UpdateContainerEmptyState();
+        }
 
+        private void SubscribeToUi()
+        {
+            if (_invWindow == null)
+                return;
 
+            _invWindow.GetItemGrid().OnContentsChanged += RespondToOnChanged;
+            _invWindow.GetItemGrid().OnBulkContentsChanged += RespondToOnBulkChanges;
+            _invWindow.OnWindowClosed += RespondToWindowClosed;
+        }
+        private void UnsubToUi()
+        {
+            if (_invWindow == null)
+                return;
 
+            _invWindow.GetItemGrid().OnContentsChanged -= RespondToOnChanged;
+            _invWindow.GetItemGrid().OnBulkContentsChanged -= RespondToOnBulkChanges;
+            _invWindow.OnWindowClosed -= RespondToWindowClosed;
+        }
+        private void RespondToContainerClosed()
+        {
+            Debug.Log($"Container Closed!\nIs container empty? {_isContainerEmpty}");
+            if (_isContainerEmpty)
+            {
+                Debug.Log("Container Empty, detected. Destroying container...");
+                OnContainerClosed -= RespondToContainerClosed;
+                Destroy(this.gameObject);
+            }
+        }
+        private void RespondToWindowClosed(InvWindow window)
+        {
+            if (_isOpen)
+                EndInteraction();
+        }
 
 
         //externals
         public void OpenContainer()
         {
+            if (_isOpen)
+                return;
+
             //be sure to initialize the window if it doesn't yet exist
             if (_invWindow == null)
             {
@@ -178,27 +247,35 @@ namespace dtsInventory
                     _containerInitializer = InitializeContentsNextFrame();
                     StartCoroutine(_containerInitializer);
                 }
+                SubscribeToUi();
 
             }
-
+            _isOpen = true;
             _invWindow.OpenWindow();
             OnContainerOpened?.Invoke();
 
 
         }
-
         public void CloseContainer()
         {
+            if (!_isOpen)
+                return;
+
             if (_invWindow == null)
                 return;
 
-            _invWindow.CloseWindow();
+            _isOpen = false;
+            if (_invWindow.IsWindowOpen())
+            {
+                _invWindow.CloseWindow();
+            }
+            
             OnContainerClosed?.Invoke();
         }
         public GameObject GetGameObject(){ return gameObject; }
 
-        public void TriggerInteraction() { OpenContainer(); }
-        public void EndInteraction() { CloseContainer(); }
+        public void TriggerInteraction() { if (!_isOpen) OpenContainer(); }
+        public void EndInteraction() { if (_isOpen) CloseContainer(); }
         public float InteractDistance() { return _interactRadius; }
         
 

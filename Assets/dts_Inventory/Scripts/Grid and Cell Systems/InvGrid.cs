@@ -353,7 +353,6 @@ namespace dtsInventory
 
             //ensure the stackText is positioned appropriately
         }
-
         private void ToggleStackTextViaCurrentAmount(RectTransform uiText, int stackSize)
         {
             if (stackSize <= 1)
@@ -560,307 +559,6 @@ namespace dtsInventory
         }
         */
 
-        private void RaiseInvContentsChangeEvent(InvContentsUpdate update)
-        {
-            OnContentsChanged?.Invoke(update);
-        }
-        private void RaiseInvContentsChangeEvent(ItemData itemData, int amount, InvOperation operation)
-        {
-            OnContentsChanged?.Invoke(new InvContentsUpdate(itemData,amount,operation));
-        }
-        private void RaiseBulkInvContentsChangeEvent(List<InvContentsUpdate> updateList)
-        {
-            OnBulkContentsChanged?.Invoke(updateList);
-        }
-
-        /// <summary>
-        /// Communicates multiple inventory changes as a single transaction.
-        /// </summary>
-        /// <param name="operationsList">A list of operations that were manually performed</param>
-        public void ForceRaiseBulkInvContentsChanged(List<(ItemData,int, InvOperation)> operationsList) 
-        {
-            List<InvContentsUpdate> updatesList = new();
-            foreach ((ItemData, int, InvOperation) entry in operationsList)
-                updatesList.Add(new InvContentsUpdate(entry.Item1, entry.Item2, entry.Item3));
-
-            RaiseBulkInvContentsChangeEvent(updatesList);
-
-        }
-
-        /// <summary>
-        /// Communicates multiple inventory changes as a single transaction.
-        /// </summary>
-        /// <param name="operationsList">A list of operations that were manually performed</param>
-        public void ForceRaiseBulkInvContentsChanged(List<InvContentsUpdate> updateList) { RaiseBulkInvContentsChangeEvent(updateList); }
-
-
-
-
-        //externals
-        public void DarkenGrid()
-        {
-            //ignore command if the grid is already dark
-            if (_darkenEffectImage.color.a == _maxDarkness)
-                return;
-
-            //ignore command if we're already darkening the grid
-            if (_isDarkenInProgress && _targetDarknessValue == _maxDarkness)
-                return;
-
-            //if we're currently UNDOING a previous darkening effect, then reverse direction
-            if (_isDarkenInProgress && _targetDarknessValue == _originalAlpha)
-            {
-                //reverse our progression point
-                _currentDarkenTime = _darkenDuration - _currentDarkenTime;
-
-                //ensure our start and end points are reversed
-                _startingDarknessValue = _originalAlpha;
-                _targetDarknessValue = _maxDarkness;
-            }
-
-            //if we're starting
-            else if (!_isDarkenInProgress)
-            {
-                _startingDarknessValue = _originalAlpha;
-                _targetDarknessValue = _maxDarkness;
-                _isDarkenInProgress = true;
-            }
-        }
-        public void UndarkenGrid()
-        {
-            //ignore command if the grid is not dark
-            if (_darkenEffectImage.color.a == _originalAlpha)
-                return;
-
-            //ignore command if we're already UNdarkening the grid
-            if (_isDarkenInProgress && _targetDarknessValue == _originalAlpha)
-                return;
-
-            //if we're currently darkening, then reverse direction
-            if (_isDarkenInProgress && _targetDarknessValue == _maxDarkness)
-            {
-                //reverse our progression point
-                _currentDarkenTime = _darkenDuration - _currentDarkenTime;
-
-                //ensure our start and end points are reversed
-                _startingDarknessValue = _maxDarkness;
-                _targetDarknessValue = _originalAlpha;
-            }
-
-            //if we're starting
-            else if (!_isDarkenInProgress)
-            {
-                _startingDarknessValue = _maxDarkness;
-                _targetDarknessValue = _originalAlpha;
-                _isDarkenInProgress = true;
-                _currentDarkenTime = 0;
-            }
-        }
-        public void ForceImmediateUndarken()
-        {
-            _isDarkenInProgress = false;
-            _darkenEffectImage.color = new Color(_darkenEffectImage.color.r, _darkenEffectImage.color.g, _darkenEffectImage.color.b, _originalAlpha);
-            _currentDarkenTime = 0;
-        }
-        public void OverlayObjectOntoGridVisually((int, int) position, RectTransform uiObjectRectTransform, bool fitToCellSize = true)
-        {
-            //reparent the uiObject onto the grid visually
-            //Get the position of the hovered cell, local to the grid
-            Vector3 parentCellPosition = GetCellObject(position).GetComponent<RectTransform>().localPosition;
-
-
-            //parent the object to the grid's overlay container
-            uiObjectRectTransform.SetParent(_overlayContainer, false);
-            uiObjectRectTransform.localPosition = parentCellPosition;
-
-            //ensure the graphic fits the cell's size
-            if (fitToCellSize)
-                uiObjectRectTransform.sizeDelta = new Vector2(CellSize().x, CellSize().y);
-
-
-        }
-        public InvWindow GetParentWindow() { return _parentWindow; }
-        public Vector2 CellSize() { return _cellSize; }
-        public Vector2Int ContainerSize() { return _containerSize; }
-        public bool IsCellOnGrid((int, int) cell)
-        {
-            if (cell.Item1 < 0 || cell.Item1 >= _containerSize.x || cell.Item2 < 0 || cell.Item2 >= _containerSize.y)
-                return false;
-            return true;
-        }
-        public bool IsCellOccupied((int, int) position)
-        {
-            //Debug.Log($"Checking 'IsCellOccupied Integrity. Provided Position: ({position.Item1},{position.Item2})\nFound Stack Area at position: " + GetStackArea(position).ToCommaSeparatedString());
-            //Debug.Log($"Is Cell Occupied: {GetStackArea(position).Count > 0}");
-            if (StackArea(position).Count > 0)
-                return true;
-            else return false;
-        }
-        public bool IsCellOccupied(int x, int y)
-        {
-            return IsCellOccupied((x, y));
-        }
-        public bool DoesItemGraphicAlreadyExistOnGrid(InvItem itemGraphic)
-        {
-            if (itemGraphic == null)
-                return false;
-
-            foreach (InvItem itemReference in _stackSpriteObjects.Values)
-            {
-                if (itemReference == itemGraphic)
-                    return true;
-            }
-
-            return false;
-        }
-        public CellInteract GetCellObject((int, int) index)
-        {
-            if (!_cellInteractCollection.ContainsKey(index))
-                return null;
-
-            return _cellInteractCollection[index];
-
-        }
-        public ItemData GetStackItemData((int, int) index)
-        {
-            if (IsCellOnGrid(index))
-                if (_stackItemDatas.ContainsKey(StackArea(index)))
-                    return _stackItemDatas[StackArea(index)];
-
-            return null;
-        }
-        public ItemData GetStackItemData(int x, int y)
-        {
-            return GetStackItemData((x, y));
-        }
-        public InvItem GetItemGraphicOnCell((int, int) index)
-        {
-            if (IsCellOnGrid(index))
-            {
-                if (_stackSpriteObjects.ContainsKey(StackArea(index)))
-                    return _stackSpriteObjects[StackArea(index)];
-            }
-
-            return null;
-        }
-        public InvItem GetItemGraphicOnCell(int x, int y)
-        {
-            return GetItemGraphicOnCell((x, y));
-        }
-        public int GetStackValue((int, int) position)
-        {
-            HashSet<(int, int)> stackPosition = StackArea(position);
-            if (stackPosition.Count > 0)
-                return _stackCapacities[stackPosition];
-
-            return 0;
-        }
-        public int GetStackValue(int x, int y)
-        {
-            return GetStackValue((x, y));
-        }
-        /// <summary>
-        /// Returns all of the cells that the stack at the provided position is occupying.
-        /// Returns an empty collection if no stack exists at the provided position.
-        /// Nonexistent grid positions will also return an empty collection.
-        /// </summary>
-        /// <param name="position"></param>
-        /// <returns></returns>
-        public HashSet<(int, int)> GetStackArea((int, int) position)
-        {
-            return StackArea(position);
-        }
-        /// <summary>
-        /// Returns all of the cells that the stack at the provided position is occupying.
-        /// Returns an empty collection if no stack exists at the provided position.
-        /// Nonexistent grid positions will also return an empty collection.
-        /// </summary>
-        /// <param name="position"></param>
-        /// <returns></returns>
-        public HashSet<(int, int)> GetStackArea(int x, int y)
-        {
-            return GetStackArea((x, y));
-        }
-
-        /// <summary>
-        /// Converts a series of indexes into gridPositions based on how the item is manually placed into the grid.
-        /// Does not check if the returned grid positions are actually on the grid.
-        /// </summary>
-        /// <param name="selectedGridPosition">The literal clicked position on the grid</param>
-        /// <param name="spacialDefinition">The objects size defined as indexes</param>
-        /// <param name="itemHandle">The index within the provided spacial definition that should align with the selected grid position</param>
-        /// <returns></returns>
-        public HashSet<(int, int)> ConvertSpacialDefIntoGridArea((int, int) selectedGridPosition, HashSet<(int, int)> spacialDefinition, (int, int) itemHandle)
-        {
-            if (spacialDefinition == null)
-                return null;
-
-            if (spacialDefinition.Count < 1)
-                return null;
-
-            HashSet<(int, int)> gridPositions = new();
-
-            //convert the provided spacialDefinition into gridPositions.
-            foreach ((int, int) index in spacialDefinition)
-            {
-                // grid index = selectedGridPosition + (currentIndex - itemHandle)       
-                int gridX = selectedGridPosition.Item1 + (index.Item1 - itemHandle.Item1);
-                int gridY = selectedGridPosition.Item2 + (index.Item2 - itemHandle.Item2);
-
-                gridPositions.Add((gridX, gridY));
-
-            }
-
-            return gridPositions;
-        }
-        public int CountUniqueStacksInArea(HashSet<(int, int)> gridPositions)
-        {
-            if (gridPositions == null)
-            {
-                //Debug.Log("No gridPositions were given to check for Uniqueness. Returning 0, since none we technically found");
-                return 0;
-            }
-
-
-            //Save each found stack definition into a set. For convenient uniqueness checking
-            HashSet<HashSet<(int, int)>> uniqueStacks = new();
-            string positionSets = "";
-            string position = "";
-            foreach ((int, int) index in gridPositions)
-            {
-                HashSet<(int, int)> stackArea = StackArea(index);
-                if (stackArea.Count > 0)
-                    uniqueStacks.Add(stackArea);
-
-                position = "";
-
-                foreach ((int, int) cell in stackArea)
-                    position += $"({cell.Item1},{cell.Item2}), ";
-
-                positionSets += $"{position}\n";
-
-            }
-
-            //Debug.Log($"Unique Stacks Detected: {uniqueStacks.Count}\nBreakdown:{positionSets}");
-            return uniqueStacks.Count;
-
-        }
-        public bool IsAreaWithinGrid(HashSet<(int, int)> gridPositions)
-        {
-            if (gridPositions == null)
-                return false;
-
-            if (gridPositions.Count == 0)
-                return false;
-
-            foreach ((int, int) index in gridPositions)
-            {
-                if (!IsCellOnGrid(index))
-                    return false;
-            }
-
-            return true;
-        }
         private void IncreaseStack((int, int) position, int increment)
         {
             if (increment <= 0)
@@ -918,7 +616,7 @@ namespace dtsInventory
             uiText.GetComponent<RectTransform>().SetParent(_unusedStackTextsContainer, false);
             ItemCreatorHelper.ReturnItemToCreator(itemGraphic);
 
-            
+
         }
         private void CreateStack((int, int) position, InvItem item, int amount) //only items have the necessary rotation data to fit within a grid
         {
@@ -1010,9 +708,483 @@ namespace dtsInventory
 
         }
 
+        private void RaiseInvContentsChangeEvent(InvContentsUpdate update)
+        {
+            OnContentsChanged?.Invoke(update);
+        }
+        private void RaiseInvContentsChangeEvent(ItemData itemData, int amount, InvOperation operation)
+        {
+            OnContentsChanged?.Invoke(new InvContentsUpdate(itemData,amount,operation));
+        }
+        private void RaiseBulkInvContentsChangeEvent(List<InvContentsUpdate> updateList)
+        {
+            OnBulkContentsChanged?.Invoke(updateList);
+        }
+
+        private IEnumerator RepositionTextAtEndOfFrame()
+        {
+            yield return new WaitForEndOfFrame();
+
+            foreach (KeyValuePair<HashSet<(int, int)>, Text> entry in _stackTexts)
+                PositionUiTextOntoStack(entry.Value.GetComponent<RectTransform>(), entry.Key);
+
+            _textUpdater = null;
+        }
+        private void PositionUiTextOntoStack(RectTransform uiText, HashSet<(int, int)> stackPositions)
+        {
+
+            //the stack value needs to be on the rightmost, lowest cell value.
+            //Find that cell index
+
+
+            //calculate the item's the rightmost, lowest cell
+            int xMaxPosition = 0;
+            int yMinPosition = 0;
+
+            //first find the lowest cell that exists
+            bool firstIteration = true;
+
+            foreach ((int, int) index in stackPositions)
+            {
+                if (firstIteration)
+                {
+                    yMinPosition = index.Item2;
+                    firstIteration = false;
+                }
+                else
+                {
+                    if (index.Item2 < yMinPosition)
+                        yMinPosition = index.Item2;
+                }
+            }
+
+            //next find the rightmost cell that's also the lowest
+            firstIteration = false;
+
+            foreach ((int, int) index in stackPositions)
+            {
+                if (index.Item2 == yMinPosition)
+                {
+                    if (firstIteration)
+                    {
+                        xMaxPosition = index.Item1;
+                        firstIteration = false;
+                    }
+                    else if (index.Item1 > xMaxPosition)
+                        xMaxPosition = index.Item1;
+                }
+
+            }
+
+            //get the found cell's position on the grid
+            Vector2 bottomRightCellPosition = GetCellObject((xMaxPosition, yMinPosition)).GetComponent<RectTransform>().localPosition;
+
+            //set the stackText's transform to that cell's position. Different parents, but both object should be the same size and in the same place
+            uiText.localPosition = bottomRightCellPosition;
+
+        }
+
+
+
+
+
+        //externals
+        /// <summary>
+        /// Communicates multiple inventory changes as a single transaction.
+        /// </summary>
+        /// <param name="operationsList">A list of operations that were manually performed</param>
+        public void ForceRaiseBulkInvContentsChanged(List<(ItemData, int, InvOperation)> operationsList)
+        {
+            List<InvContentsUpdate> updatesList = new();
+            foreach ((ItemData, int, InvOperation) entry in operationsList)
+                updatesList.Add(new InvContentsUpdate(entry.Item1, entry.Item2, entry.Item3));
+
+            RaiseBulkInvContentsChangeEvent(updatesList);
+
+        }
+        /// <summary>
+        /// Communicates multiple inventory changes as a single transaction.
+        /// </summary>
+        /// <param name="operationsList">A list of operations that were manually performed</param>
+        public void ForceRaiseBulkInvContentsChanged(List<InvContentsUpdate> updateList) { RaiseBulkInvContentsChangeEvent(updateList); }
 
         /// <summary>
-        /// Removes the requested amount of whatever that exists at the specified position. If not enough existsm then the command is ignored.
+        /// Triggers the "Darken overlay over time" visual effect. Stops once max darkenss is reached.
+        /// </summary>
+        public void DarkenGrid()
+        {
+            //ignore command if the grid is already dark
+            if (_darkenEffectImage.color.a == _maxDarkness)
+                return;
+
+            //ignore command if we're already darkening the grid
+            if (_isDarkenInProgress && _targetDarknessValue == _maxDarkness)
+                return;
+
+            //if we're currently UNDOING a previous darkening effect, then reverse direction
+            if (_isDarkenInProgress && _targetDarknessValue == _originalAlpha)
+            {
+                //reverse our progression point
+                _currentDarkenTime = _darkenDuration - _currentDarkenTime;
+
+                //ensure our start and end points are reversed
+                _startingDarknessValue = _originalAlpha;
+                _targetDarknessValue = _maxDarkness;
+            }
+
+            //if we're starting
+            else if (!_isDarkenInProgress)
+            {
+                _startingDarknessValue = _originalAlpha;
+                _targetDarknessValue = _maxDarkness;
+                _isDarkenInProgress = true;
+            }
+        }
+        /// <summary>
+        /// Triggers the "Lighten overlay over time" visual effect. Stops once the overlay is 'transparent' (or whatever the darkener's transparency was when this grid awakened).
+        /// </summary>
+        public void UndarkenGrid()
+        {
+            //ignore command if the grid is not dark
+            if (_darkenEffectImage.color.a == _originalAlpha)
+                return;
+
+            //ignore command if we're already UNdarkening the grid
+            if (_isDarkenInProgress && _targetDarknessValue == _originalAlpha)
+                return;
+
+            //if we're currently darkening, then reverse direction
+            if (_isDarkenInProgress && _targetDarknessValue == _maxDarkness)
+            {
+                //reverse our progression point
+                _currentDarkenTime = _darkenDuration - _currentDarkenTime;
+
+                //ensure our start and end points are reversed
+                _startingDarknessValue = _maxDarkness;
+                _targetDarknessValue = _originalAlpha;
+            }
+
+            //if we're starting
+            else if (!_isDarkenInProgress)
+            {
+                _startingDarknessValue = _maxDarkness;
+                _targetDarknessValue = _originalAlpha;
+                _isDarkenInProgress = true;
+                _currentDarkenTime = 0;
+            }
+        }
+        /// <summary>
+        /// Immediately resets the darkening/lightening effects to 'transparent' (or whatever the darkener's transparency was when this grid awakened). 
+        /// Useful for skipping the darken/lighten animations
+        /// </summary>
+        public void ForceImmediateUndarken()
+        {
+            _isDarkenInProgress = false;
+            _darkenEffectImage.color = new Color(_darkenEffectImage.color.r, _darkenEffectImage.color.g, _darkenEffectImage.color.b, _originalAlpha);
+            _currentDarkenTime = 0;
+        }
+
+
+
+        /// <summary>
+        /// Places a uiObject's origin over a specified cell position. 
+        /// May also set the uiObject's sizeDelta to match the grid's cell size, if fitToCellSize is true.
+        /// fitToCellSize is true by default.
+        /// </summary>
+        /// <param name="position">What position should the object's origin be placed</param>
+        /// <param name="uiObjectRectTransform">The RectTranform of the uiObject to palce</param>
+        /// <param name="fitToCellSize">Should the uiObject be resized to the grid's cell dimensions?</param>
+        public void OverlayObjectOntoGridVisually((int, int) position, RectTransform uiObjectRectTransform, bool fitToCellSize = true)
+        {
+            if (uiObjectRectTransform == null)
+            {
+                Debug.LogWarning("Attempted to overlay a null object onto the grid. Ignoring request");
+                return;
+            }
+
+            //reparent the uiObject onto the grid visually
+            //Get the position of the hovered cell, local to the grid
+            Vector3 parentCellPosition = GetCellObject(position).GetComponent<RectTransform>().localPosition;
+
+
+            //parent the object to the grid's overlay container
+            uiObjectRectTransform.SetParent(_overlayContainer, false);
+            uiObjectRectTransform.localPosition = parentCellPosition;
+
+            //ensure the graphic fits the cell's size
+            if (fitToCellSize)
+                uiObjectRectTransform.sizeDelta = new Vector2(CellSize().x, CellSize().y);
+
+
+        }
+        public InvWindow GetParentWindow() { return _parentWindow; }
+        public Vector2 CellSize() { return _cellSize; }
+        public Vector2Int ContainerSize() { return _containerSize; }
+        /// <summary>
+        /// Returns true if the given index lies within bounds of the grid. false otherwise.
+        /// </summary>
+        /// <param name="cell"></param>
+        /// <returns>true if the given index lies within bounds of the grid. false otherwise.</returns>
+        public bool IsCellOnGrid((int, int) cell)
+        {
+            if (cell.Item1 < 0 || cell.Item1 >= _containerSize.x || cell.Item2 < 0 || cell.Item2 >= _containerSize.y)
+                return false;
+            return true;
+        }
+        /// <summary>
+        /// Returns true if a stack exists on the given position. False otherwise. 
+        /// Does not check if the position exists on the grid, and will return false in that case.
+        /// </summary>
+        /// <param name="position"></param>
+        /// <returns>true if a stack exists on the given position. False otherwise.</returns>
+        public bool IsCellOccupied((int, int) position)
+        {
+            //Debug.Log($"Checking 'IsCellOccupied Integrity. Provided Position: ({position.Item1},{position.Item2})\nFound Stack Area at position: " + GetStackArea(position).ToCommaSeparatedString());
+            //Debug.Log($"Is Cell Occupied: {GetStackArea(position).Count > 0}");
+            if (StackArea(position).Count > 0)
+                return true;
+            else return false;
+        }
+        /// <summary>
+        /// Returns true if a stack exists on the given position. False otherwise. 
+        /// Does not check if the position exists on the grid, and will return false in that case.
+        /// </summary>
+        /// <param name="position"></param>
+        /// <returns>true if a stack exists on the given position. False otherwise.</returns>
+        public bool IsCellOccupied(int x, int y)
+        {
+            return IsCellOccupied((x, y));
+        }
+        /// <summary>
+        /// Checks if the given InvItem reference already exists on the grid.
+        /// If this returns true, then there's an issue with how you're adding item sprites to the grid.
+        /// Each stack should own its own unique sprite, which can be created by the public (static) ItemCreatorHelper.
+        /// </summary>
+        /// <param name="itemGraphic">The reference that needs to be checked</param>
+        /// <returns>true if the given itemGraphic already exists. false otherwise, or false if the given itemGraphic is null.</returns>
+        public bool DoesItemGraphicAlreadyExistOnGrid(InvItem itemGraphic)
+        {
+            if (itemGraphic == null)
+                return false;
+
+            foreach (InvItem itemReference in _stackSpriteObjects.Values)
+            {
+                if (itemReference == itemGraphic)
+                    return true;
+            }
+
+            return false;
+        }
+        /// <summary>
+        /// Returns the cell associated with the given index, or null if no cell exists at the index.
+        /// </summary>
+        /// <param name="index"></param>
+        /// <returns>the cell associated with the given index, or null if no cell exists at the index.</returns>
+        public CellInteract GetCellObject((int, int) index)
+        {
+            if (!_cellInteractCollection.ContainsKey(index))
+                return null;
+
+            return _cellInteractCollection[index];
+
+        }
+        /// <summary>
+        /// Returns the ItemData that's correlated to the given cell position. 
+        /// ItemDatas are reference-types; use the itemData's itemCode to compare equality.
+        /// ItemCodes can also be translated back into itemDatas via the public (static) ItemCreatorHelper
+        /// </summary>
+        /// <param name="index"></param>
+        /// <returns>The itemData that's correlated to the given cell position, or null if none exist</returns>
+        public ItemData GetStackItemData((int, int) index)
+        {
+            if (IsCellOnGrid(index))
+                if (_stackItemDatas.ContainsKey(StackArea(index)))
+                    return _stackItemDatas[StackArea(index)];
+
+            return null;
+        }
+        /// <summary>
+        /// Returns the ItemData that's correlated to the given cell position. 
+        /// ItemDatas are reference-types; use the itemData's itemCode to compare equality.
+        /// ItemCodes can also be translated back into itemDatas via the public (static) ItemCreatorHelper
+        /// </summary>
+        /// <param name="index"></param>
+        /// <returns>The itemData that's correlated to the given cell position, or null if none exist</returns>
+        public ItemData GetStackItemData(int x, int y)
+        {
+            return GetStackItemData((x, y));
+        }
+        /// <summary>
+        /// Returns the invItem (sprite) that is correlated to the given cell position.
+        /// returns null if no invItem exists on the given cell position.
+        /// </summary>
+        /// <param name="index">The cell position of the invItem (sprite) you're looking for</param>
+        /// <returns>The InvItem reference that is correlated to the given cell, or null if none exist</returns>
+        public InvItem GetItemGraphicOnCell((int, int) index)
+        {
+            if (IsCellOnGrid(index))
+            {
+                if (_stackSpriteObjects.ContainsKey(StackArea(index)))
+                    return _stackSpriteObjects[StackArea(index)];
+            }
+
+            return null;
+        }
+        /// <summary>
+        /// Returns the invItem (sprite) that is correlated to the given cell position.
+        /// returns null if no invItem exists on the given cell position.
+        /// </summary>
+        /// <param name="index">The cell position of the invItem (sprite) you're looking for</param>
+        /// <returns>The InvItem reference that is correlated to the given cell, or null if none exist</returns>
+        public InvItem GetItemGraphicOnCell(int x, int y)
+        {
+            return GetItemGraphicOnCell((x, y));
+        }
+        /// <summary>
+        /// Returns the size of the stack that is detected on the provided position.
+        /// If no stack exists on the provided positions, zero is returned.
+        /// </summary>
+        /// <param name="position"></param>
+        /// <returns>The size of the stack at the given position, or zero if no stack was found.</returns>
+        public int GetStackValue((int, int) position)
+        {
+            HashSet<(int, int)> stackPosition = StackArea(position);
+            if (stackPosition.Count > 0)
+                return _stackCapacities[stackPosition];
+
+            return 0;
+        }
+        /// <summary>
+        /// Returns the size of the stack that is detected on the provided position.
+        /// If no stack exists on the provided positions, zero is returned.
+        /// </summary>
+        /// <param name="position"></param>
+        /// <returns>The size of the stack at the given position, or zero if no stack was found.</returns>
+        public int GetStackValue(int x, int y)
+        {
+            return GetStackValue((x, y));
+        }
+        /// <summary>
+        /// Returns all of the cells that the stack at the provided position is occupying.
+        /// Returns an empty collection if no stack exists at the provided position.
+        /// Nonexistent grid positions will also return an empty collection.
+        /// </summary>
+        /// <param name="position"></param>
+        /// <returns></returns>
+        public HashSet<(int, int)> GetStackArea((int, int) position)
+        {
+            return StackArea(position);
+        }
+        /// <summary>
+        /// Returns all of the cells that the stack at the provided position is occupying.
+        /// Returns an empty collection if no stack exists at the provided position.
+        /// Nonexistent grid positions will also return an empty collection.
+        /// </summary>
+        /// <param name="position"></param>
+        /// <returns></returns>
+        public HashSet<(int, int)> GetStackArea(int x, int y)
+        {
+            return GetStackArea((x, y));
+        }
+
+        /// <summary>
+        /// Converts a series of indexes into gridPositions based on how the item is manually placed into the grid.
+        /// Does not check if the returned grid positions are actually on the grid.
+        /// </summary>
+        /// <param name="selectedGridPosition">The literal clicked position on the grid</param>
+        /// <param name="spacialDefinition">The objects size defined as indexes</param>
+        /// <param name="itemHandle">The index within the provided spacial definition that should align with the selected grid position</param>
+        /// <returns></returns>
+        public HashSet<(int, int)> ConvertSpacialDefIntoGridArea((int, int) selectedGridPosition, HashSet<(int, int)> spacialDefinition, (int, int) itemHandle)
+        {
+            if (spacialDefinition == null)
+                return null;
+
+            if (spacialDefinition.Count < 1)
+                return null;
+
+            HashSet<(int, int)> gridPositions = new();
+
+            //convert the provided spacialDefinition into gridPositions.
+            foreach ((int, int) index in spacialDefinition)
+            {
+                // grid index = selectedGridPosition + (currentIndex - itemHandle)       
+                int gridX = selectedGridPosition.Item1 + (index.Item1 - itemHandle.Item1);
+                int gridY = selectedGridPosition.Item2 + (index.Item2 - itemHandle.Item2);
+
+                gridPositions.Add((gridX, gridY));
+
+            }
+
+            return gridPositions;
+        }
+
+        /// <summary>
+        /// Counts how many different item stacks exist in a requested area. Returns 0 if a null/empty
+        /// area is detected
+        /// </summary>
+        /// <param name="gridPositions">the grid positions to check</param>
+        /// <returns>The count of unique stacks found within the requested area</returns>
+        public int CountUniqueStacksInArea(HashSet<(int, int)> gridPositions)
+        {
+            if (gridPositions == null)
+            {
+                //Debug.Log("No gridPositions were given to check for Uniqueness. Returning 0, since none we technically found");
+                return 0;
+            }
+
+
+            //Save each found stack definition into a set. For convenient uniqueness checking
+            HashSet<HashSet<(int, int)>> uniqueStacks = new();
+            string positionSets = "";
+            string position = "";
+            foreach ((int, int) index in gridPositions)
+            {
+                HashSet<(int, int)> stackArea = StackArea(index);
+                if (stackArea.Count > 0)
+                    uniqueStacks.Add(stackArea);
+
+                position = "";
+
+                foreach ((int, int) cell in stackArea)
+                    position += $"({cell.Item1},{cell.Item2}), ";
+
+                positionSets += $"{position}\n";
+
+            }
+
+            //Debug.Log($"Unique Stacks Detected: {uniqueStacks.Count}\nBreakdown:{positionSets}");
+            return uniqueStacks.Count;
+
+        }
+
+        /// <summary>
+        /// Checks if every requested position exists within the grid.
+        /// Null and empty collections return false.
+        /// </summary>
+        /// <param name="gridPositions">The collection of positions to check</param>
+        /// <returns>True if every grid position exist on the grid. False otherwise, or false if the given collection is invalid</returns>
+        public bool IsAreaWithinGrid(HashSet<(int, int)> gridPositions)
+        {
+            if (gridPositions == null)
+                return false;
+
+            if (gridPositions.Count == 0)
+                return false;
+
+            foreach ((int, int) index in gridPositions)
+            {
+                if (!IsCellOnGrid(index))
+                    return false;
+            }
+
+            return true;
+        }
+
+
+
+        /// <summary>
+        /// Removes the requested amount of whatever that exists at the specified position. If not enough exists then the command is ignored.
         /// </summary>
         /// <param name="position"></param>
         /// <param name="amount"></param>
@@ -1036,15 +1208,16 @@ namespace dtsInventory
                 return false;
             }
 
+            DecreaseStack(position, amount);
+
             if (!suppressOnChangedEvent)
                 RaiseInvContentsChangeEvent(new InvContentsUpdate(GetStackItemData(position), amount, InvOperation.Remove));
 
-            DecreaseStack(position, amount);
             return true;
         }
 
         /// <summary>
-        /// Removes the requested amount of whatever that exists at the specified position. If not enough existsm then the command is ignored.
+        /// Removes the requested amount of whatever that exists at the specified position. If not enough exists then the command is ignored.
         /// </summary>
         /// <param name="position"></param>
         /// <param name="amount"></param>
@@ -1094,6 +1267,16 @@ namespace dtsInventory
             Debug.LogWarning($"Failed to find {amount} items of itemCode [{itemCode}]. Only found {found} of {amount} items.");
             return false;
         }
+        /// <summary>
+        /// Removes the requested amount of whatever that exists at the specified position. If not enough exists then the command is ignored.
+        /// </summary>
+        /// <param name="position"></param>
+        /// <param name="amount"></param>
+        /// <param name="suppressOnChangedEvent">If true, then the "OnContentsChanged" event will not fire in response to this current operation. 
+        /// Use this if you need to perform multiple operations as one operation before raising the OnContentsChanged event.
+        /// If you're doing this, then call 'ForceRaiseBulkInvContentsChanged' after all your operations are performed. 
+        /// You'll need to track your performed changes manually, in this case.</param>
+        /// <returns>true if all requested items were removed successfully. false otherwise.</returns>
         public bool RemoveItem(ItemData itemData, int amount, bool suppressOnChangedEvent = false)
         {
             return RemoveItem(itemData.ItemCode(), amount, suppressOnChangedEvent);
@@ -2178,7 +2361,7 @@ namespace dtsInventory
             else return false;
         }
 
-        /* This utility is slow. It works, but it's really slow
+        /* This utility is slow. It works, but it's really slow. 
         public int HowManyCanFit(ItemData itemData)
         {
             if (itemData == null)
@@ -2214,71 +2397,14 @@ namespace dtsInventory
         }
         */
 
-        private IEnumerator RepositionTextAtEndOfFrame()
-        {
-            yield return new WaitForEndOfFrame();
-
-            foreach (KeyValuePair<HashSet<(int, int)>, Text> entry in _stackTexts)
-                PositionUiTextOntoStack(entry.Value.GetComponent<RectTransform>(), entry.Key);
-
-            _textUpdater = null;
-        }
-        private void PositionUiTextOntoStack(RectTransform uiText, HashSet<(int, int)> stackPositions)
-        {
-
-
-            //the stack value needs to be on the rightmost, lowest cell value.
-            //Find that cell index
-
-
-            //calculate the item's the rightmost, lowest cell
-            int xMaxPosition = 0;
-            int yMinPosition = 0;
-
-            //first find the lowest cell that exists
-            bool firstIteration = true;
-
-            foreach ((int, int) index in stackPositions)
-            {
-                if (firstIteration)
-                {
-                    yMinPosition = index.Item2;
-                    firstIteration = false;
-                }
-                else
-                {
-                    if (index.Item2 < yMinPosition)
-                        yMinPosition = index.Item2;
-                }
-            }
-
-            //next find the rightmost cell that's also the lowest
-            firstIteration = false;
-
-            foreach ((int, int) index in stackPositions)
-            {
-                if (index.Item2 == yMinPosition)
-                {
-                    if (firstIteration)
-                    {
-                        xMaxPosition = index.Item1;
-                        firstIteration = false;
-                    }
-                    else if (index.Item1 > xMaxPosition)
-                        xMaxPosition = index.Item1;
-                }
-
-            }
-
-            //get the found cell's position on the grid
-            Vector2 bottomRightCellPosition = GetCellObject((xMaxPosition, yMinPosition)).GetComponent<RectTransform>().localPosition;
-
-            //set the stackText's transform to that cell's position. Different parents, but both object should be the same size and in the same place
-            uiText.localPosition = bottomRightCellPosition;
-
-        }
         public RectTransform GetOverlayRectTransform() { return _overlayContainer; }
 
+        /// <summary>
+        /// Increments the width and height of the grid by the passed parameters, appending to the furthest elements.
+        /// Then resizes the grid. Negative values are defaulted to zero, meaning that dimesion will be ignored.
+        /// </summary>
+        /// <param name="xPositions">The (positive) amount of width positions to append.</param>
+        /// <param name="yPositions">The (positive) amount of height positions to append.</param>
         public void ExpandGrid(int xPositions, int yPositions)
         {
             //ensure we're accepting no negative values
@@ -2337,6 +2463,14 @@ namespace dtsInventory
 
             _parentWindow.ResizeWindow();
         }
+
+        /// <summary>
+        /// Decrements the width and height of the grid by the passed parameters, starting from the furthest elements.
+        /// Then resizes the grid. If items exist within the reduction space, then the operation will fail (This does not remove any items). 
+        /// If any parameter would reduces the grid below "1x1", then that parameter is defaulted to 0 (meaning that dimension will be ignored).
+        /// </summary>
+        /// <param name="xPositions">The (positive) amount of width positions to trim.</param>
+        /// <param name="yPositions">The (positive) amount of height positions to trim.</param>
         public void ReduceGrid(int xPositions, int yPositions)
         {
             //ensure we're accepting no negative values
@@ -2349,7 +2483,7 @@ namespace dtsInventory
             if (_containerSize.y - yPositions < 1)
                 yPositions = 0;
 
-            //return if no expansion is necessary
+            //return if no reduction is necessary
             if (xPositions == 0 && yPositions == 0)
                 return;
 
@@ -2442,6 +2576,15 @@ namespace dtsInventory
             return allItems;
         }
 
+        /// <summary>
+        /// Checks the grid for an amount of items and returns true if the full amount exists.
+        /// Also provides where each found instance occurs via a collection of stackPositions[itemAmount].
+        /// Will not provide the "detectedArea" result if the operation fails.
+        /// </summary>
+        /// <param name="item">The item to find</param>
+        /// <param name="amount">The amount that needs to exist</param>
+        /// <param name="detectedArea">The stackPositions of all found items, assuming the operation succeeded</param>
+        /// <returns></returns>
         public bool DoesItemExist(ItemData item, int amount, out Dictionary<HashSet<(int,int)>,int> detectedArea)
         {
             detectedArea = new Dictionary<HashSet<(int, int)>,int>();
@@ -2483,6 +2626,12 @@ namespace dtsInventory
             return false;
 
         }
+        
+        /// <summary>
+        /// Counts how many instances of a given item exist in the grid, though doesn't provide the found items' locations.
+        /// </summary>
+        /// <param name="itemToCount">the item that needs to be counted</param>
+        /// <returns>The number of occurances of the specified item</returns>
         public int CountItem(ItemData itemToCount)
         {
             int count = 0;
@@ -2495,8 +2644,23 @@ namespace dtsInventory
             return count;
         }
 
+        /// <summary>
+        /// Returns true if this invGrid contains no items.
+        /// </summary>
+        /// <returns>true if no items exist in the grid. false otherwise.</returns>
+        public bool IsEmpty()
+        {
+            Debug.Log($"number of stacks that exist in grid: {GetAllStacks().Count()}");
+            return GetAllStacks().Count() == 0;
+        }
+        
 
         //Debug
+        /// <summary>
+        /// Builds a readable string from a hashset of (int,int).
+        /// </summary>
+        /// <param name="positions">The Set of positions to make readable</param>
+        /// <returns>A readable string of (int,int)'s</returns>
         public string StringifyPositions(HashSet<(int,int)> positions)
         {
             string log = "";

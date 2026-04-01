@@ -835,6 +835,7 @@ namespace dtsInventory
 
                     //remove the stack from the inventory
                     _invGrid.RemoveItem(_hoveredCellIndex,1);
+                    //Debug.LogWarning($"Interacter: is Grid Empty: {_invGrid.IsEmpty()}\nRemaining stacks in grid: {_invGrid.GetAllStacks().Count}");
 
                     //update the 'holding item' feedback utils
                     BindHeldItemToPointerContainer();
@@ -977,6 +978,7 @@ namespace dtsInventory
 
                 //remove the item from the invGrid
                 _invGrid.RemoveItem(_hoveredCellIndex,_heldItemStackCount);
+                Debug.LogWarning($"Interacter: is Grid Empty via 'InvGrid.IsEmpty()': {_invGrid.IsEmpty()}\nCounted stacks in grid: {_invGrid.GetAllStacks().Count}");
 
                 //update the "held item" feedback utils
                 BindHeldItemToPointerContainer();
