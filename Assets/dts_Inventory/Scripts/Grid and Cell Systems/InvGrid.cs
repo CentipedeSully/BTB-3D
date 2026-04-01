@@ -2,12 +2,9 @@ using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
-using System.Runtime.CompilerServices;
-using Unity.VisualScripting;
-using UnityEditor.Experimental.GraphView;
+using UnityEditor;
 using UnityEngine;
 using UnityEngine.UI;
-using static UnityEditor.Progress;
 
 
 namespace dtsInventory
@@ -75,6 +72,27 @@ namespace dtsInventory
         }
     }*/
 
+    public enum InvOperation
+    {
+        None,
+        Add,
+        Remove
+    }
+
+    public struct InvContentsUpdate
+    {
+        public InvOperation operation;
+        public ItemData itemData;
+        public int amount;
+
+        public InvContentsUpdate(ItemData itemTypechanged, int changeAmount, InvOperation operationThatHappened)
+        {
+            this.operation = operationThatHappened;
+            this.itemData = itemTypechanged;
+            amount = changeAmount;
+        }
+    }
+
     public class InvGrid : MonoBehaviour
     {
         [Header("Settings")]
@@ -102,6 +120,14 @@ namespace dtsInventory
         [SerializeField] private RectTransform _gridDarkener;
 
         [SerializeField] GridLayoutGroup _layoutGroup;
+
+        //events
+        public delegate void InvContentsChangedEvent(InvContentsUpdate update);
+        public delegate void BulkInvContentsChangedEvent(List<InvContentsUpdate> updates);
+        public event InvContentsChangedEvent OnContentsChanged;
+        public event BulkInvContentsChangedEvent OnBulkContentsChanged;
+
+
 
         [Header("Debug")]
         [SerializeField] private bool _isDebugActive = false;
@@ -284,71 +310,7 @@ namespace dtsInventory
                 _darkenEffectImage.color = new Color(_darkenEffectImage.color.r, _darkenEffectImage.color.g, _darkenEffectImage.color.b, _alpha);
             }
         }
-        public void DarkenGrid()
-        {
-            //ignore command if the grid is already dark
-            if (_darkenEffectImage.color.a == _maxDarkness)
-                return;
 
-            //ignore command if we're already darkening the grid
-            if (_isDarkenInProgress && _targetDarknessValue == _maxDarkness)
-                return;
-
-            //if we're currently UNDOING a previous darkening effect, then reverse direction
-            if (_isDarkenInProgress && _targetDarknessValue == _originalAlpha)
-            {
-                //reverse our progression point
-                _currentDarkenTime = _darkenDuration - _currentDarkenTime;
-
-                //ensure our start and end points are reversed
-                _startingDarknessValue = _originalAlpha;
-                _targetDarknessValue = _maxDarkness;
-            }
-
-            //if we're starting
-            else if (!_isDarkenInProgress)
-            {
-                _startingDarknessValue = _originalAlpha;
-                _targetDarknessValue = _maxDarkness;
-                _isDarkenInProgress = true;
-            }
-        }
-        public void UndarkenGrid()
-        {
-            //ignore command if the grid is not dark
-            if (_darkenEffectImage.color.a == _originalAlpha)
-                return;
-
-            //ignore command if we're already UNdarkening the grid
-            if (_isDarkenInProgress && _targetDarknessValue == _originalAlpha)
-                return;
-
-            //if we're currently darkening, then reverse direction
-            if (_isDarkenInProgress && _targetDarknessValue == _maxDarkness)
-            {
-                //reverse our progression point
-                _currentDarkenTime = _darkenDuration - _currentDarkenTime;
-
-                //ensure our start and end points are reversed
-                _startingDarknessValue = _maxDarkness;
-                _targetDarknessValue = _originalAlpha;
-            }
-
-            //if we're starting
-            else if (!_isDarkenInProgress)
-            {
-                _startingDarknessValue = _maxDarkness;
-                _targetDarknessValue = _originalAlpha;
-                _isDarkenInProgress = true;
-                _currentDarkenTime = 0;
-            }
-        }
-        public void ForceImmediateUndarken()
-        {
-            _isDarkenInProgress = false;
-            _darkenEffectImage.color = new Color(_darkenEffectImage.color.r, _darkenEffectImage.color.g, _darkenEffectImage.color.b, _originalAlpha);
-            _currentDarkenTime = 0;
-        }
 
 
         /// <summary>
@@ -360,7 +322,7 @@ namespace dtsInventory
         /// <param name="position">The grid position to check.
         /// Any Grid position may belong to only one item stack at a time.</param>
         /// <returns></returns>
-        private HashSet<(int, int)> GetStackArea((int, int) position)
+        private HashSet<(int, int)> StackArea((int, int) position)
         {
             //look at all the saved stack positionSets
             foreach (HashSet<(int, int)> indexSet in _stackItemDatas.Keys)
@@ -599,7 +561,109 @@ namespace dtsInventory
         }
         */
 
-        public void OverlayObjectOntoGridVisually((int,int) position, RectTransform uiObjectRectTransform, bool fitToCellSize = true)
+        private void RaiseInvContentsChangeEvent(InvContentsUpdate update)
+        {
+            OnContentsChanged?.Invoke(update);
+        }
+        private void RaiseInvContentsChangeEvent(ItemData itemData, int amount, InvOperation operation)
+        {
+            OnContentsChanged?.Invoke(new InvContentsUpdate(itemData,amount,operation));
+        }
+        private void RaiseBulkInvContentsChangeEvent(List<InvContentsUpdate> updateList)
+        {
+            OnBulkContentsChanged?.Invoke(updateList);
+        }
+
+        /// <summary>
+        /// Communicates multiple inventory changes as a single transaction.
+        /// </summary>
+        /// <param name="operationsList">A list of operations that were manually performed</param>
+        public void ForceRaiseBulkInvContentsChanged(List<(ItemData,int, InvOperation)> operationsList) 
+        {
+            List<InvContentsUpdate> updatesList = new();
+            foreach ((ItemData, int, InvOperation) entry in operationsList)
+                updatesList.Add(new InvContentsUpdate(entry.Item1, entry.Item2, entry.Item3));
+
+            RaiseBulkInvContentsChangeEvent(updatesList);
+
+        }
+
+        /// <summary>
+        /// Communicates multiple inventory changes as a single transaction.
+        /// </summary>
+        /// <param name="operationsList">A list of operations that were manually performed</param>
+        public void ForceRaiseBulkInvContentsChanged(List<InvContentsUpdate> updateList) { RaiseBulkInvContentsChangeEvent(updateList); }
+
+
+
+
+        //externals
+        public void DarkenGrid()
+        {
+            //ignore command if the grid is already dark
+            if (_darkenEffectImage.color.a == _maxDarkness)
+                return;
+
+            //ignore command if we're already darkening the grid
+            if (_isDarkenInProgress && _targetDarknessValue == _maxDarkness)
+                return;
+
+            //if we're currently UNDOING a previous darkening effect, then reverse direction
+            if (_isDarkenInProgress && _targetDarknessValue == _originalAlpha)
+            {
+                //reverse our progression point
+                _currentDarkenTime = _darkenDuration - _currentDarkenTime;
+
+                //ensure our start and end points are reversed
+                _startingDarknessValue = _originalAlpha;
+                _targetDarknessValue = _maxDarkness;
+            }
+
+            //if we're starting
+            else if (!_isDarkenInProgress)
+            {
+                _startingDarknessValue = _originalAlpha;
+                _targetDarknessValue = _maxDarkness;
+                _isDarkenInProgress = true;
+            }
+        }
+        public void UndarkenGrid()
+        {
+            //ignore command if the grid is not dark
+            if (_darkenEffectImage.color.a == _originalAlpha)
+                return;
+
+            //ignore command if we're already UNdarkening the grid
+            if (_isDarkenInProgress && _targetDarknessValue == _originalAlpha)
+                return;
+
+            //if we're currently darkening, then reverse direction
+            if (_isDarkenInProgress && _targetDarknessValue == _maxDarkness)
+            {
+                //reverse our progression point
+                _currentDarkenTime = _darkenDuration - _currentDarkenTime;
+
+                //ensure our start and end points are reversed
+                _startingDarknessValue = _maxDarkness;
+                _targetDarknessValue = _originalAlpha;
+            }
+
+            //if we're starting
+            else if (!_isDarkenInProgress)
+            {
+                _startingDarknessValue = _maxDarkness;
+                _targetDarknessValue = _originalAlpha;
+                _isDarkenInProgress = true;
+                _currentDarkenTime = 0;
+            }
+        }
+        public void ForceImmediateUndarken()
+        {
+            _isDarkenInProgress = false;
+            _darkenEffectImage.color = new Color(_darkenEffectImage.color.r, _darkenEffectImage.color.g, _darkenEffectImage.color.b, _originalAlpha);
+            _currentDarkenTime = 0;
+        }
+        public void OverlayObjectOntoGridVisually((int, int) position, RectTransform uiObjectRectTransform, bool fitToCellSize = true)
         {
             //reparent the uiObject onto the grid visually
             //Get the position of the hovered cell, local to the grid
@@ -607,8 +671,8 @@ namespace dtsInventory
 
 
             //parent the object to the grid's overlay container
-            uiObjectRectTransform.SetParent(_overlayContainer,false);
-            uiObjectRectTransform.localPosition=parentCellPosition;
+            uiObjectRectTransform.SetParent(_overlayContainer, false);
+            uiObjectRectTransform.localPosition = parentCellPosition;
 
             //ensure the graphic fits the cell's size
             if (fitToCellSize)
@@ -616,9 +680,6 @@ namespace dtsInventory
 
 
         }
-
-
-        //externals
         public InvWindow GetParentWindow() { return _parentWindow; }
         public Vector2 CellSize() { return _cellSize; }
         public Vector2Int ContainerSize() { return _containerSize; }
@@ -632,7 +693,7 @@ namespace dtsInventory
         {
             //Debug.Log($"Checking 'IsCellOccupied Integrity. Provided Position: ({position.Item1},{position.Item2})\nFound Stack Area at position: " + GetStackArea(position).ToCommaSeparatedString());
             //Debug.Log($"Is Cell Occupied: {GetStackArea(position).Count > 0}");
-            if (GetStackArea(position).Count > 0)
+            if (StackArea(position).Count > 0)
                 return true;
             else return false;
         }
@@ -664,8 +725,8 @@ namespace dtsInventory
         public ItemData GetStackItemData((int, int) index)
         {
             if (IsCellOnGrid(index))
-                if (_stackItemDatas.ContainsKey(GetStackArea(index)))
-                    return _stackItemDatas[GetStackArea(index)];
+                if (_stackItemDatas.ContainsKey(StackArea(index)))
+                    return _stackItemDatas[StackArea(index)];
 
             return null;
         }
@@ -677,8 +738,8 @@ namespace dtsInventory
         {
             if (IsCellOnGrid(index))
             {
-                if (_stackSpriteObjects.ContainsKey(GetStackArea(index)))
-                    return _stackSpriteObjects[GetStackArea(index)];
+                if (_stackSpriteObjects.ContainsKey(StackArea(index)))
+                    return _stackSpriteObjects[StackArea(index)];
             }
 
             return null;
@@ -689,7 +750,7 @@ namespace dtsInventory
         }
         public int GetStackValue((int, int) position)
         {
-            HashSet<(int, int)> stackPosition = GetStackArea(position);
+            HashSet<(int, int)> stackPosition = StackArea(position);
             if (stackPosition.Count > 0)
                 return _stackCapacities[stackPosition];
 
@@ -706,9 +767,9 @@ namespace dtsInventory
         /// </summary>
         /// <param name="position"></param>
         /// <returns></returns>
-        public HashSet<(int, int)> GetStackOccupancy((int, int) position)
+        public HashSet<(int, int)> GetStackArea((int, int) position)
         {
-            return GetStackArea(position);
+            return StackArea(position);
         }
         /// <summary>
         /// Returns all of the cells that the stack at the provided position is occupying.
@@ -717,7 +778,7 @@ namespace dtsInventory
         /// </summary>
         /// <param name="position"></param>
         /// <returns></returns>
-        public HashSet<(int, int)> GetStackOccupancy(int x, int y)
+        public HashSet<(int, int)> GetStackArea(int x, int y)
         {
             return GetStackArea((x, y));
         }
@@ -730,7 +791,7 @@ namespace dtsInventory
         /// <param name="spacialDefinition">The objects size defined as indexes</param>
         /// <param name="itemHandle">The index within the provided spacial definition that should align with the selected grid position</param>
         /// <returns></returns>
-        public HashSet<(int, int)> ConvertSpacialDefIntoGridIndexes((int, int) selectedGridPosition, HashSet<(int, int)> spacialDefinition, (int, int) itemHandle)
+        public HashSet<(int, int)> ConvertSpacialDefIntoGridArea((int, int) selectedGridPosition, HashSet<(int, int)> spacialDefinition, (int, int) itemHandle)
         {
             if (spacialDefinition == null)
                 return null;
@@ -768,7 +829,7 @@ namespace dtsInventory
             string position = "";
             foreach ((int, int) index in gridPositions)
             {
-                HashSet<(int, int)> stackArea = GetStackArea(index);
+                HashSet<(int, int)> stackArea = StackArea(index);
                 if (stackArea.Count > 0)
                     uniqueStacks.Add(stackArea);
 
@@ -801,9 +862,12 @@ namespace dtsInventory
 
             return true;
         }
-        public void IncreaseStack((int, int) position, int increment)
+        private void IncreaseStack((int, int) position, int increment)
         {
-            HashSet<(int, int)> stackArea = GetStackArea(position);
+            if (increment <= 0)
+                return;
+
+            HashSet<(int, int)> stackArea = StackArea(position);
             if (stackArea.Count <= 0)
                 return;
 
@@ -821,7 +885,7 @@ namespace dtsInventory
         }
         public void DecreaseStack((int, int) position, int decrement)
         {
-            HashSet<(int, int)> stackArea = GetStackArea(position);
+            HashSet<(int, int)> stackArea = StackArea(position);
             if (stackArea.Count <= 0)
                 return;
 
@@ -836,12 +900,14 @@ namespace dtsInventory
             //delete the stack if we've expended all the items
             if (newCapacity <= 0)
                 DeleteStack(position);
+
         }
         public void DeleteStack((int, int) position)
         {
-            HashSet<(int, int)> stackArea = GetStackArea(position);
+            HashSet<(int, int)> stackArea = StackArea(position);
             if (stackArea.Count <= 0)
                 return;
+
 
             _stackCapacities.Remove(stackArea);
             _stackItemDatas.Remove(stackArea);
@@ -852,8 +918,10 @@ namespace dtsInventory
 
             uiText.GetComponent<RectTransform>().SetParent(_unusedStackTextsContainer, false);
             ItemCreatorHelper.ReturnItemToCreator(itemGraphic);
+
+            
         }
-        public void CreateStack((int, int) position, InvItem item, int amount) //only items have the necessary rotation data to fit within a grid
+        private void CreateStack((int, int) position, InvItem item, int amount) //only items have the necessary rotation data to fit within a grid
         {
             if (item == null)
             {
@@ -875,7 +943,7 @@ namespace dtsInventory
             }
 
             //calculate the item's expectedGridPosition
-            HashSet<(int, int)> expectedGridOccupancy = ConvertSpacialDefIntoGridIndexes(position, item.GetSpacialDefinition(), item.ItemHandle());
+            HashSet<(int, int)> expectedGridOccupancy = ConvertSpacialDefIntoGridArea(position, item.GetSpacialDefinition(), item.ItemHandle());
 
             //check if all of the positions are within the grid
             if (!IsAreaWithinGrid(expectedGridOccupancy))
@@ -952,11 +1020,11 @@ namespace dtsInventory
         public void RemoveItem((int, int) position, int amount)
         {
             //ignore if no stack exists at the position
-            if (GetStackArea(position).Count == 0)
+            if (StackArea(position).Count == 0)
                 return;
 
             //Log invalid command if not enough items exist within the stack at the specified position
-            if (_stackCapacities[GetStackArea(position)] < amount)
+            if (_stackCapacities[StackArea(position)] < amount)
             {
 
                 //if we got down here, then we didn't find the full amount of items to fulfill the request. Raise a yellow alert. The User probably didn't check the item count beforehand.
@@ -1016,23 +1084,28 @@ namespace dtsInventory
         }
 
         /// <summary>
-        /// Attempts to find an open position to place an new specified item.
-        /// Searches for an available stack to fill before creating a new stack within the grid.
+        /// Attempts to place a specified amount of a particular item anywhere in the grid. If not enough space exists in the grid, then no items will be added
+        ///  and the operation will fail. Pre-existing stacks will be filled before creating new stacks.
         /// </summary>
         /// <param name="itemData"></param>
-        public void AddItem(ItemData itemData, int amount)
+        /// /// <param name="suppressItemAddedEvent">If true, then the "OnContentsChanged" event will not fire in response to this current operation. 
+        /// Use this if you need to perform multiple operations as one operation before raising the OnContentsChanged event.
+        /// If you're doing this, then call 'ForceRaiseBulkInvContentsChanged' after all your operations are performed. 
+        /// You'll need to track your performed changes manually, in this case.</param>
+        /// <returns>true if all items were added successfully. false otherwise.</returns>
+        public bool AddItem(ItemData itemData, int amount, bool suppressItemAddedEvent = false)
         {
             //make sure the item is valid
             if (itemData == null)
             {
                 Debug.LogWarning("Attempted to add a Null itemData to the grid. Ignoring request.");
-                return;
+                return false;
             }
 
             if (amount <= 0)
             {
-                Debug.LogWarning($"Attempted to add a 0 or fewer [{itemData.name}](s) to the grid. Ignoring request.");
-                return;
+                Debug.LogWarning($"Attempted to add 0 or fewer [{itemData.name}](s) to the grid. Processing request as true");
+                return true;
             }
 
             //Before adding anything, check the invGrid's capacity.
@@ -1082,7 +1155,12 @@ namespace dtsInventory
 
                     //we've Added the requested items into preexisting stacks
                     if (remainingAmount == 0)
-                        return;
+                    {
+                        if (!suppressItemAddedEvent)
+                            RaiseInvContentsChangeEvent(itemData, amount,InvOperation.Add);
+                            
+                        return true;
+                    }
 
                 }
 
@@ -1093,7 +1171,7 @@ namespace dtsInventory
                 Debug.LogWarning($"Counting anomoly during command [Add {amount} {itemData.name}]. " +
                     $"Failed to find a home for {remainingAmount} {itemData.name}(s), despite having enough space within preexisting stacks." +
                     $"\nDiscarding the remaining {remainingAmount} items. Please double check the code's counting");
-                return;
+                return false;
             }
 
 
@@ -1122,7 +1200,7 @@ namespace dtsInventory
                 if (openAreaForNewStack.Count == 0)
                 {
                     Debug.LogWarning($"Failed to find enough space for {amount} {itemData.name}(s). Ignoring request.");
-                    return;
+                    return false;
                 }
 
                 //otherwise, save our findings
@@ -1144,7 +1222,7 @@ namespace dtsInventory
             if (iteractionCount >= autoBreakCount)
             {
                 Debug.LogWarning($"Cancelled the command to add {amount} {itemData.name}(s) due to not finding enough space within a reasonable amount of iterations [{autoBreakCount}]. Ignoring request.");
-                return;
+                return false;
             }
 
 
@@ -1193,7 +1271,210 @@ namespace dtsInventory
             }
 
             //We're Done!
+            if (!suppressItemAddedEvent)
+                RaiseInvContentsChangeEvent(itemData, amount, InvOperation.Add);
+            return true;
 
+        }
+
+        /// <summary>
+        /// Attempts to place a specified amount of a particular item at a specified position. If not enough space exists within the specified area,
+        ///  then the operation will fail and no items will be placed. If pre-existing stacks exist within the placement area, then any
+        ///  compatible stacks (starting from the directly-specified position) will get filled up, assuming enough space exists to fulfill the operation. 
+        ///  Otherwise, if the space is empty, then a new stack will be created at the specified position. Any attempt to add beyond the item's own stack limit 
+        ///  will likely result in failure.
+        /// </summary>
+        /// <param name="itemData">the initialized item to add</param>
+        /// <param name="amount">The amount to add</param>
+        /// <param name="rotation">How rotated whould the item be when placed</param>
+        /// <param name="position">The targeted grid placement position. If the item spans many cells, this position will be relative to the item's item handle</param>
+        /// <param name="suppressItemAddedEvent">If true, then the "OnContentsChanged" event will not fire in response to this current operation. 
+        /// Use this if you need to perform multiple operations as one operation before raising the OnContentsChanged event.
+        /// If you're doing this, then call 'ForceRaiseBulkInvContentsChanged' after all your operations are performed. 
+        /// You'll need to track your performed changes manually, in this case.</param>
+        /// <returns>true if all items were added successfully. false otherwise.</returns>
+        public bool AddItem(ItemData itemData, int amount, (int,int) position, ItemRotation rotation, bool suppressItemAddedEvent = false)
+        {
+            //make sure the item is valid
+            if (itemData == null)
+            {
+                Debug.LogWarning("Attempted to add a Null itemData to the grid. Ignoring AddItem request.");
+                return false;
+            }
+
+            if (amount > itemData.StackLimit())
+            {
+                Debug.LogWarning($"Attempted to add a {amount} {itemData.name}(s) to the grid, but the item's stack limit is {itemData.StackLimit()}. " +
+                    $"Ignoring AddItem request.");
+                return false;
+            }
+
+            if (!IsCellOnGrid(position))
+            {
+                Debug.LogWarning($"Attempted to add a {amount} {itemData.name}(s) to a specified Off-the-grid position ({position.Item1},{position.Item2}). " +
+                    $"Ignoring AddItem request.");
+                return false;
+            }
+
+            HashSet<(int, int)> placementArea = ConvertSpacialDefIntoGridArea(position, itemData.RotatedSpacialDef(rotation), itemData.RotatedItemHandle(rotation));
+
+            //Deliberately AVOID checking if the selected position is directly occupied.
+            //What if the ItemHandle isn't within the spacial def? (Could be offset/ or a hollow item)
+            //ensure the item's area within the grid fits before doing anything else
+            /*
+            if (!IsAreaWithinGrid(placementArea))
+            {
+                Debug.LogWarning($"Item [{itemData.name}] won't fit on grid if placed on position ({position.Item1},{position.Item2}) at rotation {rotation}. Ignoring request." +
+                    $"\n Item Spacial Def\n{StringifyPositions(placementArea)}");
+                return false;
+            }*/
+
+            //Case 1: is the placement area empty? -> place items and return
+            bool occupancyDetected = false;
+            bool outOfBounds = false;
+            foreach ((int,int) cell in placementArea)
+            {
+                if (!IsCellOnGrid(cell))
+                {
+                    outOfBounds = true;
+                    break;
+                }
+                if (IsCellOccupied(cell))
+                {
+                    occupancyDetected = true;
+                    break;
+                }
+            }
+
+            //if nothing occupied the space (& the area is within bounds), create a new stack at the requested position
+            if (!occupancyDetected && !outOfBounds)
+            {
+
+                GameObject newItemObj = ItemCreatorHelper.CreateItem(itemData, _cellSize.x, _cellSize.y);
+                InvItem invItem = newItemObj.GetComponent<InvItem>();
+                int rotationsPerformed = 0;
+                int maxRotationsPossible = 4;
+                while (invItem.Rotation() != rotation && rotationsPerformed < maxRotationsPossible)
+                {
+                    invItem.RotateItem(RotationDirection.Clockwise);
+                    rotationsPerformed++;
+                }
+
+                //raise an error if something really weird occurred while finding the proper rotation
+                if (invItem.Rotation() != rotation)
+                {
+                    Debug.LogWarning($"Failed to properly rotate the specified item [{itemData.name}] to" +
+                        $" match the requested rotation [{rotation}]. Checked [{rotationsPerformed + 1}] rotations. Ignoring Request");
+                    return false;
+                }
+
+                CreateStack(position, invItem, amount);
+                if (!suppressItemAddedEvent)
+                    RaiseInvContentsChangeEvent(itemData, amount, InvOperation.Add);
+
+                return true;
+            }
+
+            //Case 2: The space is either occupied or partially OB. Is there a similar stack at the specified position to add to?
+            //The specified position takes priority over any other position within the placement area, since it was deliberately requested first
+
+            //Begin caching all of our needed utilities.
+            int remainingSpacesToFind = amount;
+            int detectedSpace = 0;
+            int placementValue = 0;
+            HashSet<(int, int)> blockedPositions = new();
+            List<HashSet<(int, int)>> openStacks= new();
+            List<int> stackCapacities = new();
+
+            //mark the requested position first, if a compatible stack exists here
+            if (IsCellOccupied(position))
+            {
+                //is this position occupied by a compatible (and unfilled) stack?
+                if (GetStackItemData(position).ItemCode() == itemData.ItemCode() && GetStackValue(position) < itemData.StackLimit())
+                {
+                    //calculate the available space here
+                    detectedSpace = itemData.StackLimit() - GetStackValue(position);
+
+                    //calculate the amount we should place here. [either fill the stack or put the remaining items here] 
+                    placementValue = Mathf.Min(detectedSpace, remainingSpacesToFind);
+                    
+                    //track what we've found here
+                    openStacks.Add(GetStackArea(position));
+                    stackCapacities.Add(detectedSpace);
+                    remainingSpacesToFind -= placementValue;
+                    
+                    //if we've found space for all the items right here, then we can add everything now and end the operation.
+                    if (remainingSpacesToFind == 0)
+                    {
+                        IncreaseStack(position, placementValue);
+
+                        if (!suppressItemAddedEvent)
+                            RaiseInvContentsChangeEvent(itemData, amount, InvOperation.Add);
+
+                        return true;
+                    }
+                }
+            }
+            
+            //If we made it this far, then we need to find more space. Now we can look ANYWHERE within the placement area!
+            foreach ((int,int) cell in placementArea)
+            {
+                if (!IsCellOnGrid(cell))
+                    continue;
+
+                if (IsCellOccupied(cell))
+                {
+                    //have we already checked this stack?
+                    if (openStacks.Contains(GetStackArea(cell)))
+                        continue;
+
+                    //otherwise, is this position occupied by a compatible (and unfilled) stack?
+                    if (GetStackItemData(cell).ItemCode() == itemData.ItemCode() && GetStackValue(cell) < itemData.StackLimit())
+                    {
+                        //calculate the available space
+                        detectedSpace = itemData.StackLimit() - GetStackValue(cell);
+
+                        //calculate the amount we should place here
+                        placementValue = Mathf.Min(detectedSpace, remainingSpacesToFind);
+
+                        //track what we've found here
+                        openStacks.Add(GetStackArea(cell));
+                        stackCapacities.Add(detectedSpace);
+                        remainingSpacesToFind -= placementValue;
+
+                        //if we've found positions for all of our requested items, then add them to the tracked stacks and end the operation
+                        if (remainingSpacesToFind == 0)
+                        {
+                            for (int i = 0; i <= openStacks.Count; i++)
+                                IncreaseStack(openStacks[i].First(), stackCapacities[i]);
+
+                            if (!suppressItemAddedEvent)
+                                RaiseInvContentsChangeEvent(itemData, amount, InvOperation.Add);
+
+                            return true;
+                        }
+                    }
+
+                    else 
+                        blockedPositions.Add(cell);
+                }
+            }
+
+            //if we've reached this position, then we didn't find enough space.
+
+            //build the debugLog, for further clarity
+            string debugString = $"Failed to find enough space at position ({position.Item1},{position.Item2}) for {amount} {itemData.name}(s):\n";
+
+            if (remainingSpacesToFind < amount)
+                debugString += $"Only found space for {amount - remainingSpacesToFind} {itemData.name}(s).\n";
+
+            if (blockedPositions.Count > 0)
+                debugString += $"Placement blocked on the following cells\n{StringifyPositions(blockedPositions)}\n";
+
+            debugString += " Ignoring request.";
+
+            Debug.LogWarning(debugString);
+            return false;
 
         }
 
@@ -1277,7 +1558,7 @@ namespace dtsInventory
                         */
 
                         //calculate the items expected ROTATED spacialData [without going through the trouble of actually creating an item]
-                        calculatedPositions = ConvertSpacialDefIntoGridIndexes((w, h), itemData.RotatedSpacialDef(necessaryRotation), itemData.RotatedItemHandle(necessaryRotation));
+                        calculatedPositions = ConvertSpacialDefIntoGridArea((w, h), itemData.RotatedSpacialDef(necessaryRotation), itemData.RotatedItemHandle(necessaryRotation));
 
                         /* Log Area Check results
                         Debug.Log($"Is area within grid: {IsAreaWithinGrid(calculatedPositions)}\n Positions: {StringifyPositions(calculatedPositions)}");
@@ -1463,12 +1744,8 @@ namespace dtsInventory
         /// A sister collection to the 'unregistered stack changes' argument. Holds the type of each unregistered stack, in case new ones are created
         /// </param>
         /// <returns></returns>
-        public List<ItemQueryResponse> FindSpaceForItems(
-            ItemData itemData, 
-            int amount, 
-            HashSet<(int, int)> excludedPositions, 
-            Dictionary<HashSet<(int,int)>,int> unregisteredStackChanges, 
-            Dictionary<HashSet<(int, int)>, ItemData> unregisteredStackTypes)
+        private List<ItemQueryResponse> FindSpaceForItems(ItemData itemData,int amount,HashSet<(int, int)> excludedPositions, 
+            Dictionary<HashSet<(int,int)>,int> unregisteredStackChanges,Dictionary<HashSet<(int, int)>, ItemData> unregisteredStackTypes)
         {
 
             if (excludedPositions == null)
@@ -2149,9 +2426,9 @@ namespace dtsInventory
             return allItems;
         }
 
-        public bool DoesItemExist(ItemData item, int amount, out Dictionary<HashSet<(int,int)>,int> stackPositions)
+        public bool DoesItemExist(ItemData item, int amount, out Dictionary<HashSet<(int,int)>,int> detectedArea)
         {
-            stackPositions = new Dictionary<HashSet<(int, int)>,int>();
+            detectedArea = new Dictionary<HashSet<(int, int)>,int>();
             
             if (item == null)
                 return false;
@@ -2174,7 +2451,7 @@ namespace dtsInventory
                         amountTaken = _stackCapacities[itemEntry.Key];
 
                     neededAmount -= amountTaken;
-                    stackPositions.Add(itemEntry.Key, amountTaken);
+                    detectedArea.Add(itemEntry.Key, amountTaken);
 
                     if (neededAmount == 0)
                     {
@@ -2186,7 +2463,7 @@ namespace dtsInventory
             
             //the requested amount wasn't found. Return false
             //Also clear the out parameter. Dont provide an incomplete query to the user
-            stackPositions.Clear();
+            detectedArea.Clear();
             return false;
 
         }

@@ -93,6 +93,7 @@ GameObject:
   m_Component:
   - component: {fileID: 7984646013176104386}
   - component: {fileID: 5968867289871495316}
+  - component: {fileID: 7166641204265841663}
   - component: {fileID: 6682977435332079625}
   m_Layer: 0
   m_Name: Small Lootable Chest
@@ -134,6 +135,8 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   _uiWindowPrefab: {fileID: 106780517998607117, guid: 7b4dc6ee5c5a21d4b90bc95013aca4e2,
     type: 3}
+  _interactRadius: 1.5
+  _showLootRolls: 0
   _lootTable:
   - itemdata: {fileID: 11400000, guid: 1028ce9d784040742bb0db69ab3e14c2, type: 2}
     successChance: 1
@@ -151,11 +154,22 @@ MonoBehaviour:
     successChance: 0.05
     minAmount: 1
     maxAmount: 1
-  _containerUiParent: {fileID: 0}
   _isDebugActive: 0
   _cmdOpenContainer: 0
   _cmdCloseContainer: 0
   _cmdRerollContainer: 0
+--- !u!114 &7166641204265841663
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 876241778056299667}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 52af99cb777baa342a92779657458fbd, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
 --- !u!65 &6682977435332079625
 BoxCollider:
   m_ObjectHideFlags: 0

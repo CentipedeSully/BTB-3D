@@ -448,7 +448,7 @@ namespace dtsInventory
                     if (_heldItem != null)
                     {
                         //Get the new potential placement positions
-                        HashSet<(int, int)> placementPositions = _invGrid.ConvertSpacialDefIntoGridIndexes(_hoveredCellIndex, _heldItem.GetSpacialDefinition(), _heldItem.ItemHandle());
+                        HashSet<(int, int)> placementPositions = _invGrid.ConvertSpacialDefIntoGridArea(_hoveredCellIndex, _heldItem.GetSpacialDefinition(), _heldItem.ItemHandle());
 
                         if (_invGrid.IsAreaWithinGrid(placementPositions))
                         {
@@ -477,7 +477,7 @@ namespace dtsInventory
                     {
                         //Get the item's occupancy as the new frame's hovered data
                         string indexesString = "";
-                        foreach ((int, int) index in _invGrid.GetStackOccupancy(_hoveredCellIndex))
+                        foreach ((int, int) index in _invGrid.GetStackArea(_hoveredCellIndex))
                         {
                             _hoveredIndexes.Add(index);
                             indexesString += index.ToString() + "\n";
@@ -543,7 +543,7 @@ namespace dtsInventory
                 if (_heldItem != null)
                 {
                     //Get the new potential placement positions
-                    HashSet<(int, int)> placementPositions = _invGrid.ConvertSpacialDefIntoGridIndexes(_hoveredCellIndex, _heldItem.GetSpacialDefinition(), _heldItem.ItemHandle());
+                    HashSet<(int, int)> placementPositions = _invGrid.ConvertSpacialDefIntoGridArea(_hoveredCellIndex, _heldItem.GetSpacialDefinition(), _heldItem.ItemHandle());
 
                     if (_invGrid.IsAreaWithinGrid(placementPositions))
                     {
@@ -572,7 +572,7 @@ namespace dtsInventory
                 {
                     //Get the item's occupancy as the new frame's hovered data
                     string indexesString = "";
-                    foreach ((int, int) index in _invGrid.GetStackOccupancy(_hoveredCellIndex))
+                    foreach ((int, int) index in _invGrid.GetStackArea(_hoveredCellIndex))
                     {
                         _hoveredIndexes.Add(index);
                         indexesString += index.ToString() + "\n";
@@ -869,7 +869,7 @@ namespace dtsInventory
         {
             if (_heldItem != null)
             {
-                HashSet<(int, int)> placementArea = _invGrid.ConvertSpacialDefIntoGridIndexes(_hoveredCellIndex, _heldItem.GetSpacialDefinition(), _heldItem.ItemHandle());
+                HashSet<(int, int)> placementArea = _invGrid.ConvertSpacialDefIntoGridArea(_hoveredCellIndex, _heldItem.GetSpacialDefinition(), _heldItem.ItemHandle());
 
                 //make sure the entire item area is within the grid
                 if (_invGrid.IsAreaWithinGrid(placementArea))
@@ -883,7 +883,9 @@ namespace dtsInventory
                         if (_heldItemStackCount == 1)
                         {
                             PlayItemDropAudio();
-                            _invGrid.CreateStack(_hoveredCellIndex, _heldItem, 1);
+                            Debug.Log($"Given placement position: ({_hoveredCellIndex.Item1},{_hoveredCellIndex.Item2})");
+                            _invGrid.AddItem(_heldItem.ItemData(), 1, _hoveredCellIndex, _heldItem.Rotation());
+                            ItemCreatorHelper.ReturnItemToCreator(_heldItem);
                             _heldItem = null;
                             _heldItemStackCount = 0;
                             UpdateHeldStackText();
@@ -892,17 +894,10 @@ namespace dtsInventory
 
                         else
                         {
-                            //create a new sprite for the new stack
-                            InvItem newItemSprite = ItemCreatorHelper.CreateItem(_heldItem.ItemData(), _invGrid.CellSize().x, _invGrid.CellSize().y).GetComponent<InvItem>();
+                            Debug.Log($"Given placement position: ({_hoveredCellIndex.Item1},{_hoveredCellIndex.Item2})");
 
-                            //make sure the new stack's rotation matches the held item
-                            while (newItemSprite.Rotation() != _heldItem.Rotation())
-                            {
-                                newItemSprite.RotateItem(RotationDirection.Clockwise);
-                            }
-
-                            //create the new stack of 1
-                            _invGrid.CreateStack(_hoveredCellIndex, newItemSprite, 1);
+                            //add the new item to the hovered position
+                            _invGrid.AddItem(_heldItem.ItemData(),1,_hoveredCellIndex, _heldItem.Rotation());
 
                             //update our held count 
                             _heldItemStackCount -= 1;
@@ -925,7 +920,7 @@ namespace dtsInventory
                                 if (_invGrid.GetStackItemData(index).ItemCode() == _heldItem.ItemData().ItemCode() && _invGrid.GetStackValue(index) < _heldItem.ItemData().StackLimit())
                                 {
                                     //increase the compatible stack by 1
-                                    _invGrid.IncreaseStack(index, 1);
+                                    _invGrid.AddItem(_heldItem.ItemData(),1,index, _heldItem.Rotation());
 
                                     PlayItemDropAudio();
 
@@ -991,7 +986,7 @@ namespace dtsInventory
         {
             if (_heldItem != null)
             {
-                HashSet<(int, int)> placementArea = _invGrid.ConvertSpacialDefIntoGridIndexes(_hoveredCellIndex, _heldItem.GetSpacialDefinition(), _heldItem.ItemHandle());
+                HashSet<(int, int)> placementArea = _invGrid.ConvertSpacialDefIntoGridArea(_hoveredCellIndex, _heldItem.GetSpacialDefinition(), _heldItem.ItemHandle());
                 //Debug.Log($"Drop Stack Called. Placement area: {_invGrid.StringifyPositions(placementArea)}");
                 //make sure the entire item area is within the grid
                 if (_invGrid.IsAreaWithinGrid(placementArea))
@@ -1002,7 +997,8 @@ namespace dtsInventory
                     if (itemCount == 0)
                     {
                         PlayItemDropAudio();
-                        _invGrid.CreateStack(_hoveredCellIndex, _heldItem, _heldItemStackCount);
+                        _invGrid.AddItem(_heldItem.ItemData(),_heldItemStackCount, _hoveredCellIndex, _heldItem.Rotation());
+                        ItemCreatorHelper.ReturnItemToCreator(_heldItem);
                         _heldItem = null;
                         _heldItemStackCount = 0;
 
@@ -1030,7 +1026,7 @@ namespace dtsInventory
                                     if (_heldItemStackCount <= openCapacity)
                                     {
                                         PlayItemDropAudio();
-                                        _invGrid.IncreaseStack(index, _heldItemStackCount);
+                                        _invGrid.AddItem(_heldItem.ItemData(), _heldItemStackCount, index, _heldItem.Rotation());
                                         ItemCreatorHelper.ReturnItemToCreator(_heldItem);
                                         _heldItem = null;
                                         _heldItemStackCount = 0;
@@ -1044,7 +1040,7 @@ namespace dtsInventory
                                     else
                                     {
                                         PlayItemDropAudio();
-                                        _invGrid.IncreaseStack(index, openCapacity);
+                                        _invGrid.AddItem(_heldItem.ItemData(), openCapacity, index, _heldItem.Rotation());
                                         _heldItemStackCount -= openCapacity;
 
                                         UpdateHeldStackText();
@@ -1068,7 +1064,10 @@ namespace dtsInventory
                                     _invGrid.DeleteStack(index);
 
                                     //place the held item into the now-fully-open position
-                                    _invGrid.CreateStack(_hoveredCellIndex, _heldItem, _heldItemStackCount);
+                                    _invGrid.AddItem(_heldItem.ItemData(), _heldItemStackCount, _hoveredCellIndex, _heldItem.Rotation());
+
+                                    //return the old item to the creator, since we'll be holding the new item next
+                                    ItemCreatorHelper.ReturnItemToCreator(_heldItem);
 
                                     //update our held itemData
                                     _heldItem = newGraphic;

@@ -1,3 +1,4 @@
+using System.Collections;
 using Unity.VisualScripting;
 using UnityEngine;
 using UnityEngine.EventSystems;
@@ -21,13 +22,14 @@ namespace dtsInventory
         [SerializeField] private Text _containerNameText;
         [SerializeField] private InputField _containerInputField;
 
-        [SerializeField] private bool _autocloseOnStart = false;
+        [SerializeField] private bool _initOnGameStart = false;
 
         [Header("Customization")]
         [SerializeField] string _containerName;
 
         private RectTransform _rectTransform;
         private Canvas _canvas;
+
 
         public delegate void InvWindowEvent(InvWindow window);
         public event InvWindowEvent OnWindowOpened;
@@ -43,13 +45,14 @@ namespace dtsInventory
 
 
 
-        //internals
+        
         private void Awake()
         {
             
             _rectTransform = GetComponent<RectTransform>();
             _containerNameText.text = _containerName;
             _containerInputField.text = _containerName;
+
         }
 
         private void Start()
@@ -60,11 +63,12 @@ namespace dtsInventory
 
             InvManagerHelper.TrackNewInvWindow(this);
             InvManagerHelper.ParentInvWindowToInventoryUisContainer(this);
-
-            if (_autocloseOnStart)
-                CloseWindow();
         }
 
+
+
+        //internals
+        //...
 
 
 

@@ -281,10 +281,12 @@ namespace dtsInventory
         {
             _lastKnownPcDimensions = _pcInvDimesions;
             _pcInvDimesions = _playerInv.ContainerSize();
-
+            
+            /*
             //ignore the call if nothing's changed
             if (_lastKnownPcDimensions == _pcInvDimesions)
                 return;
+            */
 
             int x = _pcInvDimesions.x;
             int y = _pcInvDimesions.y;

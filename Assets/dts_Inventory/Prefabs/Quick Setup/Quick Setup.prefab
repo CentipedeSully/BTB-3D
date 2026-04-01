@@ -1605,7 +1605,6 @@ MonoBehaviour:
   _heldStackText: {fileID: 1504911403366903061}
   _heldStackContainer: {fileID: 1531338335064895354}
   _pointerContainer: {fileID: 8210331986990987556}
-  _navHelper: {fileID: 0}
   _uiCanvas: {fileID: 2886830619835339368}
   _graphicRaycaster: {fileID: 1572798984112301655}
   _hoverGraphicPrefab: {fileID: 4799210656380651735, guid: 272b52e2eaec0904790445676de3199c,
@@ -1680,6 +1679,8 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   _pointerClickDelay: 0.1
   _directionalMoveDelay: 0.17
+  _mapPointer: {fileID: 0}
+  _camControlller: {fileID: 0}
   _pointerActivityDetected: 0
   _lClick: 0
   _rClick: 0
@@ -1695,7 +1696,9 @@ MonoBehaviour:
   _inventoryCommand: 0
   _editInputFieldCommandBaseKey: 0
   _lRotate: 0
+  _lRotateHold: 0
   _rRotate: 0
+  _rRotateHold: 0
   _confirm: 0
   _back: 0
   _jumpWindow: 0
@@ -2782,6 +2785,7 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 2292909964272287443}
+  - component: {fileID: 5914402506394226488}
   m_Layer: 5
   m_Name: InvContainers
   m_TagString: Untagged
@@ -2808,6 +2812,18 @@ RectTransform:
   m_AnchoredPosition: {x: 0, y: 0}
   m_SizeDelta: {x: 100, y: 100}
   m_Pivot: {x: 0.5, y: 0.5}
+--- !u!114 &5914402506394226488
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 6642859783253131168}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: d30b6cdbb17f54744982aff782259af0, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
 --- !u!1 &6873508195089511934
 GameObject:
   m_ObjectHideFlags: 0

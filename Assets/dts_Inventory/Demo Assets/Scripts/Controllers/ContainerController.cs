@@ -61,9 +61,15 @@ namespace dtsInventory
         [SerializeField] private bool _showLootRolls = false;
         [SerializeField] List<LootRoll> _lootTable = new List<LootRoll>();
         private InvWindow _invWindow;
-        [SerializeField] private Transform _containerUiParent;
+        private Transform _containerUiParent;
         private IEnumerator _containerInitializer;
         private bool _contentsInitialized = false;
+
+
+        public delegate void ContainerInteractionEvent();
+        public event ContainerInteractionEvent OnContainerOpened;
+        public event ContainerInteractionEvent OnContainerClosed;
+
 
         [Header("Debug")]
         [SerializeField] private bool _isDebugActive = false;
@@ -176,6 +182,7 @@ namespace dtsInventory
             }
 
             _invWindow.OpenWindow();
+            OnContainerOpened?.Invoke();
 
 
         }
@@ -186,6 +193,7 @@ namespace dtsInventory
                 return;
 
             _invWindow.CloseWindow();
+            OnContainerClosed?.Invoke();
         }
         public GameObject GetGameObject(){ return gameObject; }
 
