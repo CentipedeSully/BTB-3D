@@ -193,7 +193,7 @@ public class MapPointer : MonoBehaviour
         }
 
         //hide the hover feedback when the pointer is in an inv ui element 
-        if ((InvManagerHelper.IsPointerWithinUiRect() || _uiExpansionController.IsPointerInUi()) && (InvManagerHelper.GetInvController().GetInputMode() == InputMode.Pointer))
+        if (InvManagerHelper.IsPointerWithinUiRect() || _uiExpansionController.IsPointerInUi())
             _hoverObject.SetActive(false);
 
         //also, hide the hover feedback if a window is opened while the inputMode is directional
