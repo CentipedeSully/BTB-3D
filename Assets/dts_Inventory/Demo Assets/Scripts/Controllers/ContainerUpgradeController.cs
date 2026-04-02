@@ -184,13 +184,14 @@ namespace dtsInventory
                     paySource.RemoveItem(_selectedItemList[i], _selectedCostList[i]);
 
             }
+            //open the grid in question
+            upgradeTarget.GetParentWindow().OpenWindow();
 
             //only upgrade what needs to be upgraded
             if (xNeededExtentions > 0)
                 upgradeTarget.ExpandGrid(xNeededExtentions, 0);
             if (yNeededExtentions > 0)
                 upgradeTarget.ExpandGrid(0, yNeededExtentions);
-
 
         }
 

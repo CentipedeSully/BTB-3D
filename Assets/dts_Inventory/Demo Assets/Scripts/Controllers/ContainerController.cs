@@ -182,18 +182,19 @@ namespace dtsInventory
         }
         private void RespondToOnChanged(InvContentsUpdate update)
         {
+            /*
             if (update.operation == InvOperation.Add)
                 Debug.Log($"Item added to {gameObject.name}");
             else if (update.operation == InvOperation.Remove)
                 Debug.Log($"Item removed from {gameObject.name}");
-
+            */
             
             UpdateContainerEmptyState();
-            Debug.Log($"Is container empty: {_isContainerEmpty}");
-        }
+            //Debug.Log($"Is container empty: {_isContainerEmpty}");
+        } 
         private void RespondToOnBulkChanges(List<InvContentsUpdate> updates)
         {
-            Debug.Log($"{updates.Count} Changes occured to {gameObject.name}");
+            //Debug.Log($"{updates.Count} Changes occured to {gameObject.name}");
             UpdateContainerEmptyState();
         }
 
@@ -217,10 +218,10 @@ namespace dtsInventory
         }
         private void RespondToContainerClosed()
         {
-            Debug.Log($"Container Closed!\nIs container empty? {_isContainerEmpty}");
+            //Debug.Log($"Container Closed!\nIs container empty? {_isContainerEmpty}");
             if (_isContainerEmpty)
             {
-                Debug.Log("Container Empty, detected. Destroying container...");
+                //Debug.Log("Container Empty, detected. Destroying container...");
                 OnContainerClosed -= RespondToContainerClosed;
                 Destroy(this.gameObject);
             }

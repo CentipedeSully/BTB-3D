@@ -25,7 +25,8 @@ namespace dtsInventory
         [SerializeField] private Text _heldStackText;
         [SerializeField] private RectTransform _heldStackContainer;
         [SerializeField] private GameObject _pointerContainer;
-        //[SerializeField] private NavigationHelper _navHelper;
+        [Tooltip("Used to preserve the pointerContainer when in directional mode while no grid exists.")]
+        [SerializeField] private Transform _homePointerContainer;
         
         [SerializeField] private Canvas _uiCanvas;
         [SerializeField] private GraphicRaycaster _graphicRaycaster;
@@ -36,7 +37,7 @@ namespace dtsInventory
             "Any Spawned invWindows will be a child of this transform.")]
         [SerializeField] private Transform _inventoryWindowsContainer;
         private HashSet<InvWindow> _knownInvWindows = new();
-        private List<InvWindow> _openedInvWindows = new();
+        [SerializeField]private List<InvWindow> _openedInvWindows = new();
         private RectTransform _defaultParentOfPointerContainer;
         private InvGrid _invGrid;
         private InvWindow _currentHoveredWindow;
@@ -385,14 +386,40 @@ namespace dtsInventory
         {
             window.OnWindowOpened += UpdateWindowAsOpened;
             window.OnWindowClosed += UpdateWindowAsClosed;
+            window.OnWindowDestoryed += RespondToWindowDestroyed;
             //Debug.Log($"subscribed to '{window.name}. Currently subscribed to {_knownInvWindows.Count} windows'");
         }
         private void UnsubFromWindow(InvWindow window)
         {
             window.OnWindowOpened -= UpdateWindowAsOpened;
             window.OnWindowClosed -= UpdateWindowAsClosed;
+            window.OnWindowDestoryed -= RespondToWindowDestroyed;
             //Debug.Log($"Unsubbed from '{window.name}'. Currently subscribed to {_knownInvWindows.Count} windows'");
         }
+        private void RespondToWindowDestroyed(InvWindow window)
+        {
+            UntrackInvWindow(window);
+
+            //reclaim any resources that're currently focused on this window
+            if (_invGrid = window.GetItemGrid())
+            {
+                ClearHoverTiles();
+
+                if (_inputMode == InputMode.Directional)
+                {
+                    if (_openedInvWindows.Count > 1)
+                        FocusOnNextOpenedWindow();
+                    else
+                    {
+                        ReturnPointerContainerToHomeTransform();
+                        ClearDirectionalPointer();
+                    }
+                }
+                
+            }
+
+        }
+        
         public void UpdateWindowAsOpened(InvWindow window)
         {
             if (!_openedInvWindows.Contains(window))
@@ -607,18 +634,29 @@ namespace dtsInventory
                     GameObject currentHoverGraphic = _hoverTileGraphics[i];
 
                     if (currentHoverGraphic == null)
+                    {
+                        //remove the graphic from the active list
+                        _hoverTileGraphics.Remove(currentHoverGraphic);
+                        continue;
 
+                    }
 
                     //hide the graphic
-                    if (currentHoverGraphic != null)
+                    else
+                    {
                         currentHoverGraphic.SetActive(false);
 
-                    //remove the graphic from the active list
-                    _hoverTileGraphics.Remove(currentHoverGraphic);
+                        //remove the graphic from the active list
+                        _hoverTileGraphics.Remove(currentHoverGraphic);
 
-                    //add the graphic to the inactive list
-                    if (currentHoverGraphic != null)
+                        //add the graphic to the inactive list
                         _unusedHoverTileGraphics.Add(currentHoverGraphic);
+
+                        //recollect our tiles
+                        currentHoverGraphic.transform.SetParent(this.transform);
+
+                    }
+                        
                 }
             }
         }
@@ -650,6 +688,13 @@ namespace dtsInventory
 
             if (!_invGrid.IsAreaWithinGrid(_hoveredIndexes))
                 return;
+
+            /*
+            for (int i = _unusedHoverTileGraphics.Count-1; i > -1; i--)
+            {
+                if (_unusedHoverTileGraphics[i] == null)
+                    _unusedHoverTileGraphics.Remove(_unusedHoverTileGraphics[i]);
+            }*/
 
             foreach ((int, int) index in _hoveredIndexes)
             {
@@ -810,6 +855,14 @@ namespace dtsInventory
                         return;
                     }
                 }
+            }
+        }
+        private void ReturnPointerContainerToHomeTransform()
+        {
+            if (_pointerContainer != null && _homePointerContainer != null)
+            {
+                _pointerContainer.GetComponent<RectTransform>().SetParent(_homePointerContainer);
+                //_homePointerContainer.gameObject.SetActive(false);
             }
         }
 
@@ -978,7 +1031,7 @@ namespace dtsInventory
 
                 //remove the item from the invGrid
                 _invGrid.RemoveItem(_hoveredCellIndex,_heldItemStackCount);
-                Debug.LogWarning($"Interacter: is Grid Empty via 'InvGrid.IsEmpty()': {_invGrid.IsEmpty()}\nCounted stacks in grid: {_invGrid.GetAllStacks().Count}");
+                //Debug.LogWarning($"Interacter: is Grid Empty via 'InvGrid.IsEmpty()': {_invGrid.IsEmpty()}\nCounted stacks in grid: {_invGrid.GetAllStacks().Count}");
 
                 //update the "held item" feedback utils
                 BindHeldItemToPointerContainer();

@@ -34,13 +34,14 @@ namespace dtsInventory
         public delegate void InvWindowEvent(InvWindow window);
         public event InvWindowEvent OnWindowOpened;
         public event InvWindowEvent OnWindowClosed;
+        public event InvWindowEvent OnWindowDestoryed;
 
 
         //monobehaviours
         private void OnDestroy()
         {
-            //ensure all destroyed windows are removed and unsubscribed
-            InvManagerHelper.UnTrackInvWindow(this);
+            OnWindowDestoryed?.Invoke(this);
+
         }
 
 

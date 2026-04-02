@@ -192,8 +192,16 @@ public class MapPointer : MonoBehaviour
 
         }
 
-        //only provide hover feedback when the pointer ISNT in an inv ui element
-        if (detections.Length > 0 && !InvManagerHelper.IsPointerWithinUiRect() && !_uiExpansionController.IsPointerInUi())
+        //hide the hover feedback when the pointer is in an inv ui element 
+        if ((InvManagerHelper.IsPointerWithinUiRect() || _uiExpansionController.IsPointerInUi()) && (InvManagerHelper.GetInvController().GetInputMode() == InputMode.Pointer))
+            _hoverObject.SetActive(false);
+
+        //also, hide the hover feedback if a window is opened while the inputMode is directional
+        else if (InvManagerHelper.DoOpenedContainersExist() && InvManagerHelper.GetInvController().GetInputMode() == InputMode.Directional)
+            _hoverObject.SetActive(false); 
+
+        //otherwise, show the hover feedback if something is detected (that's not the ground)
+        else if (detections.Length > 0)
         {
             GameObject closestDetection = detections[0].collider.gameObject;
             if (!closestDetection.CompareTag("Ground"))
@@ -204,6 +212,7 @@ public class MapPointer : MonoBehaviour
             else _hoverObject.SetActive(false);
             
         }
+
         else
         {
             _hoverObject.SetActive(false);
