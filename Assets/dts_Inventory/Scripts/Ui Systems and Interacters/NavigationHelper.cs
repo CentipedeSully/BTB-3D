@@ -24,7 +24,7 @@ namespace dtsInventory
 
             if (_clearNav)
             {
-                Debug.Log("ClearNav flag detected. Setting nav target to nothing");
+                //Debug.Log("ClearNav flag detected. Setting nav target to nothing");
                 if (_eventSystem.alreadySelecting)
                     yield return new WaitForEndOfFrame();
 
@@ -35,7 +35,7 @@ namespace dtsInventory
             else
             {
                 _eventSystem.SetSelectedGameObject(navTarget);
-                Debug.Log($"Set new Nav Target: {navTarget.name}");
+                //Debug.Log($"Set new Nav Target: {navTarget.name}");
             }
 
 
@@ -48,7 +48,7 @@ namespace dtsInventory
                 _waitingNavTargets.RemoveAt(waitingNavTargets - 1);
 
                 _eventSystem.SetSelectedGameObject(navTarget);
-                Debug.Log($"Set new Nav Target: {navTarget.name}");
+                //Debug.Log($"Set new Nav Target: {navTarget.name}");
                 yield return new WaitForEndOfFrame();
             }
 

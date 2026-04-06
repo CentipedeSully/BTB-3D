@@ -38,6 +38,7 @@ namespace dtsInventory
         [SerializeField] private Transform _inventoryWindowsContainer;
         private HashSet<InvWindow> _knownInvWindows = new();
         [SerializeField]private List<InvWindow> _openedInvWindows = new();
+        [SerializeField]private List<InvWindow> _openedMerchants = new();
         private RectTransform _defaultParentOfPointerContainer;
         private InvGrid _invGrid;
         private InvWindow _currentHoveredWindow;
@@ -425,6 +426,11 @@ namespace dtsInventory
             if (!_openedInvWindows.Contains(window))
             {
                 _openedInvWindows.Add(window);
+                
+                //also track if a merchant's ui was opened, for contextOption reasons
+                if (window.GetItemGrid().IsMerchant())
+                    _openedMerchants.Add(window);
+
                 InputFilter.DisallowNonUiInput(window.gameObject);
 
             }
@@ -434,6 +440,11 @@ namespace dtsInventory
             if (_openedInvWindows.Contains(window))
             {
                 _openedInvWindows.Remove(window);
+
+                //also track if a merchant's ui was closed, for contextOption reasons
+                if (window.GetItemGrid().IsMerchant())
+                    _openedMerchants.Remove(window);
+
                 InputFilter.AllowNonUiInput(window.gameObject);
             }
         }
@@ -1223,8 +1234,19 @@ namespace dtsInventory
                 //Infer container-based context options
                 HashSet<ContextOption> containerContextOptions =  InferContainerSpecificContextOptions();
 
+                //Ignore the item's context options if the inventory belongs to a merchant
+                //(You shouldn't be reorganizing & consuming the merchant's possessions!)
+                if (_contextualInvGrid.IsMerchant())
+                {
+                    Debug.Log("Merchant Detected. Ignoring Item's base context options");
+                }
+
                 //merge the item-in-question's context options with the container's
-                containerContextOptions.UnionWith(_invGrid.GetStackItemData(_hoveredCellIndex).ContextualOptions());
+                else
+                {
+                    containerContextOptions.UnionWith(_invGrid.GetStackItemData(_hoveredCellIndex).ContextualOptions());
+                }
+                
 
                 int hoveredStackSize = _invGrid.GetStackValue(_hoveredCellIndex);
 
@@ -1248,8 +1270,14 @@ namespace dtsInventory
             
             HashSet<ContextOption> contextOptions = new HashSet<ContextOption>();
 
+            //regardless of what's open, only show the buy command if the current grid is a merchant grid
+            if (_invGrid.IsMerchant())
+            {
+                contextOptions.Add(ContextOption.BuyItem);
+            }
+
             //is only one container open (the current one) [and it isn't our home container]
-            if (_openedInvWindows.Count == 1 && _invGrid != _homeInventoryGrid)
+            else if (_openedInvWindows.Count == 1 && _invGrid != _homeInventoryGrid)
             {
                 contextOptions.Add(ContextOption.TakeItem);
             }
@@ -1257,29 +1285,60 @@ namespace dtsInventory
             //otherwise (if many containers are open), Take a closer look at our current situation...
             else if (_openedInvWindows.Count > 1)
             {
+                //if any of the other grids are a merchant's grid, show Sell (assuming selling is enabled in this inventory)
+                if (_openedMerchants.Count() > 0 && _invGrid.CanSellFromThisInventory())
+                    contextOptions.Add(ContextOption.SellItem);
+
                 //if only 2 containers are open,
                 //then ONLY show either take OR transfer. NOT BOTH
                 if (_openedInvWindows.Count == 2)
                 {
-                    //Take if we aren't in our home inventory
-                    if (_invGrid != _homeInventoryGrid)
-                        contextOptions.Add(ContextOption.TakeItem);
+                    //if neither are merchant inv's, then show take or transfer, depending on the context
+                    if (_openedMerchants.Count() == 0)
+                    {
+                        //Take if we aren't in our home inventory
+                        if (_invGrid != _homeInventoryGrid)
+                            contextOptions.Add(ContextOption.TakeItem);
 
-                    //Transfer if we're in our home inv
+                        //Transfer if we're in our home inv
+                        else
+                            contextOptions.Add(ContextOption.TransferItem);
+                    }
+
+                    //otherwise, the other inv is definitely a merchant.
+                    //It's ok to show the Take option if this inv isn't a home inv
                     else
-                        contextOptions.Add(ContextOption.TransferItem);
+                    {
+                        if (_invGrid != _homeInventoryGrid)
+                            contextOptions.Add(ContextOption.TakeItem);
+                    }
+                    
+
                 }
 
                 //otherwise, many containers are open indeed
-                //in this case it's ok to show BOTH the Take and Transfer contexts
+                //in this case we need to specify when we should show either or both contexts
                 else
                 {
-                    //only show the Take option if we ARE NOT in our home inventory
+                    //only show the Take option if we ARE NOT in our home inventory [already assuming its not a merchant]
                     if (_invGrid != _homeInventoryGrid)
                         contextOptions.Add(ContextOption.TakeItem);
 
-                    //but always show the transfer option
-                    contextOptions.Add(ContextOption.TransferItem);
+
+                    //Transfer should only show up on the following cases
+                    //1) we're in a home Ui and there exists ANOTHER nonMerchant ui [only nonMerhcants are tranfer targets]
+                    //2) we're NOT in a home ui and there exists AT LEAST 2 OTHER NonMerhcant Uis
+                    // ----> [home shouldn't be a merchant, but Take already resolves that case. Another additional nonMerchant must be also be open]
+                    int nonMerchants = GetOpenedNonMerchantContainers().Count();
+                    if (_invGrid == _homeInventoryGrid && nonMerchants > 1) // ensure home[current] + another nonMerchant[transferTarget] is opened 
+                    {
+                        contextOptions.Add(ContextOption.TransferItem);
+                    }
+                    else if (_invGrid != _homeInventoryGrid && nonMerchants > 2)// ensure nonMerchant[current] + home[Take] + another nonMerchant[TranferTarget] is open
+                    {
+                        contextOptions.Add(ContextOption.TransferItem);
+                    }
+                    
                 }
             }
 
@@ -1353,6 +1412,18 @@ namespace dtsInventory
 
                     case ContextOption.TransferItem:
                         RespondToTranfer(amount);
+                        SetInternalInventoryInteractionLock(false);
+                        IgnoreOtherConfirmCommandsUntilEndOfFrame();
+                        return;
+
+                    case ContextOption.BuyItem:
+                        RespondToBuy(amount);
+                        SetInternalInventoryInteractionLock(false);
+                        IgnoreOtherConfirmCommandsUntilEndOfFrame();
+                        return;
+
+                    case ContextOption.SellItem:
+                        RespondToSell(amount);
                         SetInternalInventoryInteractionLock(false);
                         IgnoreOtherConfirmCommandsUntilEndOfFrame();
                         return;
@@ -1459,6 +1530,42 @@ namespace dtsInventory
             TransferItems(_contextualInvGrid, _contextualGridReceiver, _contextualItemPosition, amount);
             PlayItemDropAudio(_contextualInvGrid.GetStackItemData(_contextualItemPosition));
 
+        }
+        private void RespondToBuy(int amount)
+        {
+            if (!IsContextualDataValid())
+                return;
+
+            Debug.Log($"Pretend you Bought {amount} {_contextualInvGrid.GetStackItemData(_contextualItemPosition).Name()}(s)");
+
+            //Check if cost exists in the home inventory
+            //...
+
+            //Remove required items from home inventory
+            //...
+            //Transfer bought items from merchant to home inventory
+            //...
+
+            //play item drop audio
+            PlayItemDropAudio(_contextualInvGrid.GetStackItemData(_contextualItemPosition));
+
+
+        }
+        private void RespondToSell(int amount)
+        {
+            if (!IsContextualDataValid())
+                return;
+
+            Debug.Log($"Pretend you Sold {amount} {_contextualInvGrid.GetStackItemData(_contextualItemPosition).Name()}(s)");
+
+            //Remove Sold item(s) from home inventory
+            //...
+
+            //Add payment to home inventory
+            //...
+
+            //play sold audio
+            //...
         }
 
         
@@ -2424,6 +2531,27 @@ namespace dtsInventory
         {
             return _mousePosition;
         }
+        public Canvas GetCanvas() { return _uiCanvas; }
+        public List<InvWindow> GetOpenedMerchantContainers() 
+        { 
+            //we're providing a new collection in case something wants to modify the reference
+            List<InvWindow> merchants = new List<InvWindow>();
+            
+            for (int i = 0; i < _openedMerchants.Count; i++)
+                merchants.Add(_openedMerchants[i]);
+            return merchants; 
+        }
+        public List<InvWindow> GetOpenedNonMerchantContainers()
+        {
+            List<InvWindow> nonMerchants = new();
+            for (int i = 0; i < _openedInvWindows.Count; i++)
+            {
+                if (!_openedInvWindows[i].GetItemGrid().IsMerchant())
+                    nonMerchants.Add(_openedInvWindows[i]);
+            }
+
+            return nonMerchants;
+        }
 
     }
 
@@ -2457,6 +2585,8 @@ namespace dtsInventory
         public static void ClearHoveredInvWindow(InvWindow previousHoveredWindow) { _invController.ClearInvWindowFromHovered(previousHoveredWindow); }
         public static bool IsPointerWithinUiRect() { return _invController.IsPointerPointContainedWithinInvUi(); }
         public static Vector2 GetMousePosition() { return _invController.GetMousePosition(); }
-
+        public static Canvas GetUiCanvas() { return _invController.GetCanvas(); }
+        public static List<InvWindow> GetOpenedMerchantContainers() { return _invController.GetOpenedMerchantContainers(); }
+        public static List<InvWindow> GetOpenedNonMerchantContainers() { return _invController.GetOpenedNonMerchantContainers(); }
     }
 }

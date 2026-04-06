@@ -97,6 +97,12 @@ namespace dtsInventory
         [Header("Settings")]
         [SerializeField] private Vector2Int _containerSize;
         [SerializeField] private Vector2 _cellSize;
+        [Tooltip("Marks this inventory as a merchant, which (generally) limits the context options " +
+            "to only merchant-specific options [ex: Buy]")]
+        [SerializeField] private bool _isMerchant = false;
+        [Tooltip("Blocks items from showing the 'Sell' context option while within this inventory. " +
+            "Sell only shows up if both 1) another merchant's invetory is open and 2) the item is sellable.")]
+        [SerializeField] private bool _canSellFromThisInv = true;
         [SerializeField] private float _darkenDuration;
         [Range(0,1)][SerializeField] private float _maxDarkness;
         private float _currentDarkenTime;
@@ -883,7 +889,27 @@ namespace dtsInventory
             _darkenEffectImage.color = new Color(_darkenEffectImage.color.r, _darkenEffectImage.color.g, _darkenEffectImage.color.b, _originalAlpha);
             _currentDarkenTime = 0;
         }
-
+        /// <summary>
+        /// Is this inventory marked as being a merchant? Merchant inventories (generally) only display the 'Buy' context Option.
+        /// </summary>
+        /// <returns>True if yes. False otherwise</returns>
+        public bool IsMerchant() {  return _isMerchant; }
+        /// <summary>
+        /// Should selling items from this inventory be a possible context option (when another merchant's inv is detected) 
+        /// </summary>
+        /// <returns>True if yes. False otherwise.</returns>
+        public bool CanSellFromThisInventory() { return _canSellFromThisInv; }
+        /// <summary>
+        /// Updates the 'Allows/Disallows selling from this inventory' setting based on the given parameter. Note,
+        /// target items must ALSO be marked as sellable within their ItemData for the sell context option to show up.
+        /// </summary>
+        /// <param name="newValue"></param>
+        public void SetInvSellable(bool newValue) { _canSellFromThisInv = newValue; }
+        /// <summary>
+        /// Sets this inventory as belonging to a merchant.
+        /// </summary>
+        /// <param name="newValue"></param>
+        public void SetAsMerchant(bool newValue) { _isMerchant = newValue; }
 
 
         /// <summary>

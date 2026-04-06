@@ -31,6 +31,7 @@ namespace dtsInventory
         private RectTransform _rectTransform;
         private GameObject _selectedOption;
         private GameObject _latestSelectedObject;
+        private ContextOption _currentContext = ContextOption.None;
 
 
 
@@ -88,9 +89,28 @@ namespace dtsInventory
 
             activeOptions.Clear();
 
+            
+            if (_currentContext == ContextOption.TransferItem)
+            {
+                //get the updated collection of opened containers.
+                //Disallow merchant containers, so the user doesn't accidentally give merchants stuff
+                _openContainers = InvManagerHelper.GetOpenedNonMerchantContainers();
+                Debug.Log($"Found {_openContainers.Count} Opened non-merchant Containers");
+            }
+            else if (_currentContext == ContextOption.SellItem)
+            {
+                //get the updated collection of opened MERCHANT containers
+                _openContainers = InvManagerHelper.GetOpenedMerchantContainers();
+                Debug.Log($"Found {_openContainers.Count} Opened mechant Containers");
+            }
+            else
+            {
+                Debug.LogWarning($"Failed to build the transfer menu, due to providing the inappropriate context '{_currentContext}'.\n" +
+                    $"Only transferring items and selling items will spawn the tranfser menu");
+                return;
+            }
 
-            //get the updated collection of opened containers
-            _openContainers = InvManagerHelper.GetOpenedContainers();
+            
 
             //rebuild the menu
             for (int i = 0; i < _openContainers.Count; i++)
@@ -116,7 +136,11 @@ namespace dtsInventory
             //resize the window to match the number of options
             float betwixtSpacing = _spacingBtwnOptions * (_btnOptions.Count - 1);
             float height = _yPadding + _optionHeight * _btnOptions.Count + _spacingBtwnOptions;
-            float width = _xPadding + _btnOptions[0].GetComponent<RectTransform>().sizeDelta.x; //make sure the child fits well
+            float width;
+            if (_btnOptions.Count > 0)
+                width = _xPadding + _btnOptions[0].GetComponent<RectTransform>().sizeDelta.x; //make sure the child fits well
+            else
+                width = _xPadding + _containerOptionPrefab.GetComponent<RectTransform>().sizeDelta.x;
             _rectTransform.sizeDelta = new Vector2(width, height);
             
 
@@ -212,9 +236,12 @@ namespace dtsInventory
         public void SetSelectedGrid(InvGrid invGrid) { _selectedInvGrid = invGrid; }
         public bool IsTransferMenuOpen() { return gameObject.activeSelf; }
         public RectTransform GetRectTransform() { return GetComponent<RectTransform>(); }
-        public void ShowMenu(Vector3 position)
+        public void ShowMenu(Vector3 position, ContextOption context)
         {
             if (_containerOptionPrefab == null)
+                return;
+
+            if (context != ContextOption.TransferItem && context != ContextOption.SellItem)
                 return;
 
             if (!gameObject.activeSelf)
@@ -222,6 +249,7 @@ namespace dtsInventory
                 if (!InvManagerHelper.DoOpenedContainersExist())
                     return;
 
+                _currentContext = context;
                 BuildMenu();
                 _rectTransform.position = position;
                 gameObject.SetActive(true);
@@ -242,6 +270,9 @@ namespace dtsInventory
                 _contextController.SetGridSelection(null);
                 gameObject.SetActive(false);
                 _uiDarkener.ForceImmediateUndarken();
+                _selectedOption = null;
+                _selectedInvGrid = null;
+                _currentContext = ContextOption.None;
 
                 //focus navigation on the last known context menu option if 1) the menu is open and 2) we are in directional mode
                 if (ContextWindowHelper.IsContextWindowShowing() && InvManagerHelper.GetInvController().GetInputMode() == InputMode.Directional)
@@ -258,10 +289,9 @@ namespace dtsInventory
             Debug.Log($"Transfer menu submitted the option selection!");
             _contextController.SaveTransferOption(_selectedOption.GetComponent<RectTransform>());
             _contextController.SetGridSelection(_selectedInvGrid);
-            _contextController.SpecifyAmount(ContextOption.TransferItem);
+            _contextController.SpecifyAmount(_currentContext);
             _latestSelectedObject = _selectedOption;
-            _selectedOption = null;
-            _selectedInvGrid = null;
+            
         }
 
         public bool IsDarkened()

@@ -17,7 +17,9 @@ namespace dtsInventory
         UseItem,
         DiscardItem,
         TakeItem, //Implies the item will go to a home container (whether its opened or not)
-        TransferItem  //implies the item will be tranferred to any currently-opened Container
+        TransferItem,  //implies the item will be tranferred to any currently-opened Container
+        BuyItem, //Implies the item exists in a merchant's invGrid, and can only be bought
+        SellItem //Implies the item will go to another invGrid that's a merchant [exclusively]
     }
 
     public class ContextWindowController : MonoBehaviour
@@ -191,8 +193,6 @@ namespace dtsInventory
                 return;
 
             
-
-
             int optionCount = 0;
             _buttonOptionsContainer.gameObject.SetActive(true);
             //show all matching context buttons, and hide all buttons that don't match the context
@@ -357,25 +357,25 @@ namespace dtsInventory
                 //if we haven't yet specified a container, show the tranfer menu
                 if (_specifiedContainer == null)
                 {
-                    Button transferBtn = null;
+                    Button originBtn = null;
                     foreach (Button btn in _currentButtons)
                     {
                         if (btn.GetComponent<ContextualOptionDefinition>().GetContextOption() == ContextOption.TransferItem)
                         {
-                            transferBtn = btn;
+                            originBtn = btn;
                             break;
                         }
                     }
 
-                    if (transferBtn == null)
+                    if (originBtn == null)
                     {
                         Debug.LogError("The transfer button is missing from the button options. How did it get lost?" +
                             "Cant determine the tranfser menu's draw position without it.");
                         return;
                     }
 
-                    Vector3 menuDrawPosition = transferBtn.GetComponent<RectTransform>().TransformPoint(Vector3.zero);
-                    _transferMenuController.ShowMenu(menuDrawPosition);
+                    Vector3 menuDrawPosition = originBtn.GetComponent<RectTransform>().TransformPoint(Vector3.zero);
+                    _transferMenuController.ShowMenu(menuDrawPosition,ContextOption.TransferItem);
                     _transferMenuController.OffsetMenu(_transferMenuOffsetFromButton);
                     _transferMenuController.SetSelectionToFirstElement();
                     _uiDarkener.DarkenMenu();
@@ -387,17 +387,55 @@ namespace dtsInventory
                 //continue as normal
             }
 
+            else if (specifiedOption == ContextOption.SellItem)
+            {
+                //if we haven't yet specified a container, show the tranfer menu
+                if (_specifiedContainer == null)
+                {
+                    Button originBtn = null;
+                    foreach (Button btn in _currentButtons)
+                    {
+                        if (btn.GetComponent<ContextualOptionDefinition>().GetContextOption() == ContextOption.SellItem)
+                        {
+                            originBtn = btn;
+                            break;
+                        }
+                    }
+
+                    if (originBtn == null)
+                    {
+                        Debug.LogError("The sell button is missing from the button options. How did it get lost?" +
+                            "Cant determine the tranfser menu's draw position without it.");
+                        return;
+                    }
+
+                    Vector3 menuDrawPosition = originBtn.GetComponent<RectTransform>().TransformPoint(Vector3.zero);
+                    _transferMenuController.ShowMenu(menuDrawPosition,ContextOption.SellItem);
+                    _transferMenuController.OffsetMenu(_transferMenuOffsetFromButton);
+                    _transferMenuController.SetSelectionToFirstElement();
+                    _uiDarkener.DarkenMenu();
+                    return;
+                }
+
+                //otherwise, the sell button option already told us the specified container.
+                //we've also already received the selected button
+                //continue as normal
+            }
+
             //skip opening the numerical selector if there's only 1 item to act upon
             if (_maximumInteractionAmount == 1)
             {
-                if (specifiedOption == ContextOption.TransferItem)
+                if (specifiedOption == ContextOption.TransferItem || specifiedOption == ContextOption.SellItem)
                 {
                     InvManagerHelper.GetInvController().SetTransferReceiverContext(_specifiedContainer);
                     _specifiedContainer = null;
                 }
 
                 TriggerSelectionEventAndCloseWindow(specifiedOption, 1);
-                Debug.Log("Transferring 1 item...");
+                if (specifiedOption == ContextOption.TransferItem)
+                    Debug.Log("Transferring 1 item...");
+                else if (specifiedOption == ContextOption.SellItem)
+                    Debug.Log("Selling 1 item...");
                 return;
             }
 
@@ -411,8 +449,8 @@ namespace dtsInventory
             _numericalSelector.ShowNumericalSelector(_minimumInteractionAmount,_maximumInteractionAmount);
             _currentSelectedOption = specifiedOption;
 
-            //if we're transferring items, then draw the numerical selector alongside the selected transferMenu button
-            if (specifiedOption == ContextOption.TransferItem)
+            //if we're transferring or selling items, then draw the numerical selector alongside the selected tranferMenu's button
+            if (specifiedOption == ContextOption.TransferItem || specifiedOption == ContextOption.SellItem)
             {
 
                 _numericalSelector.GetRectTransform().localPosition = Vector3.zero;
@@ -526,9 +564,9 @@ namespace dtsInventory
         {
             return _numericalSelector.IsTextNavigationFocused();
         }
-        public void ShowTransferMenu(Vector3 position)
+        public void ShowTransferMenu(Vector3 position,ContextOption context)
         {
-            _transferMenuController.ShowMenu(position);
+            _transferMenuController.ShowMenu(position, context);
         }
         public void HideTransferMenu()
         {
