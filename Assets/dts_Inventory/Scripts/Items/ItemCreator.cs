@@ -11,8 +11,8 @@ namespace dtsInventory
         [SerializeField] private GameObject _itemBasePrefab;
         [SerializeField] private Transform _itemContainer;
         [SerializeField] private List<ItemData> _itemsList = new();
-
-
+        [Tooltip("This Scriptable Object determines what the currency item is. It's necessary to execute transactions with merchants.")]
+        [SerializeField] private EconomySetting _economySetting;
 
         private void Awake()
         {
@@ -133,6 +133,7 @@ namespace dtsInventory
             item.GetComponent<RectTransform>().SetParent(_itemContainer, false);
             item.gameObject.SetActive(false);
         }
+        public EconomySetting GetEconomySetting() { return _economySetting; }
     }
 
     public static class ItemCreatorHelper
@@ -148,6 +149,7 @@ namespace dtsInventory
         public static Transform GetUiItemsContainer() { return _creator.GetItemContainer(); }
         public static ItemData GetItemDataFromItemCode(string code) { return _creator.GetItemDataFromCode(code); }
         public static void ReturnItemToCreator(InvItem item) { _creator.ReturnItem(item); }
+        public static EconomySetting GetEconomySetting() { return _creator.GetEconomySetting(); }
 
 
     }

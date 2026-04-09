@@ -100,6 +100,8 @@ namespace dtsInventory
         [Tooltip("Marks this inventory as a merchant, which (generally) limits the context options " +
             "to only merchant-specific options [ex: Buy]")]
         [SerializeField] private bool _isMerchant = false;
+        [SerializeField] private float _buyingFromThisMerchantPriceMultiplier = 1.5f;
+        [SerializeField] private float _sellingToThisMerchantPriceMultiplier = .5f;
         [Tooltip("Blocks items from showing the 'Sell' context option while within this inventory. " +
             "Sell only shows up if both 1) another merchant's invetory is open and 2) the item is sellable.")]
         [SerializeField] private bool _canSellFromThisInv = true;
@@ -910,6 +912,10 @@ namespace dtsInventory
         /// </summary>
         /// <param name="newValue"></param>
         public void SetAsMerchant(bool newValue) { _isMerchant = newValue; }
+        public float GetBuyingPriceMultiplier() { return _buyingFromThisMerchantPriceMultiplier; }
+        public float GetSellingPriceMultiplier() { return _sellingToThisMerchantPriceMultiplier; }
+        public void SetBuyingPriceMultiplier(float newMultiplier) {  _buyingFromThisMerchantPriceMultiplier = newMultiplier; }
+        public void SetSellingPriceMultiplier(float newMultiplier) {  _sellingToThisMerchantPriceMultiplier = newMultiplier; }
 
 
         /// <summary>

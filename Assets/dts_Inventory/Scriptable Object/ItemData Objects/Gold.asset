@@ -10,21 +10,22 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: e93cf4bac438ef64ea7572bc6fe5dabe, type: 3}
-  m_Name: cube
+  m_Name: Gold
   m_EditorClassIdentifier: 
-  _name: Cube
-  _itemCode: 01
+  _name: Gold
+  _itemCode: 03
   _spacialDefinition:
   - {x: 0, y: 0}
   _itemHandle: {x: 0, y: 0}
-  _desc: A solid block with polished faces. Its edges are smooth to the touch
-  _sprite: {fileID: 21300000, guid: d3f8060a6322b924ca989b59e578e76f, type: 3}
-  _stackLimit: 5
-  _value: 3
-  _onPickUpAudio: {fileID: 8300000, guid: 7abccce1359ba0d4a8421bcc212783c5, type: 3}
-  _onDropAudio: {fileID: 8300000, guid: e8af9035f5758f44da37af4225a02619, type: 3}
-  _isUsable: 1
-  _isBulkUseEnabled: 1
+  _desc: Alloyed coin containing a trace amount of precious material. It's cool to
+    the touch.
+  _sprite: {fileID: 21300000, guid: 713177c56e0fa234c859ce026e9ffb1a, type: 3}
+  _stackLimit: 500
+  _value: 0
+  _onPickUpAudio: {fileID: 0}
+  _onDropAudio: {fileID: 0}
+  _isUsable: 0
+  _isBulkUseEnabled: 0
   _isDiscardable: 1
   _isOrganizable: 1
   _isSellable: 0

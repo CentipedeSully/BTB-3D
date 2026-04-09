@@ -6,7 +6,7 @@ using UnityEngine;
 namespace dtsInventory
 {
 
-    [CreateAssetMenu]
+    [CreateAssetMenu(fileName = "ItemData")]
     public class ItemData : ScriptableObject
     {
         [Header("Item Definition")]
@@ -21,8 +21,10 @@ namespace dtsInventory
         [Tooltip("The in-game description text of this item")]
         [SerializeField] private string _desc = "";
         [SerializeField] private Sprite _sprite;
-        [Tooltip("The maximum amount of [this] item that can same grid position")]
+        [Tooltip("The maximum amount of [this] item that can occupy the same grid positions")]
         [SerializeField] private int _stackLimit = 1;
+        [Tooltip("The default trade value of this item")]
+        [SerializeField] private int _value;
 
         [Header("Audio Cues")]
         [Tooltip("What sound will play when the item is held on the pointer/grid cell")]
@@ -39,6 +41,8 @@ namespace dtsInventory
         [SerializeField] private bool _isDiscardable;
         [Tooltip("Should this item show the 'organize' context within the inventory. Controls whether or not the item can be manipulated")]
         [SerializeField] private bool _isOrganizable;
+        [Tooltip("Should this item show the 'sell' context within the inventory")]
+        [SerializeField] private bool _isSellable;
 
 
 
@@ -72,7 +76,23 @@ namespace dtsInventory
             return newIndexes;
         }
 
+        /// <summary>
+        /// Calculates what should be paid for the item(s) in question.
+        /// </summary>
+        /// <param name="item">The item[Data] in question</param>
+        /// <param name="amount">The amount of items to charge for</param>
+        /// <param name="priceMultiplier">The seller's markup/discount percentage</param>
+        /// <returns>An int (rounded up) that's the calculated price of all the items</returns>
+        public static int CalculatePrice(ItemData item, int amount, float priceMultiplier)
+        {
+            if (item == null)
+                return 0;
 
+            //make sure the merhcant isn't ripping off the player via rounding errors ^_^
+            int individualItemSale = (int)Mathf.Ceil(item.ItemValue() * priceMultiplier);
+
+            return individualItemSale * amount;
+        }
 
         public string Name() { return _name; }
         public HashSet<(int, int)> SpacialDefinition()
@@ -161,6 +181,11 @@ namespace dtsInventory
         public AudioClip OnPickupAudioClip() { return _onPickUpAudio; }
         public AudioClip OnDropAudioClip() { return _onDropAudio; }
         public bool IsBulkUseEnabled() { return _isBulkUseEnabled; }
+        public bool IsSellable() {  return _isSellable; }
+        public int ItemValue() { return _value; }
     }
+
+    
+
 }
 

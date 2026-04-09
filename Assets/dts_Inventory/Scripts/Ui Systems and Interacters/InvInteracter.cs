@@ -17,6 +17,7 @@ namespace dtsInventory
         Pointer,
         Directional
     }
+    
 
     public class InvInteracter : MonoBehaviour
     {
@@ -953,7 +954,7 @@ namespace dtsInventory
                         if (_heldItemStackCount == 1)
                         {
                             PlayItemDropAudio();
-                            Debug.Log($"Given placement position: ({_hoveredCellIndex.Item1},{_hoveredCellIndex.Item2})");
+                            //Debug.Log($"Given placement position: ({_hoveredCellIndex.Item1},{_hoveredCellIndex.Item2})");
                             _invGrid.AddItem(_heldItem.ItemData(), 1, _hoveredCellIndex, _heldItem.Rotation());
                             ItemCreatorHelper.ReturnItemToCreator(_heldItem);
                             _heldItem = null;
@@ -964,7 +965,7 @@ namespace dtsInventory
 
                         else
                         {
-                            Debug.Log($"Given placement position: ({_hoveredCellIndex.Item1},{_hoveredCellIndex.Item2})");
+                            //Debug.Log($"Given placement position: ({_hoveredCellIndex.Item1},{_hoveredCellIndex.Item2})");
 
                             //add the new item to the hovered position
                             _invGrid.AddItem(_heldItem.ItemData(),1,_hoveredCellIndex, _heldItem.Rotation());
@@ -1172,7 +1173,7 @@ namespace dtsInventory
                 TransferItems(_invGrid, _homeInventoryGrid, _hoveredCellIndex, _invGrid.GetStackValue(_hoveredCellIndex));
             }
         }
-        private void TransferStackOnHoveredPosition()
+        private void TransferStackOnHoveredPosition() /////////////////////////// MAke Merchant friendly!
         {
             if (_heldItem ==null && _invGrid != null)
             {
@@ -1343,6 +1344,64 @@ namespace dtsInventory
             }
 
             return contextOptions;
+        }
+
+        /// <summary>
+        /// Checks if the merchant and seller both have enough space for the sold items & payment items (respectively), 
+        /// then adds the respecive items to both containers. 
+        /// THIS METHOD DOES NOT CHECK IF THE SELLER POSSESSES THE ITEMS BEING SOLD, NOR DOES THIS METHOD REMOVE THE SOLD ITEMS FROM THE SELLER. 
+        /// The items in question should be removed from the seller and held off grid before calling this method 
+        /// (to free up space in the container for the payment), and then deleted if the transaction is successful. 
+        /// Otherwise the items should be returned to the seller upon sell failure. Ensure the add/remove item events are suppressed during this middle-interaction.
+        /// Upon success, this method does not suppress neither event of adding the sold item to the merchant, nor adding the payment items to the payment receiver.
+        /// </summary>
+        /// <param name="item">the item being sold</param>
+        /// <param name="amount">how many is being sold</param>
+        /// <param name="merchant">the receiver of the items. Must be a merchant</param>
+        /// <param name="paymentReceiver">what container will receive payment for the items</param>
+        /// <returns>True if the transaction is successful. False otherwise.</returns>
+        private bool SellItemToMerchant(ItemData item, int amount, InvGrid merchant, InvGrid paymentReceiver)
+        {
+            //build the query to check if the merchant has space in their inv
+            List<InvGrid.ItemQuery> querys = new List<InvGrid.ItemQuery>();
+            InvGrid.ItemQuery itemTask = new InvGrid.ItemQuery(item,amount);
+            querys.Add(itemTask);
+
+            //check if the merchant has space
+            if (merchant.FindSpaceForItems(querys) == null)
+            {
+                Debug.Log($"Merchant doesn't have space in their inv to buy {amount} '{item.name}'(s) ");
+                return false;
+            }
+
+            //check if the payment receiver has space for the currency
+            int paymentQuantity = ItemData.CalculatePrice(item, amount, merchant.GetSellingPriceMultiplier());
+            ItemData currencyItem = ItemCreatorHelper.GetEconomySetting().GetCurrencyItem();
+
+            querys.Clear();
+            itemTask = new InvGrid.ItemQuery(currencyItem, paymentQuantity);
+            querys.Add(itemTask);
+
+            if (paymentReceiver.FindSpaceForItems(querys) == null)
+            {
+                Debug.Log($"Container '{paymentReceiver.name}' doesn't have space in their inv for the payment of {paymentQuantity} '{currencyItem}'(s) ");
+                return false;
+            }
+
+            //give the merchant the items (assume the merchant has enough of the currency)
+            merchant.AddItem(item, amount);
+
+            //give the seller the payment
+            paymentReceiver.AddItem(currencyItem, paymentQuantity);
+
+            //play the currency audio to give some 'sell' feedback
+            PlayItemDropAudio(currencyItem);
+
+            return true;
+
+            //make sure to remove the sold item(s) from whatever container they belonged to BEFORE attempting this method. 
+            //This method doesn't remove any items from any containers, due to it's general-case nature
+            //for example: the sold items could be held by the invInteracter (and not in any grid)
         }
 
         //context-menu-related
@@ -1536,15 +1595,28 @@ namespace dtsInventory
             if (!IsContextualDataValid())
                 return;
 
-            Debug.Log($"Pretend you Bought {amount} {_contextualInvGrid.GetStackItemData(_contextualItemPosition).Name()}(s)");
+            Debug.Log($"Attempting to buy {amount} {_contextualInvGrid.GetStackItemData(_contextualItemPosition).Name()}(s)...");
 
-            //Check if cost exists in the home inventory
-            //...
+            //get the payment item
+            ItemData currencyItemData = ItemCreatorHelper.GetEconomySetting().GetCurrencyItem();
 
-            //Remove required items from home inventory
-            //...
+            //get the item that's being bought
+            ItemData buyingItem = _contextualInvGrid.GetStackItemData(_contextualItemPosition);
+
+            //get the cost of the items in question
+            int cost = ItemData.CalculatePrice(buyingItem, amount, _contextualInvGrid.GetBuyingPriceMultiplier());
+            Debug.Log($"What you should be paying: {cost}");
+
+            //Does removing the requested items work? This operation fails if not enough are found
+            if (!_homeInventoryGrid.RemoveItem(currencyItemData, cost))
+            {
+                int heldGold = _homeInventoryGrid.CountItem(currencyItemData);
+                Debug.LogWarning($"Container {_homeInventoryGrid.name} has insufficient {currencyItemData.name}(s) [{heldGold}/{cost}]");
+                return;
+            }
+
             //Transfer bought items from merchant to home inventory
-            //...
+            TransferItems(_contextualInvGrid, _homeInventoryGrid, _contextualItemPosition, amount);
 
             //play item drop audio
             PlayItemDropAudio(_contextualInvGrid.GetStackItemData(_contextualItemPosition));
@@ -1556,16 +1628,27 @@ namespace dtsInventory
             if (!IsContextualDataValid())
                 return;
 
-            Debug.Log($"Pretend you Sold {amount} {_contextualInvGrid.GetStackItemData(_contextualItemPosition).Name()}(s)");
+            Debug.Log($"Attempting to sell {amount} {_contextualInvGrid.GetStackItemData(_contextualItemPosition).Name()}(s)...");
 
-            //Remove Sold item(s) from home inventory
-            //...
+            ItemData soldItem = _contextualInvGrid.GetStackItemData(_contextualItemPosition);
+            ItemRotation lastRotation = _contextualInvGrid.GetItemGraphicOnCell(_contextualItemPosition).Rotation();
 
-            //Add payment to home inventory
-            //...
+            //remove the stated amount from the contextual grid (to open up space for currency)
+            _contextualInvGrid.RemoveItem(_contextualItemPosition, amount,true); //[suppress the event, if the transaction fails, we'll return it like nothing happened]
 
-            //play sold audio
-            //...
+            //if successful, this adds the sold item(s) to the merchant and adds currency to the homegrid.
+            //if it fails, then one of the containers doesn't have enough space to accept the items(s)/currency
+            if (!SellItemToMerchant(soldItem, amount, _contextualGridReceiver, _homeInventoryGrid))
+            {
+                //put the items back as if nothing happened
+                _contextualInvGrid.AddItem(soldItem,amount,_contextualItemPosition,lastRotation,true);
+
+                Debug.Log($"Failed to sell {amount} {soldItem.name}(s) to merchant {_contextualGridReceiver.name}.");
+                return;
+            }
+
+            //The "sell item" method plays the sell audio, adds the sold items to the merchant, and adds the currency to the payment receiver
+            //we're done here!
         }
 
         
@@ -1816,29 +1899,67 @@ namespace dtsInventory
             //only respond if we're hovering over a grid
             if (_invGrid != null)
             {
-
-                //if we're not holding an item..
-                if (_heldItem == null)
+                //allow normal manipulation of the container's contents if the container isn't a merchant
+                if (!_invGrid.IsMerchant())
                 {
-                    //if we're holding the alt command, perform quick transfer based on the uiContext
-                    if (_altCmd)
+                    //if we're not holding an item..
+                    if (_heldItem == null)
                     {
-                        //quick-take the stack if we aren't
-                        if (_invGrid != _homeInventoryGrid)
-                            TakeStackOnHoveredPosition();
+                        //if we're holding the alt command, perform quick transfer based on the uiContext
+                        if (_altCmd)
+                        {
+                            //quick-take the stack if we aren't
+                            if (_invGrid != _homeInventoryGrid)
+                                TakeStackOnHoveredPosition();
+                            else ///================================================================================= Make Sure we aren't Transferring stuff INTO MERCHANT CONTAINERS!!!
+                            {
+                                TransferStackOnHoveredPosition();
+                            }
+                                
+                        }
+
+                        //else pickup the full stack of items
                         else
-                            TransferStackOnHoveredPosition();
+                            PickupStackOnHoveredPosition();
                     }
 
-                    //else pickup the full stack of items
-                    else
-                        PickupStackOnHoveredPosition();
-                }
-                    
 
-                //else,place the full held itemStack on the grid
+                    //else,place the full held itemStack on the grid
+                    else
+                        DropStackOnHoveredPosition();
+                }
+
+                //otherwise, we're in a merchant's container. Let's behave ourselves accordingly
                 else
-                    DropStackOnHoveredPosition();
+                {
+                    //simply show the context menu if we're holding no item
+                    if (_heldItem == null)
+                        ShowContextMenuOnHoveredItem();
+
+                    //otherwise, the player is trying to sell an item
+                    //help the player sell the item
+                    else
+                    {
+                        //attempt the transaction
+                        if (SellItemToMerchant(_heldItem.ItemData(),_heldItemStackCount,_invGrid,_homeInventoryGrid))
+                        {
+                            //clear the held item, since all of them sold
+                            ItemCreatorHelper.ReturnItemToCreator(_heldItem);
+                            _heldItem = null;
+                            _heldItemStackCount = 0;
+                            UpdateHeldStackText();
+                            return;
+
+                        }
+
+                        //Either the merchant can't accept the full stack, or the user's home inv is full. Ignore this request
+                        else
+                        {
+                            Debug.LogWarning($"Attempted to sell {_heldItemStackCount} '{_heldItem.name}'(s), " +
+                                $"but either the merchant container has insufficient space, or the player's home container has insufficient space for the payment. Ignoring sell request.");
+                        }
+                    }
+                }
             }
         }
         public void RespondToRightClick()
@@ -1870,13 +1991,55 @@ namespace dtsInventory
 
             if (_invGrid != null)
             {
-                //pick up half the stack if we're not holding anything
-                if (_heldItem == null && _invGrid.IsCellOccupied(_hoveredCellIndex))
-                    PickupHalfOfHoveredStack();
+                //Allow quick-manipulations if we aren't within a merchant's inventory
+                if (!_invGrid.IsMerchant())
+                {
+                    //pick up half the stack if we're not holding anything
+                    if (_heldItem == null && _invGrid.IsCellOccupied(_hoveredCellIndex))
+                        PickupHalfOfHoveredStack();
 
-                //drop a single item if we're holding a stack, and there's a valid drop position underneath
-                else if (_heldItem != null)
-                    DropSingleItemOntoHoveredPosition();
+                    //drop a single item if we're holding a stack, and there's a valid drop position underneath
+                    else if (_heldItem != null)
+                        DropSingleItemOntoHoveredPosition();
+                }
+
+                else
+                {
+                    //otherwise, if we're holding an item already, sell a single item
+                    if (_heldItem != null)
+                    {
+                        //attempt the transaction
+                        if (SellItemToMerchant(_heldItem.ItemData(), 1, _invGrid, _homeInventoryGrid))
+                        {
+                            _heldItemStackCount--;
+                            if (_heldItemStackCount == 0)
+                            {
+                                //clear the held item, since all of them sold
+                                ItemCreatorHelper.ReturnItemToCreator(_heldItem);
+                                _heldItem = null;
+                            }
+                            
+                            UpdateHeldStackText();
+                            return;
+
+                        }
+
+                        //Either the merchant can't accept the full stack, or the user's home inv is full. Ignore this request
+                        else
+                        {
+                            Debug.LogWarning($"Attempted to sell {1} '{_heldItem.name}'(s), " +
+                                $"but either the merchant container has insufficient space, or the player's home container has insufficient space for the payment. Ignoring sell request.");
+                        }
+                    }
+
+                    //otherwise, just open the context menu
+                    else
+                    {
+                        ShowContextMenuOnHoveredItem();
+                    }
+
+                }
+                
             }
         }
         public void RespondToMiddleClick()
@@ -2358,7 +2521,24 @@ namespace dtsInventory
                     if (_heldItem == null)
                         ShowContextMenuOnHoveredItem(); //only shows if not hovering over something
                     else
-                        DropStackOnHoveredPosition();
+                    {
+                        if (!_invGrid.IsMerchant())
+                            DropStackOnHoveredPosition();
+                        else
+                        {
+                            //attempt to sell whatever we're holding
+                            if (SellItemToMerchant(_heldItem.ItemData(),_heldItemStackCount,_invGrid,_homeInventoryGrid))
+                            {
+                                //sell successful. Update the heldItem utilities
+                                ItemCreatorHelper.ReturnItemToCreator(_heldItem);
+                                _heldItem = null;
+                                _heldItemStackCount = 0;
+                                UpdateHeldStackText();
+                            }
+
+                            //otherwise, do nothing since something's preventing us from selling this stuff
+                        }
+                    }
 
                 }
 
@@ -2366,19 +2546,60 @@ namespace dtsInventory
                 else if (_altCmd)
                 {
                     //if we're not holding an item, pickup the full stack of items, bypassing the context menu
+                    //[assuming we aren't messing with a merchant's possessions]
                     if (_heldItem == null)
-                        PickupStackOnHoveredPosition();
+                    {
+                        
+                        if (!_invGrid.IsMerchant())
+                            PickupStackOnHoveredPosition();
+
+                        //This is a merchant we're messing with. Just show the context window
+                        else
+                            ShowContextMenuOnHoveredItem();
+                    }
 
                     //else,place a single stack on this position
                     else
-                        DropSingleItemOntoHoveredPosition();
+                    {
+                        if (!_invGrid.IsMerchant())
+                            DropSingleItemOntoHoveredPosition();
+                        else
+                        {
+                            //attempt to sell a single thing at a time
+                            if (SellItemToMerchant(_heldItem.ItemData(), 1, _invGrid, _homeInventoryGrid))
+                            {
+                                //sell successful. Update the heldItem utilities
+                                _heldItemStackCount--;
+
+                                if (_heldItemStackCount == 0)
+                                {
+                                    ItemCreatorHelper.ReturnItemToCreator(_heldItem);
+                                    _heldItem = null;
+                                    
+                                }
+
+                                UpdateHeldStackText();
+                            }
+
+                            //otherwise, do nothing since something's preventing us from selling this stuff
+                        }
+                    }
                 }
 
                 //if [default:left-ctrl] is held down...
                 else if (_altCmd2)
                 {
-                    if (_heldItem == null)
-                        PickupHalfOfHoveredStack();
+                    if (!_invGrid.IsMerchant())
+                    {
+                        if (_heldItem == null)
+                            PickupHalfOfHoveredStack();
+                    }
+                    else
+                    {
+                        if (_heldItem == null)
+                            ShowContextMenuOnHoveredItem();
+                    }
+                    
                 }
 
                 
