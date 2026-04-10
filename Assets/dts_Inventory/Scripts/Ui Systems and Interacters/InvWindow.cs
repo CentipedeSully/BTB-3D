@@ -18,6 +18,8 @@ namespace dtsInventory
         [SerializeField] private Text _itemDescription;
         [SerializeField] private Text _itemName;
         [SerializeField] private InvGrid _itemGrid;
+        [SerializeField] private Text _valueDisplay;
+        [SerializeField] private Text _valueLabelDisplay;
 
         [SerializeField] private Text _containerNameText;
         [SerializeField] private InputField _containerInputField;
@@ -99,6 +101,8 @@ namespace dtsInventory
         }
         public void SetItemDescription(string newDescription) { _itemDescription.text = newDescription; }
         public void SetItemName(string itemName) { _itemName.text = itemName; }
+        public void SetItemValue(string value) { _valueDisplay.text = value; }
+        public void SetItemValueLabel(string value) { _valueLabelDisplay.text = value; }
         public bool IsWindowOpen() { return gameObject.activeSelf; }
         public void CloseWindow()
         {

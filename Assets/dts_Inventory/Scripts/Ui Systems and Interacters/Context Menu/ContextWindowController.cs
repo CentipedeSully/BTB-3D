@@ -203,8 +203,19 @@ namespace dtsInventory
 
                 if (context != null)
                 {
+                    
                     if (availableOptions.Contains(context.GetContextOption()))
                     {
+
+                        //selling items is a special case.
+                        //Ensure the item in question is sellable before enabling the sell option.
+                        if (context.GetContextOption() == ContextOption.SellItem && !itemData.ContextualOptions().Contains(ContextOption.SellItem))
+                        {
+                            //disable the sell context option if this item is deliberately set to unsellable
+                            child.gameObject.SetActive(false);
+                            continue;
+                        }
+
                         child.gameObject.SetActive(true);
                         optionCount++;
                         _currentButtons.Add(child.GetComponent<Button>());

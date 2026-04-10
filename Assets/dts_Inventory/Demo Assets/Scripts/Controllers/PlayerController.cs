@@ -83,7 +83,7 @@ namespace dtsInventory
 
             if (_distanceFromTarget <= _interactable.InteractDistance())
             {
-                //Debug.Log("interaction Triggered");
+                Debug.Log("interaction Triggered");
                 _interactable.TriggerInteraction();
                 ClearInteractionTarget();
                 EndMovement();

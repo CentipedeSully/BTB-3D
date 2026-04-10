@@ -22,8 +22,8 @@ MonoBehaviour:
   _sprite: {fileID: 21300000, guid: 713177c56e0fa234c859ce026e9ffb1a, type: 3}
   _stackLimit: 500
   _value: 0
-  _onPickUpAudio: {fileID: 0}
-  _onDropAudio: {fileID: 0}
+  _onPickUpAudio: {fileID: 8300000, guid: c0bab065919cfed46a8a238b32542c5c, type: 3}
+  _onDropAudio: {fileID: 8300000, guid: 75e733d88126a114e97edf7669d64482, type: 3}
   _isUsable: 0
   _isBulkUseEnabled: 0
   _isDiscardable: 1

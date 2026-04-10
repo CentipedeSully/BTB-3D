@@ -28,4 +28,4 @@ MonoBehaviour:
   _isBulkUseEnabled: 0
   _isDiscardable: 0
   _isOrganizable: 1
-  _isSellable: 0
+  _isSellable: 1

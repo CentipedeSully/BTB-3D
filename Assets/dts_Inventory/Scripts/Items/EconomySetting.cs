@@ -8,8 +8,10 @@ namespace dtsInventory
     public class EconomySetting : ScriptableObject
     {
         [SerializeField] private ItemData _defaultCurrency;
+        [SerializeField] private string _unit;
 
         public ItemData GetCurrencyItem() { return _defaultCurrency; }
+        public string GetCurrencyUnit() { return _unit; }
 
     }
 }

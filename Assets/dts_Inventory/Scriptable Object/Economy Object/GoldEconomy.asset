@@ -13,3 +13,4 @@ MonoBehaviour:
   m_Name: GoldEconomy
   m_EditorClassIdentifier: 
   _defaultCurrency: {fileID: 11400000, guid: ea50991f2c3a1c84da06961a8df57956, type: 2}
+  _unit: g

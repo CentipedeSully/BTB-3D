@@ -119,6 +119,8 @@ namespace dtsInventory
                 options.Add(ContextOption.UseItem);
             if (_isDiscardable)
                 options.Add(ContextOption.DiscardItem);
+            if (_isSellable)
+                options.Add(ContextOption.SellItem);
 
             return options;
         }

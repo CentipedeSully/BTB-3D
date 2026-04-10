@@ -5,7 +5,7 @@ using UnityEngine;
 
 namespace dtsInventory
 {
-    public class MerchantController : MonoBehaviour
+    public class MerchantController : MonoBehaviour, IInteractable
     {
         [Header("References")]
         [SerializeField] private GameObject _merchantInvWindowPrefab;
@@ -13,6 +13,7 @@ namespace dtsInventory
         private InvWindow _merchantInvWindow;
 
         [Header("Stock Settings")]
+        [SerializeField] private float _interactRadius = 1.5f;
         [SerializeField] private List<LootRoll> _stockChancesList;
         [SerializeField] private bool _rerollStock;
 
@@ -23,6 +24,13 @@ namespace dtsInventory
 
 
         //monobehaviours
+        private void OnDrawGizmos()
+        {
+            /*
+            Gizmos.color = Color.magenta;
+            Gizmos.DrawWireSphere(transform.position, _interactRadius);
+            */
+        }
         private void Update()
         {
             if (_isDebugActive)
@@ -51,6 +59,7 @@ namespace dtsInventory
                 _merchantInvWindow.GetItemGrid().SetAsMerchant(true);
                 InvManagerHelper.TrackNewInvWindow(_merchantInvWindow);
                 _merchantInvWindow.GetComponent<RectTransform>().position = _canvas.renderingDisplaySize/2;
+                _merchantInvWindow.SetItemValueLabel("Price:");
                 
             }
         }
@@ -87,6 +96,26 @@ namespace dtsInventory
                 _merchantInvWindow.CloseWindow();
         }
 
+        public GameObject GetGameObject()
+        {
+            return gameObject;
+        }
+
+        public void TriggerInteraction()
+        {
+            OpenMerchantUi();
+        }
+
+        public void EndInteraction()
+        {
+            CloseMerchantUi();
+        }
+
+        public float InteractDistance()
+        {
+            return _interactRadius;
+        }
+
 
 
         //Debug
@@ -105,7 +134,7 @@ namespace dtsInventory
             }
         }
 
-
+       
     }
 }
 

@@ -503,7 +503,38 @@ namespace dtsInventory
                             //clear and rerender the updated hover tiles
                             ClearHoverTiles();
                             RenderHoverTiles();
-                            RenderItemInfo(_heldItem.ItemData().Name(), _heldItem.ItemData().Desc());
+                            string currencyUnit = ItemCreatorHelper.GetEconomySetting().GetCurrencyUnit();
+
+                            string itemValue;
+
+                            //ensure no value is displayed if the item has no value
+                            if (_heldItem.ItemData().ItemValue() <= 0)
+                            {
+                                itemValue = "---";
+                                currencyUnit = "";
+                            }
+                            else itemValue = _heldItem.ItemData().ItemValue().ToString();
+
+
+                            if (!_invGrid.IsMerchant())
+                            {
+                                
+
+                                RenderItemInfo(_heldItem.ItemData().Name(), _heldItem.ItemData().Desc(), itemValue, "Value:", currencyUnit);
+                            }
+                            else
+                            {
+                                //we need to show the merchan't offer for the item(s) in question
+                                int merchantOffer = ItemData.CalculatePrice(_heldItem.ItemData(), 1, _invGrid.GetSellingPriceMultiplier());
+                                string offerString;
+
+                                if (merchantOffer <= 0)
+                                    offerString = "---";
+                                else offerString = merchantOffer.ToString();
+
+                                RenderItemInfo(_heldItem.ItemData().Name(), _heldItem.ItemData().Desc(), offerString, "Offer:", currencyUnit);
+                            }
+                            
                         }
 
                         //just clear the hover tiles, if any exist
@@ -531,7 +562,33 @@ namespace dtsInventory
                         //clear and rerender the updated hover tiles
                         ClearHoverTiles();
                         RenderHoverTiles();
-                        RenderItemInfo(hoveredItem.ItemData().Name(), hoveredItem.ItemData().Desc());
+                        string currencyUnit = ItemCreatorHelper.GetEconomySetting().GetCurrencyUnit();
+
+                        string itemValue;
+                        //ensure no value is displayed if the item has no value
+                        if (hoveredItem.ItemData().ItemValue() <= 0)
+                        {
+                            itemValue = "---";
+                            currencyUnit = "";
+                        }
+                        else itemValue = hoveredItem.ItemData().ItemValue().ToString();
+
+
+                        if (!_invGrid.IsMerchant())
+                        {
+                            
+                            RenderItemInfo(hoveredItem.ItemData().Name(), hoveredItem.ItemData().Desc(),itemValue, "Value:", currencyUnit);
+                        }
+                        else
+                        {
+                            //the merchant should be showing the item's individual unit price
+                            int merchantPrice = ItemData.CalculatePrice(hoveredItem.ItemData(), 1, _invGrid.GetBuyingPriceMultiplier());
+                            string priceString;
+                            if (merchantPrice <= 0)
+                                priceString = "---";
+                            else priceString = merchantPrice.ToString();
+                            RenderItemInfo(hoveredItem.ItemData().Name(), hoveredItem.ItemData().Desc(), priceString, "Price:", currencyUnit);
+                        }
                     }
 
                     //highlight the cell position
@@ -598,7 +655,33 @@ namespace dtsInventory
                         //clear and rerender the updated hover tiles
                         ClearHoverTiles();
                         RenderHoverTiles();
-                        RenderItemInfo(_heldItem.ItemData().Name(), _heldItem.ItemData().Desc());
+                        string currencyUnit = ItemCreatorHelper.GetEconomySetting().GetCurrencyUnit();
+
+                        string itemValue;
+                        //ensure no value is displayed if the item has no value
+                        if (_heldItem.ItemData().ItemValue() <= 0)
+                        {
+                            itemValue = "---";
+                            currencyUnit = "";
+                        }
+                        else itemValue = _heldItem.ItemData().ItemValue().ToString();
+
+
+                        if (!_invGrid.IsMerchant())
+                        {
+                            
+                            RenderItemInfo(_heldItem.ItemData().Name(), _heldItem.ItemData().Desc(), itemValue , "Value:", currencyUnit);
+                        }
+                        else
+                        {
+                            int merchantOffer = ItemData.CalculatePrice(_heldItem.ItemData(), 1, _invGrid.GetSellingPriceMultiplier());
+                            string offerString;
+
+                            if (merchantOffer <= 0)
+                                offerString = "---";
+                            else offerString = merchantOffer.ToString();
+                            RenderItemInfo(_heldItem.ItemData().Name(), _heldItem.ItemData().Desc(), offerString, "Offer:", currencyUnit);
+                        }
                     }
 
                     //just clear the hover tiles, if any exist
@@ -626,7 +709,31 @@ namespace dtsInventory
                     //clear and rerender the updated hover tiles
                     ClearHoverTiles();
                     RenderHoverTiles();
-                    RenderItemInfo(hoveredItem.ItemData().Name(), hoveredItem.ItemData().Desc());
+                    string currencyUnit = ItemCreatorHelper.GetEconomySetting().GetCurrencyUnit();
+
+                    string itemValue;
+                    //ensure no value is displayed if the item has no value
+                    if (hoveredItem.ItemData().ItemValue() <= 0)
+                    {
+                        itemValue = "---";
+                        currencyUnit = "";
+                    }
+                    else itemValue = hoveredItem.ItemData().ItemValue().ToString();
+
+
+                    if (!_invGrid.IsMerchant())
+                    {
+                        RenderItemInfo(hoveredItem.ItemData().Name(), hoveredItem.ItemData().Desc(), itemValue, "Value:",currencyUnit);
+                    }
+                    else
+                    {
+                        int merchantPrice = ItemData.CalculatePrice(hoveredItem.ItemData(), 1, _invGrid.GetBuyingPriceMultiplier());
+                        string priceString;
+                        if (merchantPrice <= 0)
+                            priceString = "---";
+                        else priceString = merchantPrice.ToString();
+                        RenderItemInfo(hoveredItem.ItemData().Name(), hoveredItem.ItemData().Desc(), priceString, "Price:", currencyUnit);
+                    }
                 }
 
                 //highlight the cell position only. 
@@ -771,12 +878,14 @@ namespace dtsInventory
                 _pointerContainer.transform.position = Vector3.zero;
             }
         }
-        private void RenderItemInfo(string newItemName, string newDesc)
+        private void RenderItemInfo(string newItemName, string newDesc, string newValue, string newLabel,string currencyUnit)
         {
             if (_invGrid != null)
             {
                 _invGrid.GetParentWindow().SetItemName(newItemName);
                 _invGrid.GetParentWindow().SetItemDescription(newDesc);
+                _invGrid.GetParentWindow().SetItemValue(newValue + currencyUnit);
+                _invGrid.GetParentWindow().SetItemValueLabel(newLabel);
             }
 
         }
@@ -1179,16 +1288,47 @@ namespace dtsInventory
             {
                 if (_openedInvWindows.Count == 2)
                 {
-                    
-                    InvGrid receiver;
+                    //allow quick transfer if no merchant inventories are open
+                    if (_openedMerchants.Count == 0)
+                    {
 
-                    //make sure the OTHER inventory is on the receiving end of the transfer
-                    if (_openedInvWindows[0].GetItemGrid() != _invGrid)
-                        receiver = _openedInvWindows[0].GetItemGrid();
-                    else receiver = _openedInvWindows[1].GetItemGrid();
+                        InvGrid receiver;
 
-                    TransferItems(_invGrid,receiver,_hoveredCellIndex,_invGrid.GetStackValue(_hoveredCellIndex));
+                        //make sure the OTHER inventory is on the receiving end of the transfer
+                        if (_openedInvWindows[0].GetItemGrid() != _invGrid)
+                            receiver = _openedInvWindows[0].GetItemGrid();
+                        else receiver = _openedInvWindows[1].GetItemGrid();
+
+                        TransferItems(_invGrid, receiver, _hoveredCellIndex, _invGrid.GetStackValue(_hoveredCellIndex));
+                    }
+
+                    //QuickSell if the OTHER window is the merchant
+                    //[assuming the items in question are sellable]
+                    else if (_openedMerchants.Count == 1 && !_invGrid.IsMerchant())
+                    {
+                        ItemData hoveredItemData = _invGrid.GetStackItemData(_hoveredCellIndex);
+                        if (hoveredItemData == null)
+                            return;
+                        if (hoveredItemData.IsSellable())
+                        {
+                            //save the item's data before we remove it from the grid, in case the transaction fails
+                            InvItem itemBeingSold = _invGrid.GetItemGraphicOnCell(_hoveredCellIndex);
+                            ItemRotation lastRotation = itemBeingSold.Rotation();
+                            int itemStackSize = _invGrid.GetStackValue(_hoveredCellIndex);
+
+                            //remove the stack, and suppress the removal event
+                            _invGrid.RemoveItem(_hoveredCellIndex, itemStackSize,true); 
+
+                            if (!SellItemToMerchant(hoveredItemData, itemStackSize, _openedMerchants[0].GetItemGrid(), _homeInventoryGrid))
+                            {
+                                //add the item back to the grid if the sale failed
+                                _invGrid.AddItem(hoveredItemData,itemStackSize, _hoveredCellIndex, lastRotation, true);
+                            }
+                            
+                        }
+                    }
                 }
+                
             }
         }
         private void TransferItems(InvGrid donor, InvGrid receiver, (int,int) cellPosition,int amount)
@@ -1908,7 +2048,7 @@ namespace dtsInventory
                         //if we're holding the alt command, perform quick transfer based on the uiContext
                         if (_altCmd)
                         {
-                            //quick-take the stack if we aren't
+                            //quick-take the stack if we aren't in a home inventory
                             if (_invGrid != _homeInventoryGrid)
                                 TakeStackOnHoveredPosition();
                             else ///================================================================================= Make Sure we aren't Transferring stuff INTO MERCHANT CONTAINERS!!!
@@ -1937,8 +2077,8 @@ namespace dtsInventory
                         ShowContextMenuOnHoveredItem();
 
                     //otherwise, the player is trying to sell an item
-                    //help the player sell the item
-                    else
+                    //help the player sell the item (assuming it's sellable)
+                    else if (_heldItem.ItemData().IsSellable())
                     {
                         //attempt the transaction
                         if (SellItemToMerchant(_heldItem.ItemData(),_heldItemStackCount,_invGrid,_homeInventoryGrid))
@@ -2005,30 +2145,33 @@ namespace dtsInventory
 
                 else
                 {
-                    //otherwise, if we're holding an item already, sell a single item
-                    if (_heldItem != null)
+                    //otherwise, if we're holding an item already, sell a single item [assuming it's sellable]
+                    if (_heldItem != null )
                     {
-                        //attempt the transaction
-                        if (SellItemToMerchant(_heldItem.ItemData(), 1, _invGrid, _homeInventoryGrid))
+                        if (_heldItem.ItemData().IsSellable())
                         {
-                            _heldItemStackCount--;
-                            if (_heldItemStackCount == 0)
+                            //attempt the transaction
+                            if (SellItemToMerchant(_heldItem.ItemData(), 1, _invGrid, _homeInventoryGrid))
                             {
-                                //clear the held item, since all of them sold
-                                ItemCreatorHelper.ReturnItemToCreator(_heldItem);
-                                _heldItem = null;
+                                _heldItemStackCount--;
+                                if (_heldItemStackCount == 0)
+                                {
+                                    //clear the held item, since all of them sold
+                                    ItemCreatorHelper.ReturnItemToCreator(_heldItem);
+                                    _heldItem = null;
+                                }
+
+                                UpdateHeldStackText();
+                                return;
+
                             }
-                            
-                            UpdateHeldStackText();
-                            return;
 
-                        }
-
-                        //Either the merchant can't accept the full stack, or the user's home inv is full. Ignore this request
-                        else
-                        {
-                            Debug.LogWarning($"Attempted to sell {1} '{_heldItem.name}'(s), " +
-                                $"but either the merchant container has insufficient space, or the player's home container has insufficient space for the payment. Ignoring sell request.");
+                            //Either the merchant can't accept the full stack, or the user's home inv is full. Ignore this request
+                            else
+                            {
+                                Debug.LogWarning($"Attempted to sell {1} '{_heldItem.name}'(s), " +
+                                    $"but either the merchant container has insufficient space, or the player's home container has insufficient space for the payment. Ignoring sell request.");
+                            }
                         }
                     }
 
@@ -2526,17 +2669,20 @@ namespace dtsInventory
                             DropStackOnHoveredPosition();
                         else
                         {
-                            //attempt to sell whatever we're holding
-                            if (SellItemToMerchant(_heldItem.ItemData(),_heldItemStackCount,_invGrid,_homeInventoryGrid))
+                            if (_heldItem.ItemData().IsSellable())
                             {
-                                //sell successful. Update the heldItem utilities
-                                ItemCreatorHelper.ReturnItemToCreator(_heldItem);
-                                _heldItem = null;
-                                _heldItemStackCount = 0;
-                                UpdateHeldStackText();
-                            }
+                                //attempt to sell whatever we're holding
+                                if (SellItemToMerchant(_heldItem.ItemData(), _heldItemStackCount, _invGrid, _homeInventoryGrid))
+                                {
+                                    //sell successful. Update the heldItem utilities
+                                    ItemCreatorHelper.ReturnItemToCreator(_heldItem);
+                                    _heldItem = null;
+                                    _heldItemStackCount = 0;
+                                    UpdateHeldStackText();
+                                }
 
-                            //otherwise, do nothing since something's preventing us from selling this stuff
+                                //otherwise, do nothing since something's preventing us from selling this stuff
+                            }
                         }
                     }
 
@@ -2565,23 +2711,27 @@ namespace dtsInventory
                             DropSingleItemOntoHoveredPosition();
                         else
                         {
-                            //attempt to sell a single thing at a time
-                            if (SellItemToMerchant(_heldItem.ItemData(), 1, _invGrid, _homeInventoryGrid))
+                            if (_heldItem.ItemData().IsSellable())
                             {
-                                //sell successful. Update the heldItem utilities
-                                _heldItemStackCount--;
-
-                                if (_heldItemStackCount == 0)
+                                //attempt to sell a single thing at a time
+                                if (SellItemToMerchant(_heldItem.ItemData(), 1, _invGrid, _homeInventoryGrid))
                                 {
-                                    ItemCreatorHelper.ReturnItemToCreator(_heldItem);
-                                    _heldItem = null;
-                                    
+                                    //sell successful. Update the heldItem utilities
+                                    _heldItemStackCount--;
+
+                                    if (_heldItemStackCount == 0)
+                                    {
+                                        ItemCreatorHelper.ReturnItemToCreator(_heldItem);
+                                        _heldItem = null;
+
+                                    }
+
+                                    UpdateHeldStackText();
                                 }
 
-                                UpdateHeldStackText();
+                                //otherwise, do nothing since something's preventing us from selling this stuff
                             }
 
-                            //otherwise, do nothing since something's preventing us from selling this stuff
                         }
                     }
                 }
