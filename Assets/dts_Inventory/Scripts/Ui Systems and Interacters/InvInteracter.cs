@@ -1282,7 +1282,7 @@ namespace dtsInventory
                 TransferItems(_invGrid, _homeInventoryGrid, _hoveredCellIndex, _invGrid.GetStackValue(_hoveredCellIndex));
             }
         }
-        private void TransferStackOnHoveredPosition() /////////////////////////// MAke Merchant friendly!
+        private void TransferStackOnHoveredPosition()
         {
             if (_heldItem ==null && _invGrid != null)
             {
@@ -2051,7 +2051,7 @@ namespace dtsInventory
                             //quick-take the stack if we aren't in a home inventory
                             if (_invGrid != _homeInventoryGrid)
                                 TakeStackOnHoveredPosition();
-                            else ///================================================================================= Make Sure we aren't Transferring stuff INTO MERCHANT CONTAINERS!!!
+                            else
                             {
                                 TransferStackOnHoveredPosition();
                             }
@@ -2923,6 +2923,7 @@ namespace dtsInventory
 
             return nonMerchants;
         }
+        public InvGrid GetContextualInvGrid() { return _contextualInvGrid; }
 
     }
 
@@ -2959,5 +2960,6 @@ namespace dtsInventory
         public static Canvas GetUiCanvas() { return _invController.GetCanvas(); }
         public static List<InvWindow> GetOpenedMerchantContainers() { return _invController.GetOpenedMerchantContainers(); }
         public static List<InvWindow> GetOpenedNonMerchantContainers() { return _invController.GetOpenedNonMerchantContainers(); }
+        public static InvGrid GetContextualInvGrid() { return _invController.GetContextualInvGrid();}
     }
 }

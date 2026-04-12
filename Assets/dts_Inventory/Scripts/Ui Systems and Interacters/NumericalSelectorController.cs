@@ -20,11 +20,19 @@ namespace dtsInventory
         [SerializeField] private AudioClip _onValueChangedAudioClip;
         [SerializeField] private float _confirmInputDelay = .1f;
         [SerializeField] private Button _pointerConfirmBtn;
+        [SerializeField] private RectTransform _costUi;
+        [SerializeField] private Text _costUiText;
+        [SerializeField] private Vector2 _costUiOffset;
+        [SerializeField] private Color _buyingCostTextColor;
+        [SerializeField] private Color _sellingPaymentTextColor;
         bool _pointerMode = false;
         [SerializeField] private Animator _confirmBtnAnimator;
         private float _currentDelayCount = 0;
         private bool _confirmReady = false;
         private AudioSource _audioSource;
+        private ContextOption _contextOption;
+        private InvGrid _merchantContext;
+        private ItemData _itemData;
         [SerializeField] private GameObject _defaultReturnObject;
 
         public delegate void NumercialSelectionEvent(int submittedNumber);
@@ -77,7 +85,18 @@ namespace dtsInventory
             _confirmReady = false;
             _currentDelayCount = 0;
         }
-
+        private string CalculateDisplayedCost()
+        {
+            if (_contextOption == ContextOption.BuyItem)
+            {
+                return ItemData.CalculatePrice(_itemData, _number, _merchantContext.GetBuyingPriceMultiplier()).ToString() + ItemCreatorHelper.GetEconomySetting().GetCurrencyUnit();
+            }
+            else if (_contextOption == ContextOption.SellItem)
+            {
+                return ItemData.CalculatePrice(_itemData, _number, _merchantContext.GetSellingPriceMultiplier()).ToString() + ItemCreatorHelper.GetEconomySetting().GetCurrencyUnit();
+            }
+            else return "00g";
+        }
 
 
 
@@ -91,6 +110,9 @@ namespace dtsInventory
                 _number = _minNumber;
 
             RenderNumbertoDisplay();
+
+            if (IsCostUiOpen())
+                SetCostText(CalculateDisplayedCost());
         }
         public void DecrementNumber()
         {
@@ -100,6 +122,8 @@ namespace dtsInventory
                 _number = _maxNumber;
 
             RenderNumbertoDisplay();
+            if (IsCostUiOpen())
+                SetCostText(CalculateDisplayedCost());
         }
         public void ResetNumber()
         {
@@ -124,6 +148,42 @@ namespace dtsInventory
             _minNumber = min;
         }
 
+        public void SetMerchantContext(InvGrid merchantContainer) { _merchantContext = merchantContainer; }
+        public void SetItemDataContext(ItemData itemData) { _itemData = itemData; }
+        public void ShowCostUi(ContextOption context)
+        {
+            //show the amount ui if a relevant context was given
+            //[assuming it's not already open]
+            if (!_costUi.gameObject.activeSelf && (context == ContextOption.BuyItem || context == ContextOption.SellItem))
+            {
+                _contextOption = context;
+                _costUi.gameObject.SetActive(true);
+                _costUi.position = GetRectTransform().position;
+                _costUi.localPosition = new Vector3(_costUiOffset.x, _costUiOffset.y);
+
+                if (context == ContextOption.BuyItem)
+                    _costUiText.color = _buyingCostTextColor;
+                else if (context == ContextOption.SellItem)
+                    _costUiText.color = _sellingPaymentTextColor;
+                SetCostText(CalculateDisplayedCost());
+            }
+        }
+        public void HideCostUi()
+        {
+            if (_costUi.gameObject.activeSelf)
+            {
+                _costUi.gameObject.SetActive(false);
+                _contextOption = ContextOption.None;
+                _itemData = null;
+                _merchantContext = null;
+            }
+        }
+        public void SetCostText(string newText)
+        {
+            _costUiText.text = newText;
+        }
+        public bool IsCostUiOpen() { return _costUi.gameObject.activeSelf; }
+
         public void ShowNumericalSelector(int minValue, int maxValue)
         {
             if (!gameObject.activeSelf)
@@ -144,6 +204,9 @@ namespace dtsInventory
         {
             ResetNumber();
             gameObject.SetActive(false);
+
+            if (IsCostUiOpen())
+                HideCostUi();
 
 
             if (InvManagerHelper.GetInvController() != null && ContextWindowHelper.IsContextWindowShowing())

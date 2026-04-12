@@ -130,6 +130,9 @@ MonoBehaviour:
   _uiDarkener: {fileID: 5475136104957907519}
   _numericalSelector: {fileID: 5416865804682400733}
   _transferMenuController: {fileID: 3283327763244929110}
+  _costFeedbackUi: {fileID: 0}
+  _costFeedbackText: {fileID: 0}
+  _costFeedbackOffset: {x: 0, y: 0}
   _numberSelectorOffsetFromButton: {x: 75, y: 0}
   _transferMenuOffsetFromButton: {x: 59, y: 0}
 --- !u!222 &3622774884361770519

@@ -31,6 +31,9 @@ namespace dtsInventory
         [SerializeField] private UiDarkener _uiDarkener;
         [SerializeField] private NumericalSelectorController _numericalSelector;
         [SerializeField] private TransferMenuController _transferMenuController;
+        [SerializeField] private RectTransform _costFeedbackUi;
+        [SerializeField] private Text _costFeedbackText;
+        [SerializeField] private Vector2 _costFeedbackOffset;
         [Tooltip("Where to position the numerical selector when a context option is selected, relative to the selected button's position")]
         [SerializeField] private Vector2 _numberSelectorOffsetFromButton;
         [SerializeField] private Vector2 _transferMenuOffsetFromButton;
@@ -467,6 +470,12 @@ namespace dtsInventory
                 _numericalSelector.GetRectTransform().localPosition = Vector3.zero;
                 _numericalSelector.GetRectTransform().position = _selectedTransferOption.GetComponent<RectTransform>().TransformPoint(_numberSelectorOffsetFromButton);
                 InvManagerHelper.GetInvController().SetTransferReceiverContext(_specifiedContainer);
+
+                //set the merchant context now, before we clear it
+                //necessary to determine what price to display in the numerical selector [prices may vary from merchant to merchant]
+                if (specifiedOption == ContextOption.SellItem)
+                    _numericalSelector.SetMerchantContext(_specifiedContainer);
+
                 _specifiedContainer = null;
 
 
@@ -492,6 +501,17 @@ namespace dtsInventory
                 _uiDarkener.DarkenMenu();
             }
 
+            //draw the numerical selector's cost Ui if we're buying or selling stuff
+            if (specifiedOption == ContextOption.BuyItem || specifiedOption == ContextOption.SellItem)
+            {
+                //the currently hovered grid is the merchant, if we're in the 'buy' context
+                if (specifiedOption == ContextOption.BuyItem)
+                    _numericalSelector.SetMerchantContext(InvManagerHelper.GetContextualInvGrid());
+
+                _numericalSelector.SetItemDataContext(_itemData);
+                _numericalSelector.ShowCostUi(specifiedOption);
+            }
+            
             
         }
         public void CloseNumericalSelector()
@@ -599,6 +619,10 @@ namespace dtsInventory
             if (_numericalSelector.IsNumericalSelectorOpen())
                 _numericalSelector.ActivateInputEditing(); 
         }
+        public ItemData GetCurrentItemContext() { return _itemData; }
+
+
+        
     }
 
     public static class ContextWindowHelper
