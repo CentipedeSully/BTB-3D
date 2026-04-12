@@ -8376,10 +8376,23 @@ MonoBehaviour:
   _merchantInvWindowPrefab: {fileID: 106780517998607117, guid: 7b4dc6ee5c5a21d4b90bc95013aca4e2,
     type: 3}
   _interactRadius: 2
-  _stockChancesList: []
-  _rerollStock: 0
+  _stockChancesList:
+  - itemdata: {fileID: 11400000, guid: 1028ce9d784040742bb0db69ab3e14c2, type: 2}
+    successChance: 1
+    minAmount: 15
+    maxAmount: 25
+  - itemdata: {fileID: 11400000, guid: 6d528f0074d821842bed9fcf5cb51491, type: 2}
+    successChance: 1
+    minAmount: 8
+    maxAmount: 16
+  - itemdata: {fileID: 11400000, guid: 9ed031f30ac9eaf43916d9c3810d1d6e, type: 2}
+    successChance: 1
+    minAmount: 2
+    maxAmount: 4
+  _showRestockResults: 0
   _isDebugActive: 1
   _cmdToggleUi: 0
+  _cmdRerollStock: 0
 --- !u!65 &1019296519
 BoxCollider:
   m_ObjectHideFlags: 0

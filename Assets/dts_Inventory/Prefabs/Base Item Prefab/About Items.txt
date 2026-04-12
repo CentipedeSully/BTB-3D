@@ -2,9 +2,9 @@
 
 Steps to creating items for the inventory system:
 
-1) Create an new itemData asset in your project hierarchy that'll 
+1) Create an new itemData asset in your project files that'll 
    represent the new item. This asset defines and represents all 
    instances of the item. 
    [Right-Click -> Create -> Item Data]
 
-2) {Build an simple script that creates items: needs}
+2) [Explain each of the item's fields]
