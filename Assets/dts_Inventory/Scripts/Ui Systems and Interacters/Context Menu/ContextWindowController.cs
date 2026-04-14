@@ -588,7 +588,7 @@ namespace dtsInventory
         public RectTransform GetInputAreaRectTransform() { return _numericalSelector.GetTextNavAreaRectTransform(); }
         public RectTransform GetTransferMenuRectTransform() { return _transferMenuController.GetComponent<RectTransform>(); }
         public void FocusOnNumericalSelector()
-        {
+        {   
             _numericalSelector.FocusOnTextNavigationTarget();
         }
         public bool IsNumericalSelectorCurrentlyFocused()

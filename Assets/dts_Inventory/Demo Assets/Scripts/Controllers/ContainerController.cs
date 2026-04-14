@@ -89,7 +89,7 @@ namespace dtsInventory
         }
         private void OnDisable()
         {
-            UnsubToUi();
+            UnsubFromUi();
             OnContainerClosed -= RespondToContainerClosed;
         }
 
@@ -103,7 +103,7 @@ namespace dtsInventory
 
         private void OnDestroy()
         {
-            UnsubToUi();
+            UnsubFromUi();
             DestroyContainerUi();
         }
 
@@ -207,7 +207,7 @@ namespace dtsInventory
             _invWindow.GetItemGrid().OnBulkContentsChanged += RespondToOnBulkChanges;
             _invWindow.OnWindowClosed += RespondToWindowClosed;
         }
-        private void UnsubToUi()
+        private void UnsubFromUi()
         {
             if (_invWindow == null)
                 return;

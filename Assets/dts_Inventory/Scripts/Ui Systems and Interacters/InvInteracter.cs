@@ -2261,19 +2261,33 @@ namespace dtsInventory
                     else
                     {
                         //go to the opposite end of the grid
-                        SetHoveredCell(_lastKnownGrid.GetCellObject((_lastKnownGrid.ContainerSize().x -1, _lastKnownHoveredIndex.Item2)));
+                        SetHoveredCell(_lastKnownGrid.GetCellObject((_lastKnownGrid.ContainerSize().x - 1, _lastKnownHoveredIndex.Item2)));
                     }
 
                     //bind the pointer container to this cell position
                     BindPointerContainerToCellPosition(_lastKnownGrid);
-                    
-                }
 
+                }
                 //else, check if our home grid is opened, and if so then reset our lastHovered util to that
                 else if (_homeInventoryGrid != null)
                 {
                     SetPointerToHomeGrid();
                 }
+                else if (_openedInvWindows.Count > 0)
+                {
+                    FocusOnNextOpenedWindow();
+                }
+            }
+
+            //else, check if our home grid is opened, and if so then reset our lastHovered util to that
+            else if (_homeInventoryGrid != null)
+            {
+                SetPointerToHomeGrid();
+            }
+
+            else if (_openedInvWindows.Count > 0)
+            {
+                FocusOnNextOpenedWindow();
             }
         }
         public void RespondToRightDirectionalCommand()
@@ -2327,6 +2341,21 @@ namespace dtsInventory
                 {
                     SetPointerToHomeGrid();
                 }
+
+                else if (_openedInvWindows.Count > 0)
+                {
+                    FocusOnNextOpenedWindow();
+                }
+            }
+            //else, check if our home grid is opened, and if so then reset our lastHovered util to that
+            else if (_homeInventoryGrid != null)
+            {
+                SetPointerToHomeGrid();
+            }
+
+            else if (_openedInvWindows.Count > 0)
+            {
+                FocusOnNextOpenedWindow();
             }
         }
         public void RespondToUpDirectionalCommand()
@@ -2404,6 +2433,22 @@ namespace dtsInventory
                 {
                     SetPointerToHomeGrid();
                 }
+
+                else if (_openedInvWindows.Count > 0)
+                {
+                    FocusOnNextOpenedWindow();
+                }
+
+            }
+            //else, check if our home grid is opened, and if so then reset our lastHovered util to that
+            else if (_homeInventoryGrid != null)
+            {
+                SetPointerToHomeGrid();
+            }
+
+            else if (_openedInvWindows.Count > 0)
+            {
+                FocusOnNextOpenedWindow();
             }
         }
         public void RespondToDownDirectionalCommand()
@@ -2479,6 +2524,21 @@ namespace dtsInventory
                 {
                     SetPointerToHomeGrid();
                 }
+
+                else if (_openedInvWindows.Count > 0)
+                {
+                    FocusOnNextOpenedWindow();
+                }
+            }
+            //else, check if our home grid is opened, and if so then reset our lastHovered util to that
+            else if (_homeInventoryGrid != null)
+            {
+                SetPointerToHomeGrid();
+            }
+
+            else if (_openedInvWindows.Count > 0)
+            {
+                FocusOnNextOpenedWindow();
             }
         }
         public void SetAlternateInputs(bool alternate1, bool alternate2, bool alternate3)
