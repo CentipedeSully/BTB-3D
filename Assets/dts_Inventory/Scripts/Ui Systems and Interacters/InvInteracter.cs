@@ -1379,7 +1379,7 @@ namespace dtsInventory
                 //(You shouldn't be reorganizing & consuming the merchant's possessions!)
                 if (_contextualInvGrid.IsMerchant())
                 {
-                    Debug.Log("Merchant Detected. Ignoring Item's base context options");
+                    //Debug.Log("Merchant Detected. Ignoring Item's base context options");
                 }
 
                 //merge the item-in-question's context options with the container's
@@ -1387,6 +1387,10 @@ namespace dtsInventory
                 {
                     containerContextOptions.UnionWith(_invGrid.GetStackItemData(_hoveredCellIndex).ContextualOptions());
                 }
+
+                //also remove the sell option from showing up if no merchant's inventory is opened
+                if (_openedMerchants.Count <= 0)
+                    containerContextOptions.Remove(ContextOption.SellItem);
                 
 
                 int hoveredStackSize = _invGrid.GetStackValue(_hoveredCellIndex);
