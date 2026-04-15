@@ -24,7 +24,7 @@ namespace dtsInventory
         [SerializeField] private GameObject _pointerContainer;
         [Tooltip("Used to preserve the pointerContainer when in directional mode while no grid exists.")]
         [SerializeField] private Transform _homePointerContainer;
-        
+        [SerializeField] private RectTransform _inputLockedUiFeedback;
         [SerializeField] private Canvas _uiCanvas;
         [SerializeField] private GraphicRaycaster _graphicRaycaster;
         [SerializeField] private GameObject _hoverGraphicPrefab;
@@ -39,6 +39,7 @@ namespace dtsInventory
         private RectTransform _defaultParentOfPointerContainer;
         private InvGrid _invGrid;
         private InvWindow _currentHoveredWindow;
+
 
         [Header("Input Settings")]
         [Tooltip("Completely stops ALL inputs (pointer commands and directional hotkeys) from affecting any Inv-related system." +
@@ -2687,6 +2688,12 @@ namespace dtsInventory
                     _invGrid.GetParentWindow().CloseWindow();
                 }
             }
+
+            //else if any inv window is still opened, close it
+            else if (_openedInvWindows.Count > 0)
+            {
+                _openedInvWindows[_openedInvWindows.Count - 1].CloseWindow();
+            }
         }
         public void RespondToConfirm()
         {
@@ -2908,7 +2915,7 @@ namespace dtsInventory
         public bool IsInvSystemLocked() { return _lockInvSystem; }
         public void SetInvSystemLock(bool newState) 
         { 
-            _lockInvSystem = newState; 
+            _lockInvSystem = newState;
         }
         public Transform GetParentUiTransformForContainers() { return _inventoryWindowsContainer; }
         public bool IsPointerPointContainedWithinInvUi()

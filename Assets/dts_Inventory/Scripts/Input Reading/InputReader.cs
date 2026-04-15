@@ -84,8 +84,6 @@ namespace dtsInventory
         public event PressedInputEvent OnConfirmPressed;
         public event PressedInputEvent OnCancelPressed;
 
-
-
         //monobehaviour
         private void Start()
         {

@@ -10,7 +10,8 @@ namespace dtsInventory
         [SerializeField] private Transform _spawnContainer;
         [SerializeField] private GameObject _chestPrefab;
         [SerializeField] private LayerMask _spawnDenialObjects;
-        [SerializeField] private List<Transform> _spawnAreas = new();
+        [SerializeField] private Transform _spawnLocationParent;
+        private List<Transform> _spawnAreas = new();
         private List<Transform> _openSpawnAreas = new();
         private Collider[] _overlapResults;
         private int _randomizedSpawnIndex;
@@ -21,6 +22,8 @@ namespace dtsInventory
         [SerializeField] private Color _sampleCastAreaColor = Color.magenta;
         [SerializeField] private float _spawnDelay = 1;
         [SerializeField] private bool _enableSpawning = false;
+        [SerializeField] private bool _startSpawningAfterDelay = true;
+        [SerializeField] private float _startDelay = 4f;
         private IEnumerator _spawnIterater;
 
 
@@ -32,23 +35,54 @@ namespace dtsInventory
             Gizmos.DrawWireCube(_sampleCastAreaPosition, _overlapCastArea);
         }
 
+        private void Start()
+        {
+            PopulateSpawnLocations();
+
+            if (_startSpawningAfterDelay)
+            {
+                Debug.Log($"Starting spawns in {_startDelay} seconds");
+                Invoke(nameof(StartSpawning), _startDelay);
+            }
+        }
         private void Update()
         {
-            if (_enableSpawning)
+            if (_enableSpawning == false && _spawnIterater != null)
+                EndSpawning();
+            else if (_enableSpawning && _spawnIterater == null)
                 StartSpawning();
-            else EndSpawning();
         }
 
 
         //internals
         private void StartSpawning()
         {
+            if (_spawnAreas.Count <= 0)
+            {
+                Debug.LogWarning("Failed to start spawning. No spawn areas detected");
+                return;
+            }
             if (_spawnIterater == null)
             {
                 Debug.Log("Enabling Spawning");
+                _enableSpawning = true;
                 _spawnIterater = IterateSpawning();
                 StartCoroutine(_spawnIterater);
             }
+        }
+
+        private void PopulateSpawnLocations()
+        {
+            if (_spawnLocationParent == null)
+            {
+                Debug.LogWarning("Can't populate the spawn positions if there's no assigned parent that holds all the spawn transforms.");
+                    return;
+            }
+
+            Debug.Log("Populating Spawns");
+            _spawnAreas.Clear();
+            for (int i = 0; i < _spawnLocationParent.childCount; i++)
+                _spawnAreas.Add(_spawnLocationParent.GetChild(i));
         }
 
         private void EndSpawning()
