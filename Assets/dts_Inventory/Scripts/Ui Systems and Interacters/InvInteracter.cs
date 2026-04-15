@@ -458,6 +458,14 @@ namespace dtsInventory
 
                 if (_openedInvWindows.Count == 0)
                     HideContainerRelatedUicontrols();
+
+                //make sure we clear the hover data if our current container just closed
+                if (_invGrid == window.GetItemGrid())
+                {
+                    LeaveGrid(_invGrid);
+                    ClearHoveredCell();
+                    ClearDirectionalPointer();
+                }
             }
         }
 
@@ -1953,7 +1961,9 @@ namespace dtsInventory
             //only visualize hover effects when the context window isn't open
             if (ContextWindowHelper.IsContextWindowShowing())
                 return;
-            PlayMovementAudio();
+
+            if (_openedInvWindows.Count > 0)
+                PlayMovementAudio();
         }
         public void ClearHoveredCell(CellInteract cell)
         {
