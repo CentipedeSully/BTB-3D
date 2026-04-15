@@ -40,6 +40,8 @@ namespace dtsInventory
         private InvGrid _invGrid;
         private InvWindow _currentHoveredWindow;
 
+        [SerializeField] private List<RectTransform> _containerRelatedUiControls = new();
+
 
         [Header("Input Settings")]
         [Tooltip("Completely stops ALL inputs (pointer commands and directional hotkeys) from affecting any Inv-related system." +
@@ -435,6 +437,8 @@ namespace dtsInventory
 
                 if (window.GetItemGrid() != _homeInventoryGrid)
                     PlayContainerOpenedAudio();
+
+                ShowContainerRelatedUiControls();
             }
         }
         public void UpdateWindowAsClosed(InvWindow window)
@@ -451,6 +455,8 @@ namespace dtsInventory
 
                 if (window.GetItemGrid() != _homeInventoryGrid)
                     PlayContainerClosedAudio();
+
+                HideContainerRelatedUicontrols();
             }
         }
 
@@ -990,7 +996,16 @@ namespace dtsInventory
                 //_homePointerContainer.gameObject.SetActive(false);
             }
         }
-
+        private void ShowContainerRelatedUiControls()
+        {
+            foreach (RectTransform rt in _containerRelatedUiControls)
+                rt.gameObject.SetActive(true);
+        }
+        private void HideContainerRelatedUicontrols()
+        {
+            foreach (RectTransform rt in _containerRelatedUiControls)
+                rt.gameObject.SetActive(false);
+        }
 
 
         //inventory manipulation actions

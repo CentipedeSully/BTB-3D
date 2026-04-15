@@ -20205,6 +20205,9 @@ MonoBehaviour:
   _inventoryWindowsContainer: {fileID: 2292909963835315119}
   _openedInvWindows: []
   _openedMerchants: []
+  _containerRelatedUiControls:
+  - {fileID: 1579896200}
+  - {fileID: 436735304}
   _lockInvSystem: 0
   _scrollMultiplier: 1
   _audioSource: {fileID: 524805629284160401}
