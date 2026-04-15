@@ -56,6 +56,8 @@ namespace dtsInventory
         [SerializeField] private AudioClip _deselectionAudio;
         [SerializeField] private AudioClip _discardAudio;
         [SerializeField] private AudioClip _useAudio;
+        [SerializeField] private AudioClip _openedAudio;
+        [SerializeField] private AudioClip _closedAudio;
 
         [Header("Watch/Debug Values [Do Not Touch]")]
         [Tooltip("AutoDetects and updates based on the last detected input command. No need to touch this")]
@@ -431,6 +433,8 @@ namespace dtsInventory
 
                 InputFilter.DisallowNonUiInput(window.gameObject);
 
+                if (window.GetItemGrid() != _homeInventoryGrid)
+                    PlayContainerOpenedAudio();
             }
         }
         public void UpdateWindowAsClosed(InvWindow window)
@@ -444,6 +448,9 @@ namespace dtsInventory
                     _openedMerchants.Remove(window);
 
                 InputFilter.AllowNonUiInput(window.gameObject);
+
+                if (window.GetItemGrid() != _homeInventoryGrid)
+                    PlayContainerClosedAudio();
             }
         }
 
@@ -1877,6 +1884,23 @@ namespace dtsInventory
                 }
             }
         }
+        private void PlayContainerOpenedAudio()
+        {
+            if (_audioSource != null)
+            {
+                _audioSource.clip = _openedAudio;
+                _audioSource.Play();
+            }
+        }
+        private void PlayContainerClosedAudio()
+        {
+            if (_audioSource != null)
+            {
+                _audioSource.clip = _closedAudio;
+                _audioSource.Play();
+            }
+        }
+
 
         //externals
         public void SetActiveItemGrid(InvGrid newGrid)

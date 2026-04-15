@@ -11,7 +11,6 @@ namespace dtsInventory
         [Header("References")]
         [SerializeField] private MapPointer _mapPointer;
 
-
         [SerializeField] private bool _isMoving = false;
         [SerializeField] private GameObject _interactionTarget;
         private IInteractable _interactable;
@@ -87,7 +86,6 @@ namespace dtsInventory
                 _interactable.TriggerInteraction();
                 ClearInteractionTarget();
                 EndMovement();
-
             }
         }
         private void WatchForMoveEnd()
@@ -100,8 +98,6 @@ namespace dtsInventory
             _interactable = null;
             _interactionTarget = null;
         }
-
-
 
 
 
