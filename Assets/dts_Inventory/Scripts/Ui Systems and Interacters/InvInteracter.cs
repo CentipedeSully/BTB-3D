@@ -456,7 +456,8 @@ namespace dtsInventory
                 if (window.GetItemGrid() != _homeInventoryGrid)
                     PlayContainerClosedAudio();
 
-                HideContainerRelatedUicontrols();
+                if (_openedInvWindows.Count == 0)
+                    HideContainerRelatedUicontrols();
             }
         }
 
@@ -2720,18 +2721,23 @@ namespace dtsInventory
             }
 
             //else close whatever inventory we're in (if we aren't holding an item)
-            else if (_invGrid != null)
+            if (_invGrid != null)
             {
                 if (_invGrid.GetParentWindow().gameObject.activeSelf && _heldItem == null)
                 {
+                    Debug.Log("Closing Window [currentSelected]");
                     _invGrid.GetParentWindow().CloseWindow();
+                    return;
                 }
             }
 
+            Debug.Log("Back Clicked. Reached Final close case [case: are any windows opened that can be closed?]");
             //else if any inv window is still opened, close it
-            else if (_openedInvWindows.Count > 0)
+            if (_openedInvWindows.Count > 0)
             {
-                _openedInvWindows[_openedInvWindows.Count - 1].CloseWindow();
+                Debug.Log("Closing Window [Last In Line]");
+                _openedInvWindows.Last().CloseWindow();
+                return;
             }
         }
         public void RespondToConfirm()
