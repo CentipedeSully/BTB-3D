@@ -1,11 +1,7 @@
-using mapPointer;
+
 using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
-using System.Reflection;
-using Unity.VisualScripting;
-using UnityEditor.Build;
-using UnityEditor.PackageManager.UI;
 using UnityEngine;
 using UnityEngine.EventSystems;
 using UnityEngine.UI;
@@ -1739,7 +1735,7 @@ namespace dtsInventory
             if (!IsContextualDataValid())
                 return;
 
-            Debug.Log($"Attempting to buy {amount} {_contextualInvGrid.GetStackItemData(_contextualItemPosition).Name()}(s)...");
+            //Debug.Log($"Attempting to buy {amount} {_contextualInvGrid.GetStackItemData(_contextualItemPosition).Name()}(s)...");
 
             //get the payment item
             ItemData currencyItemData = ItemCreatorHelper.GetEconomySetting().GetCurrencyItem();
@@ -1749,7 +1745,7 @@ namespace dtsInventory
 
             //get the cost of the items in question
             int cost = ItemData.CalculatePrice(buyingItem, amount, _contextualInvGrid.GetBuyingPriceMultiplier());
-            Debug.Log($"What you should be paying: {cost}");
+            //Debug.Log($"What you should be paying: {cost}");
 
             //Does removing the requested items work? This operation fails if not enough are found
             if (!_homeInventoryGrid.RemoveItem(currencyItemData, cost))
@@ -1772,7 +1768,7 @@ namespace dtsInventory
             if (!IsContextualDataValid())
                 return;
 
-            Debug.Log($"Attempting to sell {amount} {_contextualInvGrid.GetStackItemData(_contextualItemPosition).Name()}(s)...");
+            //Debug.Log($"Attempting to sell {amount} {_contextualInvGrid.GetStackItemData(_contextualItemPosition).Name()}(s)...");
 
             ItemData soldItem = _contextualInvGrid.GetStackItemData(_contextualItemPosition);
             ItemRotation lastRotation = _contextualInvGrid.GetItemGraphicOnCell(_contextualItemPosition).Rotation();
@@ -1787,7 +1783,7 @@ namespace dtsInventory
                 //put the items back as if nothing happened
                 _contextualInvGrid.AddItem(soldItem,amount,_contextualItemPosition,lastRotation,true);
 
-                Debug.Log($"Failed to sell {amount} {soldItem.name}(s) to merchant {_contextualGridReceiver.name}.");
+                Debug.LogWarning($"Failed to sell {amount} {soldItem.name}(s) to merchant {_contextualGridReceiver.name}.");
                 return;
             }
 

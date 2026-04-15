@@ -6,6 +6,6 @@ EditorBuildSettings:
   serializedVersion: 2
   m_Scenes:
   - enabled: 1
-    path: Assets/Scenes/Physics & Ragdoll Testing.unity
-    guid: 99c9720ab356a0642a771bea13969a05
+    path: Assets/dts_Inventory/Demo Assets/Scenes/Demo.unity
+    guid: c8b1b38b6d98dfb4fb7ff722a5443551
   m_configObjects: {}
