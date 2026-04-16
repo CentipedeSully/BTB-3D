@@ -41,6 +41,10 @@ namespace dtsInventory
         private InvWindow _currentHoveredWindow;
 
         [SerializeField] private List<RectTransform> _containerRelatedUiControls = new();
+        [SerializeField] private List<RectTransform> _mapRelatedUiControls = new();
+        [SerializeField] private List<RectTransform> _heldItemSpecificContainerUiControls = new();
+        [SerializeField] private List<RectTransform> _noHeldItemSpecificContainerUiControls = new();
+        bool _isHeldItemUiControlsShowing = false;
 
 
         [Header("Input Settings")]
@@ -189,6 +193,7 @@ namespace dtsInventory
         {
             if (!_lockInvSystem)
                 VisualizeHover();
+            ShowRelevantContainerUiControls();
         }
 
 
@@ -438,6 +443,7 @@ namespace dtsInventory
                 if (window.GetItemGrid() != _homeInventoryGrid)
                     PlayContainerOpenedAudio();
 
+                HideMapRelatedUiControls();
                 ShowContainerRelatedUiControls();
             }
         }
@@ -457,7 +463,10 @@ namespace dtsInventory
                     PlayContainerClosedAudio();
 
                 if (_openedInvWindows.Count == 0)
-                    HideContainerRelatedUicontrols();
+                {
+                    HideContainerRelatedUiControls();
+                    ShowMapRelatedUiControls();
+                }
 
                 //make sure we clear the hover data if our current container just closed
                 if (_invGrid == window.GetItemGrid())
@@ -1009,13 +1018,66 @@ namespace dtsInventory
         {
             foreach (RectTransform rt in _containerRelatedUiControls)
                 rt.gameObject.SetActive(true);
+
+            ShowNoHeldItemUiControls();
         }
-        private void HideContainerRelatedUicontrols()
+        private void HideContainerRelatedUiControls()
         {
             foreach (RectTransform rt in _containerRelatedUiControls)
                 rt.gameObject.SetActive(false);
+
+            HideNoHeldItemUiControls();
+            HideHeldItemUiControls();
+        }
+        private void ShowMapRelatedUiControls() {
+            foreach (RectTransform rt in _mapRelatedUiControls)
+                rt.gameObject.SetActive(true);
+        }
+        private void HideMapRelatedUiControls() {
+            foreach (RectTransform rt in _mapRelatedUiControls)
+                rt.gameObject.SetActive(false);
+        }
+        private void ShowHeldItemUiControls()
+        {
+            foreach (RectTransform rt in _heldItemSpecificContainerUiControls)
+                rt.gameObject.SetActive(true);
+        }
+        private void HideHeldItemUiControls()
+        {
+            foreach (RectTransform rt in _heldItemSpecificContainerUiControls)
+                rt.gameObject.SetActive(false);
+        }
+        private void ShowNoHeldItemUiControls()
+        {
+            foreach (RectTransform rt in _noHeldItemSpecificContainerUiControls)
+                rt.gameObject.SetActive(true);
+        }
+        private void HideNoHeldItemUiControls()
+        {
+            foreach (RectTransform rt in _noHeldItemSpecificContainerUiControls)
+                rt.gameObject.SetActive(false);
         }
 
+
+        private void ShowRelevantContainerUiControls()
+        {
+            if (_openedInvWindows.Count <= 0)
+                return;
+
+            if (_heldItem == null && _isHeldItemUiControlsShowing)
+            {
+                _isHeldItemUiControlsShowing = false;
+                HideHeldItemUiControls();
+                ShowNoHeldItemUiControls();
+            }
+
+            else if (_heldItem != null && !_isHeldItemUiControlsShowing)
+            {
+                _isHeldItemUiControlsShowing = true;
+                HideNoHeldItemUiControls();
+                ShowHeldItemUiControls();
+            }
+        }
 
         //inventory manipulation actions
         private void PickupHalfOfHoveredStack()
@@ -2743,7 +2805,7 @@ namespace dtsInventory
 
             Debug.Log("Back Clicked. Reached Final close case [case: are any windows opened that can be closed?]");
             //else if any inv window is still opened, close it
-            if (_openedInvWindows.Count > 0)
+            if (_openedInvWindows.Count > 0 && _heldItem == null)
             {
                 Debug.Log("Closing Window [Last In Line]");
                 _openedInvWindows.Last().CloseWindow();
