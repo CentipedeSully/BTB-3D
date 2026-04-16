@@ -10881,7 +10881,7 @@ GameObject:
   - component: {fileID: 994911402}
   - component: {fileID: 994911401}
   m_Layer: 5
-  m_Name: Pick full label
+  m_Name: Drop All label
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -16297,7 +16297,7 @@ GameObject:
   - component: {fileID: 1649525994}
   - component: {fileID: 1649525993}
   m_Layer: 5
-  m_Name: Pick half label
+  m_Name: drop one label
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -16357,7 +16357,7 @@ MonoBehaviour:
     m_LineSpacing: 1
   m_Text: 'Drop
 
-    Half'
+    one'
 --- !u!222 &1649525994
 CanvasRenderer:
   m_ObjectHideFlags: 0
