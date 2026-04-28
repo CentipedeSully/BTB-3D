@@ -145,6 +145,7 @@ MonoBehaviour:
   _itemGrid: {fileID: 4906056226602732301}
   _valueDisplay: {fileID: 5655911527256642123}
   _valueLabelDisplay: {fileID: 43353825148650469}
+  _controlsText: {fileID: 0}
   _containerNameText: {fileID: 4661180941180228063}
   _containerInputField: {fileID: 7279745971405830584}
   _initOnGameStart: 0
@@ -1789,7 +1790,7 @@ MonoBehaviour:
     m_HorizontalOverflow: 1
     m_VerticalOverflow: 1
     m_LineSpacing: 1
-  m_Text: '[ Pointer Mode ]'
+  m_Text: '[ demo window ]'
 --- !u!1 &8802329079995508443
 GameObject:
   m_ObjectHideFlags: 0
