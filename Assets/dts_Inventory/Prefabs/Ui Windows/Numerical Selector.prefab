@@ -1132,7 +1132,7 @@ MonoBehaviour:
   _costUi: {fileID: 131345614121883592}
   _costUiText: {fileID: 4391365395827045214}
   _costUiOffset: {x: 0, y: 32}
-  _buyingCostTextColor: {r: 0.6981132, g: 0.04729666, b: 0, a: 1}
+  _buyingCostTextColor: {r: 1, g: 0.9238699, b: 0, a: 1}
   _sellingPaymentTextColor: {r: 0, g: 0.509434, b: 0.096060455, a: 1}
   _confirmBtnAnimator: {fileID: 6635586799528509951}
   _defaultReturnObject: {fileID: 0}

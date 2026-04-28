@@ -19591,6 +19591,11 @@ PrefabInstance:
       propertyPath: m_Name
       value: Context Window
       objectReference: {fileID: 0}
+    - target: {fileID: 1246246602321796649, guid: 49e5874b353006648949423042d54ab8,
+        type: 3}
+      propertyPath: m_IsActive
+      value: 1
+      objectReference: {fileID: 0}
     - target: {fileID: 2045794472191981233, guid: 49e5874b353006648949423042d54ab8,
         type: 3}
       propertyPath: m_Pivot.x
@@ -19799,7 +19804,7 @@ PrefabInstance:
     - target: {fileID: 4967695450853978401, guid: 49e5874b353006648949423042d54ab8,
         type: 3}
       propertyPath: m_Text
-      value: 000
+      value: 
       objectReference: {fileID: 0}
     - target: {fileID: 5365440793712774260, guid: 49e5874b353006648949423042d54ab8,
         type: 3}
@@ -20345,7 +20350,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   _mapCamera: {fileID: 1906186685}
-  _camDepthSpeed: 600
+  _camDepthSpeed: 450
   _camMoveSpeed: 20
   _camRotateSpeed: 55
   _relativeCamAxisX: {x: 0.5, y: 0, z: 0.5}

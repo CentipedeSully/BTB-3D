@@ -1784,13 +1784,15 @@ MonoBehaviour:
     m_BestFit: 0
     m_MinSize: 1
     m_MaxSize: 40
-    m_Alignment: 4
+    m_Alignment: 1
     m_AlignByGeometry: 0
     m_RichText: 1
     m_HorizontalOverflow: 1
     m_VerticalOverflow: 1
-    m_LineSpacing: 1
-  m_Text: '[ demo window ]'
+    m_LineSpacing: 0.76
+  m_Text: 'Show Tooltips
+
+    [ Lalt ]'
 --- !u!1 &8802329079995508443
 GameObject:
   m_ObjectHideFlags: 0

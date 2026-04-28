@@ -519,21 +519,29 @@ namespace dtsInventory
                             }
                             else
                             {
-                                containerHoverText = $"Sell all (" +
+                                if (_altCmd3)
+                                {
+                                    containerHoverText = $"Sell all ( " +
                                                     $"{ItemData.CalculatePrice(_heldItem.ItemData(), _heldItemStackCount, _invGrid.GetSellingPriceMultiplier()).ToString()}" +
                                                     $"{ItemCreatorHelper.GetEconomySetting().GetCurrencyUnit()}" +
-                                                    $") [ lClick ]\n" +
-                                                    $"Sell Single (" +
+                                                    $" ) [ lClick ]\n" +
+                                                    $"Sell Single ( " +
                                                     $"{ItemData.CalculatePrice(_heldItem.ItemData(), 1, _invGrid.GetSellingPriceMultiplier()).ToString()}" +
                                                     $"{ItemCreatorHelper.GetEconomySetting().GetCurrencyUnit()}" +
-                                                    $") [ rClick ]";
+                                                    $" ) [ rClick ]";
+                                }
+                                
                             }
                             
                         }
                         else
                         {
-                            containerHoverText = $"Place Stack [ lClick ]\n" +
+                            if (_altCmd3)
+                            {
+                                containerHoverText = $"Place Stack [ lClick ]\n" +
                                 $"Place Single [ rclick ]";
+                            }
+                            
                         }
                     }
 
@@ -548,23 +556,29 @@ namespace dtsInventory
                             }
                             else
                             {
-                                containerHoverText = $"Sell all (" +
+                                if (_altCmd3)
+                                {
+                                    containerHoverText = $"Sell all ( " +
                                                     $"{ItemData.CalculatePrice(_heldItem.ItemData(), _heldItemStackCount, _invGrid.GetSellingPriceMultiplier()).ToString()}" +
                                                     $"{ItemCreatorHelper.GetEconomySetting().GetCurrencyUnit()}" +
-                                                    $") [ enter ]\n" +
-                                                    $"Sell single (" +
+                                                    $" ) [ enter ]\n" +
+                                                    $"Sell single ( " +
                                                     $"{ItemData.CalculatePrice(_heldItem.ItemData(), 1, _invGrid.GetSellingPriceMultiplier()).ToString()}" +
                                                     $"{ItemCreatorHelper.GetEconomySetting().GetCurrencyUnit()}" +
-                                                    $") [ shift + enter ]";
-
+                                                    $" ) [ shift + enter ]";
+                                }
                             }
                             
                         }
                         else
                         {
-                            containerHoverText = $"Place Stack [ enter ]\n" +
+                            if (_altCmd3)
+                            {
+                                containerHoverText = $"Place Stack [ enter ]\n" +
                                 $"Place Single [ enter + shift ]\n" +
                                 $"Jump Containers [ tab ]";
+                            }
+                            
                         }
                     }
                 }
@@ -575,11 +589,15 @@ namespace dtsInventory
                     //pointerMode (open) controls [only show if hovering over an item]
                     if (_inputMode == InputMode.Pointer)
                     {
-                        if (_invGrid.IsCellOccupied(_hoveredCellIndex))
+                        if (_invGrid.IsCellOccupied(_hoveredCellIndex) && _altCmd3)
                         {
                             if (_invGrid.IsMerchant())
                             {
-                                containerHoverText = $"Buy [ lClick ]";
+
+                                containerHoverText = $"Buy ( " + 
+                                    $"{ItemData.CalculatePrice(_invGrid.GetStackItemData(_hoveredCellIndex), 1, _invGrid.GetBuyingPriceMultiplier())}" +
+                                    $"{ItemCreatorHelper.GetEconomySetting().GetCurrencyUnit()}" +
+                                    " ) [ lClick ]";
                             }
                             else
                             {
@@ -595,10 +613,10 @@ namespace dtsInventory
                                     {
                                         if (_invGrid.GetStackItemData(_hoveredCellIndex).IsSellable())
                                         {
-                                            containerHoverText += $"\nQuick Sell (" +
+                                            containerHoverText += $"\nQuick Sell ( " +
                                             $"{ItemData.CalculatePrice(_invGrid.GetStackItemData(_hoveredCellIndex), _invGrid.GetStackValue(_hoveredCellIndex), _openedMerchants[0].GetItemGrid().GetSellingPriceMultiplier())}" +
                                             $"{ItemCreatorHelper.GetEconomySetting().GetCurrencyUnit()}" +
-                                            $") [ shift + lClick ]";
+                                            $" ) [ shift + lClick ]";
                                         }
                                         
                                     }
@@ -620,11 +638,14 @@ namespace dtsInventory
                     //directionalMode (open) controls [only show if hovering over an item]
                     else if (_inputMode == InputMode.Directional)
                     {
-                        if (_invGrid.IsCellOccupied(_hoveredCellIndex))
+                        if (_invGrid.IsCellOccupied(_hoveredCellIndex) && _altCmd3)
                         {
                             if (_invGrid.IsMerchant())
                             {
-                                containerHoverText = $"Buy [ enter ]";
+                                containerHoverText = $"Buy ( " +
+                                   $"{ItemData.CalculatePrice(_invGrid.GetStackItemData(_hoveredCellIndex), 1, _invGrid.GetBuyingPriceMultiplier())}" +
+                                   $"{ItemCreatorHelper.GetEconomySetting().GetCurrencyUnit()}" +
+                                   " ) [ enter ]";
                             }
                             else
                             {

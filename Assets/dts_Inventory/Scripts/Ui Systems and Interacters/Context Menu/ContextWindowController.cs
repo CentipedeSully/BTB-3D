@@ -218,10 +218,38 @@ namespace dtsInventory
                             child.gameObject.SetActive(false);
                             continue;
                         }
+                        
+                        //only do this if only 1 merchant is opened (so we know which merchant's sell offer to list)
+                        //otherwise, keep it general. The user will specify the merchant later.
+                        else if (context.GetContextOption() == ContextOption.SellItem && InvManagerHelper.GetOpenedMerchantContainers().Count == 1)
+                        {
+                            //write the offered sell value on the button itself
+                            Text buttonText = child.GetComponentInChildren<Text>();
+
+                            if ( buttonText != null)
+                            {
+                                int sellPrice = ItemData.CalculatePrice(itemData, 1, InvManagerHelper.GetOpenedMerchantContainers()[0].GetItemGrid().GetSellingPriceMultiplier());
+                                buttonText.text = $"Sell ( {sellPrice}{ItemCreatorHelper.GetEconomySetting().GetCurrencyUnit()} )";
+                            }
+                        }
+                        
+                        else if (context.GetContextOption() == ContextOption.BuyItem)
+                        {
+                            //write the price on the button itself
+                            Text buttonText = child.GetComponentInChildren<Text>();
+
+                            if (buttonText != null)
+                            {
+                                int buyPrice = ItemData.CalculatePrice(itemData, 1, boundWindow.GetItemGrid().GetBuyingPriceMultiplier());
+                                buttonText.text = $"Buy ( {buyPrice}{ItemCreatorHelper.GetEconomySetting().GetCurrencyUnit()} )";
+                            }
+                        }
 
                         child.gameObject.SetActive(true);
                         optionCount++;
                         _currentButtons.Add(child.GetComponent<Button>());
+                         
+                        
                     }
                     else
                     {
