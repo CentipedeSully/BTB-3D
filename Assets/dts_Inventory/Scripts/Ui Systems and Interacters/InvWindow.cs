@@ -14,12 +14,14 @@ namespace dtsInventory
         [SerializeField] private RectTransform _gridAreaRectTransform;
         [SerializeField] private RectTransform _actualGridRectTransform;
         [SerializeField] private RectTransform _spritesContainerTransform;
+        [SerializeField] private RectTransform _controlsAreaRectTransform;
 
         [SerializeField] private Text _itemDescription;
         [SerializeField] private Text _itemName;
         [SerializeField] private InvGrid _itemGrid;
         [SerializeField] private Text _valueDisplay;
         [SerializeField] private Text _valueLabelDisplay;
+        [SerializeField] private Text _controlsText;
 
         [SerializeField] private Text _containerNameText;
         [SerializeField] private InputField _containerInputField;
@@ -82,8 +84,9 @@ namespace dtsInventory
             float headerHeight = _headerRectTransform.sizeDelta.y;
             float descHeight = _descRectTransform.sizeDelta.y;
             float gridHeight = _actualGridRectTransform.sizeDelta.y;
+            float controlsHeight = _controlsAreaRectTransform.sizeDelta.y;
             _gridAreaRectTransform.sizeDelta = new Vector2(gridWidth, gridHeight);
-            _rectTransform.sizeDelta = new Vector2(gridWidth, headerHeight + descHeight + gridHeight);
+            _rectTransform.sizeDelta = new Vector2(gridWidth, headerHeight + descHeight + gridHeight + controlsHeight);
             _spritesContainerTransform.localPosition = _actualGridRectTransform.localPosition;
         }
         public InvGrid GetItemGrid() { return _itemGrid; }
@@ -159,6 +162,13 @@ namespace dtsInventory
         {
             _containerName = _containerNameText.text;
         }
+        public void SetControlsText(string text)
+        {
+            _controlsText.text = text;
+        }
+        public void HideControlsText() { _controlsAreaRectTransform.gameObject.SetActive(false); }
+        public void ShowControlsText() { _controlsAreaRectTransform.gameObject.SetActive(true); }
+
 
 
         public void DarkenGrid() { _itemGrid.DarkenGrid(); }

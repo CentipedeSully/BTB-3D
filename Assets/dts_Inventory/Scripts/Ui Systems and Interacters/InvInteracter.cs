@@ -2,6 +2,7 @@
 using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
+using UnityEditor.Rendering;
 using UnityEngine;
 using UnityEngine.EventSystems;
 using UnityEngine.UI;
@@ -39,12 +40,9 @@ namespace dtsInventory
         private RectTransform _defaultParentOfPointerContainer;
         private InvGrid _invGrid;
         private InvWindow _currentHoveredWindow;
+        [SerializeField] private Text _pointerContainerHoverText;
+        private string containerHoverText;
 
-        [SerializeField] private List<RectTransform> _containerRelatedUiControls = new();
-        [SerializeField] private List<RectTransform> _mapRelatedUiControls = new();
-        [SerializeField] private List<RectTransform> _heldItemSpecificContainerUiControls = new();
-        [SerializeField] private List<RectTransform> _noHeldItemSpecificContainerUiControls = new();
-        bool _isHeldItemUiControlsShowing = false;
 
 
         [Header("Input Settings")]
@@ -135,7 +133,7 @@ namespace dtsInventory
                 _pointerHoverTileObject.SetActive(false);
 
             }
-            
+
         }
         private void Start()
         {
@@ -192,8 +190,10 @@ namespace dtsInventory
         private void Update()
         {
             if (!_lockInvSystem)
+            {
                 VisualizeHover();
-            ShowRelevantContainerUiControls();
+            }
+            UpdateContainerHoverText();
         }
 
 
@@ -441,10 +441,13 @@ namespace dtsInventory
                 InputFilter.DisallowNonUiInput(window.gameObject);
 
                 if (window.GetItemGrid() != _homeInventoryGrid)
+                {
                     PlayContainerOpenedAudio();
+                    _homeInventoryGrid.GetParentWindow().OpenWindow();
+                }
 
-                HideMapRelatedUiControls();
-                ShowContainerRelatedUiControls();
+                //UpdateMapUiVisibility();
+
             }
         }
         public void UpdateWindowAsClosed(InvWindow window)
@@ -460,13 +463,18 @@ namespace dtsInventory
                 InputFilter.AllowNonUiInput(window.gameObject);
 
                 if (window.GetItemGrid() != _homeInventoryGrid)
+                {
                     PlayContainerClosedAudio();
+                    _homeInventoryGrid.GetParentWindow().CloseWindow();
+                }
+                //
 
+                /*
                 if (_openedInvWindows.Count == 0)
                 {
                     HideContainerRelatedUiControls();
                     ShowMapRelatedUiControls();
-                }
+                }*/
 
                 //make sure we clear the hover data if our current container just closed
                 if (_invGrid == window.GetItemGrid())
@@ -475,11 +483,169 @@ namespace dtsInventory
                     ClearHoveredCell();
                     ClearDirectionalPointer();
                 }
+
+                //UpdateMapUiVisibility();
             }
         }
 
 
         //visual updating/rendering utilities
+        private void UpdateContainerHoverText()
+        {
+            if (_invGrid == null && _pointerContainerHoverText.gameObject.activeSelf)
+            {
+                containerHoverText = "";
+                _pointerContainerHoverText.text = "";
+                _pointerContainerHoverText.gameObject.SetActive(false);
+            }
+
+            else if (_invGrid != null)
+            {
+                containerHoverText = "";
+                _pointerContainerHoverText.gameObject.SetActive(true);
+                _pointerContainerHoverText.text = "";
+                
+                //what to show when holding an item
+                if (_heldItem != null)
+                {
+                    //pointerMode (itemHeld) controls
+                    if (_inputMode == InputMode.Pointer)
+                    {
+                        if (_invGrid.IsMerchant())
+                        {
+                            if (!_heldItem.ItemData().IsSellable())
+                            {
+                                containerHoverText = "Unsellable";
+                            }
+                            else
+                            {
+                                containerHoverText = $"Sell all (" +
+                                                    $"{ItemData.CalculatePrice(_heldItem.ItemData(), _heldItemStackCount, _invGrid.GetSellingPriceMultiplier()).ToString()}" +
+                                                    $"{ItemCreatorHelper.GetEconomySetting().GetCurrencyUnit()}" +
+                                                    $") [ lClick ]\n" +
+                                                    $"Sell Single (" +
+                                                    $"{ItemData.CalculatePrice(_heldItem.ItemData(), 1, _invGrid.GetSellingPriceMultiplier()).ToString()}" +
+                                                    $"{ItemCreatorHelper.GetEconomySetting().GetCurrencyUnit()}" +
+                                                    $") [ rClick ]";
+                            }
+                            
+                        }
+                        else
+                        {
+                            containerHoverText = $"Place Stack [ lClick ]\n" +
+                                $"Place Single [ rclick ]";
+                        }
+                    }
+
+                    //directionalMode (itemHeld) controls
+                    else if (_inputMode == InputMode.Directional)
+                    {
+                        if (_invGrid.IsMerchant())
+                        {
+                            if (!_heldItem.ItemData().IsSellable())
+                            {
+                                containerHoverText = "Unsellable";
+                            }
+                            else
+                            {
+                                containerHoverText = $"Sell all (" +
+                                                    $"{ItemData.CalculatePrice(_heldItem.ItemData(), _heldItemStackCount, _invGrid.GetSellingPriceMultiplier()).ToString()}" +
+                                                    $"{ItemCreatorHelper.GetEconomySetting().GetCurrencyUnit()}" +
+                                                    $") [ enter ]\n" +
+                                                    $"Sell single (" +
+                                                    $"{ItemData.CalculatePrice(_heldItem.ItemData(), 1, _invGrid.GetSellingPriceMultiplier()).ToString()}" +
+                                                    $"{ItemCreatorHelper.GetEconomySetting().GetCurrencyUnit()}" +
+                                                    $") [ shift + enter ]";
+
+                            }
+                            
+                        }
+                        else
+                        {
+                            containerHoverText = $"Place Stack [ enter ]\n" +
+                                $"Place Single [ enter + shift ]\n" +
+                                $"Jump Containers [ tab ]";
+                        }
+                    }
+                }
+
+                //what to show when not holding an item
+                else
+                {
+                    //pointerMode (open) controls [only show if hovering over an item]
+                    if (_inputMode == InputMode.Pointer)
+                    {
+                        if (_invGrid.IsCellOccupied(_hoveredCellIndex))
+                        {
+                            if (_invGrid.IsMerchant())
+                            {
+                                containerHoverText = $"Buy [ lClick ]";
+                            }
+                            else
+                            {
+
+                                containerHoverText = $"Pickup Stack [ lClick ]\n" +
+                                $"Pickup Half [ rclick ]";
+
+                                if (_openedInvWindows.Count > 1)
+                                {
+                                    if (_invGrid != _homeInventoryGrid)
+                                        containerHoverText += $"\nQuick Take [ lclick + shift ]";
+                                    else if (_openedInvWindows.Count == 2 && _openedMerchants.Count == 1)
+                                    {
+                                        if (_invGrid.GetStackItemData(_hoveredCellIndex).IsSellable())
+                                        {
+                                            containerHoverText += $"\nQuick Sell (" +
+                                            $"{ItemData.CalculatePrice(_invGrid.GetStackItemData(_hoveredCellIndex), _invGrid.GetStackValue(_hoveredCellIndex), _openedMerchants[0].GetItemGrid().GetSellingPriceMultiplier())}" +
+                                            $"{ItemCreatorHelper.GetEconomySetting().GetCurrencyUnit()}" +
+                                            $") [ shift + lClick ]";
+                                        }
+                                        
+                                    }
+                                    else if (_openedInvWindows.Count == 2 && _openedMerchants.Count == 0)
+                                    {
+                                        containerHoverText += $"\nQuick Transfer [ shift + lClick ]";
+                                    }
+                                        
+                                }
+
+                                containerHoverText += $"\nAll Options [mclick]";
+
+                            }
+                        }
+                        else
+                            containerHoverText = "";
+                    }
+
+                    //directionalMode (open) controls [only show if hovering over an item]
+                    else if (_inputMode == InputMode.Directional)
+                    {
+                        if (_invGrid.IsCellOccupied(_hoveredCellIndex))
+                        {
+                            if (_invGrid.IsMerchant())
+                            {
+                                containerHoverText = $"Buy [ enter ]";
+                            }
+                            else
+                            {
+
+                                containerHoverText = $"All Options [ enter ]\n" +
+                                $"Quick Pickup [ shift + enter ]\n" +
+                                $"Jump Containers [ tab ]";
+
+
+                            }
+                        }   
+                    }
+                }
+
+                _pointerContainerHoverText.text = containerHoverText;
+                if (_pointerContainerHoverText.text == "")
+                    _pointerContainerHoverText.gameObject.SetActive(false);
+
+
+            }
+        }
         private void VisualizeHover()
         {
 
@@ -1014,70 +1180,7 @@ namespace dtsInventory
                 //_homePointerContainer.gameObject.SetActive(false);
             }
         }
-        private void ShowContainerRelatedUiControls()
-        {
-            foreach (RectTransform rt in _containerRelatedUiControls)
-                rt.gameObject.SetActive(true);
 
-            ShowNoHeldItemUiControls();
-        }
-        private void HideContainerRelatedUiControls()
-        {
-            foreach (RectTransform rt in _containerRelatedUiControls)
-                rt.gameObject.SetActive(false);
-
-            HideNoHeldItemUiControls();
-            HideHeldItemUiControls();
-        }
-        private void ShowMapRelatedUiControls() {
-            foreach (RectTransform rt in _mapRelatedUiControls)
-                rt.gameObject.SetActive(true);
-        }
-        private void HideMapRelatedUiControls() {
-            foreach (RectTransform rt in _mapRelatedUiControls)
-                rt.gameObject.SetActive(false);
-        }
-        private void ShowHeldItemUiControls()
-        {
-            foreach (RectTransform rt in _heldItemSpecificContainerUiControls)
-                rt.gameObject.SetActive(true);
-        }
-        private void HideHeldItemUiControls()
-        {
-            foreach (RectTransform rt in _heldItemSpecificContainerUiControls)
-                rt.gameObject.SetActive(false);
-        }
-        private void ShowNoHeldItemUiControls()
-        {
-            foreach (RectTransform rt in _noHeldItemSpecificContainerUiControls)
-                rt.gameObject.SetActive(true);
-        }
-        private void HideNoHeldItemUiControls()
-        {
-            foreach (RectTransform rt in _noHeldItemSpecificContainerUiControls)
-                rt.gameObject.SetActive(false);
-        }
-
-
-        private void ShowRelevantContainerUiControls()
-        {
-            if (_openedInvWindows.Count <= 0)
-                return;
-
-            if (_heldItem == null && _isHeldItemUiControlsShowing)
-            {
-                _isHeldItemUiControlsShowing = false;
-                HideHeldItemUiControls();
-                ShowNoHeldItemUiControls();
-            }
-
-            else if (_heldItem != null && !_isHeldItemUiControlsShowing)
-            {
-                _isHeldItemUiControlsShowing = true;
-                HideNoHeldItemUiControls();
-                ShowHeldItemUiControls();
-            }
-        }
 
         //inventory manipulation actions
         private void PickupHalfOfHoveredStack()
@@ -2762,7 +2865,11 @@ namespace dtsInventory
                 return;
 
             if (_homeInventoryGrid.GetParentWindow().IsWindowOpen())
-                CloseInventoryWindow();
+            {
+                //autoclose all containers, for convenience
+                while (_openedInvWindows.Count > 0 && _heldItem == null)
+                    _openedInvWindows.Last().CloseWindow();
+            }
 
             else 
                 OpenInventoryWindow();
@@ -2792,25 +2899,36 @@ namespace dtsInventory
                 return;
             }
 
+            //close all invWindows if we're not holding anything, assuming any are open
+            if (_heldItem == null && _openedInvWindows.Count > 0)
+            {
+                while (_openedInvWindows.Count > 0)
+                {
+                    _openedInvWindows.Last().CloseWindow();
+                }
+                return;
+            }
+            /* Individual "closeInv" cases
             //else close whatever inventory we're in (if we aren't holding an item)
             if (_invGrid != null)
             {
                 if (_invGrid.GetParentWindow().gameObject.activeSelf && _heldItem == null)
                 {
-                    Debug.Log("Closing Window [currentSelected]");
+                   // Debug.Log("Closing Window [currentSelected]");
                     _invGrid.GetParentWindow().CloseWindow();
                     return;
                 }
             }
 
-            Debug.Log("Back Clicked. Reached Final close case [case: are any windows opened that can be closed?]");
+            //Debug.Log("Back Clicked. Reached Final close case [case: are any windows opened that can be closed?]");
             //else if any inv window is still opened, close it
             if (_openedInvWindows.Count > 0 && _heldItem == null)
             {
-                Debug.Log("Closing Window [Last In Line]");
+                //Debug.Log("Closing Window [Last In Line]");
                 _openedInvWindows.Last().CloseWindow();
                 return;
             }
+            */
         }
         public void RespondToConfirm()
         {
