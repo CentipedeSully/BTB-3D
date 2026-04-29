@@ -519,9 +519,7 @@ namespace dtsInventory
                             }
                             else
                             {
-                                if (_altCmd3)
-                                {
-                                    containerHoverText = $"Sell all ( " +
+                                containerHoverText = $"Sell all ( " +
                                                     $"{ItemData.CalculatePrice(_heldItem.ItemData(), _heldItemStackCount, _invGrid.GetSellingPriceMultiplier()).ToString()}" +
                                                     $"{ItemCreatorHelper.GetEconomySetting().GetCurrencyUnit()}" +
                                                     $" ) [ lClick ]\n" +
@@ -529,8 +527,7 @@ namespace dtsInventory
                                                     $"{ItemData.CalculatePrice(_heldItem.ItemData(), 1, _invGrid.GetSellingPriceMultiplier()).ToString()}" +
                                                     $"{ItemCreatorHelper.GetEconomySetting().GetCurrencyUnit()}" +
                                                     $" ) [ rClick ]";
-                                }
-                                
+
                             }
                             
                         }
@@ -556,9 +553,7 @@ namespace dtsInventory
                             }
                             else
                             {
-                                if (_altCmd3)
-                                {
-                                    containerHoverText = $"Sell all ( " +
+                                containerHoverText = $"Sell all ( " +
                                                     $"{ItemData.CalculatePrice(_heldItem.ItemData(), _heldItemStackCount, _invGrid.GetSellingPriceMultiplier()).ToString()}" +
                                                     $"{ItemCreatorHelper.GetEconomySetting().GetCurrencyUnit()}" +
                                                     $" ) [ enter ]\n" +
@@ -566,7 +561,6 @@ namespace dtsInventory
                                                     $"{ItemData.CalculatePrice(_heldItem.ItemData(), 1, _invGrid.GetSellingPriceMultiplier()).ToString()}" +
                                                     $"{ItemCreatorHelper.GetEconomySetting().GetCurrencyUnit()}" +
                                                     $" ) [ shift + enter ]";
-                                }
                             }
                             
                         }
@@ -589,7 +583,7 @@ namespace dtsInventory
                     //pointerMode (open) controls [only show if hovering over an item]
                     if (_inputMode == InputMode.Pointer)
                     {
-                        if (_invGrid.IsCellOccupied(_hoveredCellIndex) && _altCmd3)
+                        if (_invGrid.IsCellOccupied(_hoveredCellIndex))
                         {
                             if (_invGrid.IsMerchant())
                             {
@@ -601,33 +595,52 @@ namespace dtsInventory
                             }
                             else
                             {
-
-                                containerHoverText = $"Pickup Stack [ lClick ]\n" +
-                                $"Pickup Half [ rclick ]";
-
-                                if (_openedInvWindows.Count > 1)
+                                //show everything if holding the tooltip btn
+                                if (_altCmd3)
                                 {
-                                    if (_invGrid != _homeInventoryGrid)
-                                        containerHoverText += $"\nQuick Take [ lclick + shift ]";
-                                    else if (_openedInvWindows.Count == 2 && _openedMerchants.Count == 1)
+                                    containerHoverText = $"Pickup Stack [ lClick ]\n" +
+                                            $"Pickup Half [ rclick ]";
+
+                                    if (_openedInvWindows.Count > 1)
                                     {
-                                        if (_invGrid.GetStackItemData(_hoveredCellIndex).IsSellable())
+                                        if (_invGrid != _homeInventoryGrid)
+                                            containerHoverText += $"\nQuick Take [ lclick + shift ]";
+                                        else if (_openedInvWindows.Count == 2 && _openedMerchants.Count == 1)
                                         {
-                                            containerHoverText += $"\nQuick Sell ( " +
-                                            $"{ItemData.CalculatePrice(_invGrid.GetStackItemData(_hoveredCellIndex), _invGrid.GetStackValue(_hoveredCellIndex), _openedMerchants[0].GetItemGrid().GetSellingPriceMultiplier())}" +
-                                            $"{ItemCreatorHelper.GetEconomySetting().GetCurrencyUnit()}" +
-                                            $" ) [ shift + lClick ]";
+                                            if (_invGrid.GetStackItemData(_hoveredCellIndex).IsSellable())
+                                            {
+                                                containerHoverText += $"\nQuick Sell ( " +
+                                                $"{ItemData.CalculatePrice(_invGrid.GetStackItemData(_hoveredCellIndex), _invGrid.GetStackValue(_hoveredCellIndex), _openedMerchants[0].GetItemGrid().GetSellingPriceMultiplier())}" +
+                                                $"{ItemCreatorHelper.GetEconomySetting().GetCurrencyUnit()}" +
+                                                $" ) [ shift + lClick ]";
+                                            }
+
                                         }
-                                        
+                                        else if (_openedInvWindows.Count == 2 && _openedMerchants.Count == 0)
+                                        {
+                                            containerHoverText += $"\nQuick Transfer [ shift + lClick ]";
+                                        }
+
                                     }
-                                    else if (_openedInvWindows.Count == 2 && _openedMerchants.Count == 0)
-                                    {
-                                        containerHoverText += $"\nQuick Transfer [ shift + lClick ]";
-                                    }
-                                        
+
+                                    containerHoverText += $"\nAll Options [mclick]";
                                 }
 
-                                containerHoverText += $"\nAll Options [mclick]";
+                                //show the quicksell tooltip if a merchant is opened, regardless if the tooltip btn is held down
+                                else if (_openedInvWindows.Count == 2 && _openedMerchants.Count == 1)
+                                {
+                                    if (_invGrid.GetStackItemData(_hoveredCellIndex).IsSellable())
+                                    {
+                                        containerHoverText = $"Quick Sell ( " +
+                                        $"{ItemData.CalculatePrice(_invGrid.GetStackItemData(_hoveredCellIndex), _invGrid.GetStackValue(_hoveredCellIndex), _openedMerchants[0].GetItemGrid().GetSellingPriceMultiplier())}" +
+                                        $"{ItemCreatorHelper.GetEconomySetting().GetCurrencyUnit()}" +
+                                        $" ) [ shift + lClick ]";
+                                    }
+
+                                }
+
+
+
 
                             }
                         }
@@ -638,7 +651,7 @@ namespace dtsInventory
                     //directionalMode (open) controls [only show if hovering over an item]
                     else if (_inputMode == InputMode.Directional)
                     {
-                        if (_invGrid.IsCellOccupied(_hoveredCellIndex) && _altCmd3)
+                        if (_invGrid.IsCellOccupied(_hoveredCellIndex))
                         {
                             if (_invGrid.IsMerchant())
                             {
@@ -647,13 +660,25 @@ namespace dtsInventory
                                    $"{ItemCreatorHelper.GetEconomySetting().GetCurrencyUnit()}" +
                                    " ) [ enter ]";
                             }
-                            else
+                            else if (_altCmd3)
                             {
 
                                 containerHoverText = $"All Options [ enter ]\n" +
                                 $"Quick Pickup [ shift + enter ]\n" +
                                 $"Jump Containers [ tab ]";
 
+
+                            }
+                            //show the sell tooltip if a merchant is opened, regardless if the tooltip btn is held down
+                            else if (_openedInvWindows.Count == 2 && _openedMerchants.Count == 1)
+                            {
+                                if (_invGrid.GetStackItemData(_hoveredCellIndex).IsSellable())
+                                {
+                                    containerHoverText = $"Sell ( " +
+                                    $"{ItemData.CalculatePrice(_invGrid.GetStackItemData(_hoveredCellIndex), 1, _openedMerchants[0].GetItemGrid().GetSellingPriceMultiplier())}" +
+                                    $"{ItemCreatorHelper.GetEconomySetting().GetCurrencyUnit()}" +
+                                    $" ) [ enter ]";
+                                }
 
                             }
                         }   
